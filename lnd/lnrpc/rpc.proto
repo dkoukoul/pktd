@@ -704,6 +704,13 @@ service Lightning {
 
     SendFrom authors, signs, and sends a transaction that outputs some amount to a payment address.*/
     rpc SendFrom (SendFromRequest) returns (SendFromResponse);
+    
+    /*
+    $pld.category: `Util`
+    $pld.short_description: `Returns a JSON object representing the provided serialized, hex-encoded transaction.`
+
+    DecodeRawTransaction returns a JSON object representing the provided serialized, hex-encoded transaction.*/
+    rpc DecodeRawTransaction (DecodeRawTransactionRequest) returns (DecodeRawTransactionResponse);
 }
 
 message RestError {
@@ -4048,4 +4055,53 @@ message SendFromRequest{
 
 message SendFromResponse{
     string tx_hash = 1;
+}
+
+message DecodeRawTransactionRequest{
+    string hex_tx = 1;
+    bool vin_extra = 2;
+}
+message ScriptSig {
+    string asm = 1;
+    string hex = 2;
+}
+
+message PrevOut{
+    string address = 1;
+    double value_coins = 2;
+    string svalue = 3;
+}
+
+message VinPrevOut {
+    string coinbase = 1;
+    string txid = 2;
+    uint32 vout = 3;
+    ScriptSig script_sig = 4;
+    uint32 sequence = 5;
+    repeated string witness = 6;
+    PrevOut prev_out = 7;
+}
+
+message Vote{
+    string for = 1;
+    string against = 2;
+}
+
+message Vout {
+    double value_coins = 1;
+    string svalue = 2;
+    uint32 n = 3;
+    string address = 4;
+    Vote vote = 5;
+}
+
+message DecodeRawTransactionResponse{
+    string txid = 1;
+    int32 version = 2;
+    uint32 locktime = 3;
+    string sfee = 4;
+    int32 size = 5;
+    int32 vsize = 6;
+    repeated VinPrevOut vin = 7;
+    repeated Vout vout = 8;
 }

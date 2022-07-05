@@ -144,6 +144,8 @@ const (
 	//	neutrino category command
 	CommandBcastTransaction = "BcastTransaction"
 	CommandEstimateFee      = "EstimateFee"
+	// util category command
+	CommandDecodeRawTransaction = "DecodeRawTransaction"
 	//	util/seed subCategory command
 	CommandChangeSeedPassphrase = "ChangeSeedPassphrase"
 	CommandGenSeed              = "GenSeed"
@@ -251,6 +253,8 @@ var (
 		//	neutrino category command
 		{Command: CommandBcastTransaction, Path: "/neutrino/bcasttransaction"},
 		{Command: CommandEstimateFee, Path: "/neutrino/estimatefee"},
+		//	util category command
+		{Command: CommandDecodeRawTransaction, Path: "/util/transaction/decode"},
 		//	util/seed subCategory command
 		{Command: CommandChangeSeedPassphrase, Path: "/util/seed/changepassphrase"},
 		{Command: CommandGenSeed, Path: "/util/seed/create"},
@@ -349,6 +353,7 @@ func init() {
 		pkthelp.Lightning_BcastTransaction,
 		pkthelp.Lightning_EstimateFee,
 
+		pkthelp.Lightning_DecodeRawTransaction,
 		pkthelp.Lightning_ChangeSeedPassphrase,
 		pkthelp.WalletUnlocker_GenSeed,
 

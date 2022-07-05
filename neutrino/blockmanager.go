@@ -1178,7 +1178,7 @@ func (b *blockManager) writeCFHeadersMsg1(msg *wire.MsgCFHeaders,
 	// particular checkpoint interval.
 	lastHeight := startHeight + uint32(numHeaders) - 1
 
-	log.Infof("Writing filter headers up to height=%v, hash=%v, new_tip=%v",
+	log.Debugf("Writing filter headers up to height=%v, hash=%v, new_tip=%v",
 		lastHeight,
 		matchingBlockHeaders[numHeaders-1],
 		lastHeader)

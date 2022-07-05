@@ -2,7 +2,8 @@
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
-//+build !generate
+//go:build !generate
+// +build !generate
 
 package rpchelp
 
@@ -265,9 +266,7 @@ var helpDescsEnUS = map[string]string{
 	"listunspentresult-txid":          "The transaction hash of the referenced output",
 	"listunspentresult-vout":          "The output index of the referenced output",
 	"listunspentresult-address":       "The payment address that received the output",
-	"listunspentresult-account":       "The account associated with the receiving payment address",
 	"listunspentresult-scriptPubKey":  "The output script encoded as a hexadecimal string",
-	"listunspentresult-redeemScript":  "Unset",
 	"listunspentresult-amount":        "The amount of the output valued in bitcoin",
 	"listunspentresult-confirmations": "The number of block confirmations of the transaction",
 	"listunspentresult-spendable":     "Whether the output is entirely controlled by wallet keys/scripts (false for partially controlled multisig outputs or outputs to watch-only addresses)",

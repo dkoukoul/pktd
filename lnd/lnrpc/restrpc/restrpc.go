@@ -1873,7 +1873,35 @@ var rpcFunctions []RpcFunc = []RpcFunc{
 			}
 		},
 	},
+	//	Decode transaction service  -  URI /wallet/transaction/decode
+	{
+		command: help.CommandDecodeRawTransaction,
+		req:     (*lnrpc.DecodeRawTransactionRequest)(nil),
+		res:     (*lnrpc.DecodeRawTransactionResponse)(nil),
+		f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
 
+			//	get the request payload
+			decodeReq, ok := m.(*lnrpc.DecodeRawTransactionRequest)
+			if !ok {
+				return nil, er.New("Argument is not a DecodeRawTransactionRequest")
+			}
+
+			//	generate a new seed
+			cc, errr := c.withRpcServer()
+			if cc != nil {
+				var decodeResp *lnrpc.DecodeRawTransactionResponse
+
+				decodeResp, err := cc.DecodeRawTransaction(context.TODO(), decodeReq)
+				if err != nil {
+					return nil, er.E(err)
+				} else {
+					return decodeResp, nil
+				}
+			} else {
+				return nil, errr
+			}
+		},
+	},
 	//	>>> neutrino category command
 
 	//	service bcasttransaction  -  URI /neutrino/bcasttransaction
