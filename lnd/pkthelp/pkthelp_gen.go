@@ -74,328 +74,6 @@ func mkbytes() Type {
         Name: "[]byte",
     }
 }
-func mkrouterrpc_FailureDetail() Type {
-    return Type{
-        Name: "routerrpc_FailureDetail",
-        Fields: []Field{
-            {
-                Name: "UNKNOWN",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "NO_DETAIL",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "ONION_DECODE",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "LINK_NOT_ELIGIBLE",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "ON_CHAIN_TIMEOUT",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "HTLC_EXCEEDS_MAX",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "INSUFFICIENT_BALANCE",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "INCOMPLETE_FORWARD",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "HTLC_ADD_FAILED",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "FORWARDS_DISABLED",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "INVOICE_CANCELED",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "INVOICE_UNDERPAID",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "INVOICE_EXPIRY_TOO_SOON",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "INVOICE_NOT_OPEN",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "MPP_INVOICE_TIMEOUT",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "ADDRESS_MISMATCH",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "SET_TOTAL_MISMATCH",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "SET_TOTAL_TOO_LOW",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "SET_OVERPAID",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "UNKNOWN_INVOICE",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "INVALID_KEYSEND",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "MPP_IN_PROGRESS",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "CIRCULAR_ROUTE",
-                Type: EnumVarientType,
-            },
-        },
-    }
-}
-func mkrouterrpc_HtlcEvent_EventType() Type {
-    return Type{
-        Name: "routerrpc_HtlcEvent_EventType",
-        Fields: []Field{
-            {
-                Name: "UNKNOWN",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "SEND",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "RECEIVE",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "FORWARD",
-                Type: EnumVarientType,
-            },
-        },
-    }
-}
-func mkrouterrpc_PaymentState() Type {
-    return Type{
-        Name: "routerrpc_PaymentState",
-        Fields: []Field{
-            {
-                Name: "IN_FLIGHT",
-                Description: []string{
-                    "Payment is still in flight.",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "SUCCEEDED",
-                Description: []string{
-                    "Payment completed successfully.",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "FAILED_TIMEOUT",
-                Description: []string{
-                    "There are more routes to try, but the payment timeout was exceeded.",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "FAILED_NO_ROUTE",
-                Description: []string{
-                    "All possible routes were tried and failed permanently. Or were no",
-                    "routes to the destination at all.",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "FAILED_ERROR",
-                Description: []string{
-                    "A non-recoverable error has occured.",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "FAILED_INCORRECT_PAYMENT_DETAILS",
-                Description: []string{
-                    "Payment details incorrect (unknown hash, invalid amt or",
-                    "invalid final cltv delta)",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "FAILED_INSUFFICIENT_BALANCE",
-                Description: []string{
-                    "Insufficient local balance.",
-                },
-                Type: EnumVarientType,
-            },
-        },
-    }
-}
-func mkrouterrpc_ResolveHoldForwardAction() Type {
-    return Type{
-        Name: "routerrpc_ResolveHoldForwardAction",
-        Fields: []Field{
-            {
-                Name: "SETTLE",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "FAIL",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "RESUME",
-                Type: EnumVarientType,
-            },
-        },
-    }
-}
-func mkwalletrpc_WitnessType() Type {
-    return Type{
-        Name: "walletrpc_WitnessType",
-        Fields: []Field{
-            {
-                Name: "UNKNOWN_WITNESS",
-                Type: EnumVarientType,
-            },
-            {
-                Name: "COMMITMENT_TIME_LOCK",
-                Description: []string{
-                    "A witness that allows us to spend the output of a commitment transaction",
-                    "after a relative lock-time lockout.",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "COMMITMENT_NO_DELAY",
-                Description: []string{
-                    "A witness that allows us to spend a settled no-delay output immediately on a",
-                    "counterparty's commitment transaction.",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "COMMITMENT_REVOKE",
-                Description: []string{
-                    "A witness that allows us to sweep the settled output of a malicious",
-                    "counterparty's who broadcasts a revoked commitment transaction.",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "HTLC_OFFERED_REVOKE",
-                Description: []string{
-                    "A witness that allows us to sweep an HTLC which we offered to the remote",
-                    "party in the case that they broadcast a revoked commitment state.",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "HTLC_ACCEPTED_REVOKE",
-                Description: []string{
-                    "A witness that allows us to sweep an HTLC output sent to us in the case that",
-                    "the remote party broadcasts a revoked commitment state.",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "HTLC_OFFERED_TIMEOUT_SECOND_LEVEL",
-                Description: []string{
-                    "A witness that allows us to sweep an HTLC output that we extended to a",
-                    "party, but was never fulfilled.  This HTLC output isn't directly on the",
-                    "commitment transaction, but is the result of a confirmed second-level HTLC",
-                    "transaction. As a result, we can only spend this after a CSV delay.",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "HTLC_ACCEPTED_SUCCESS_SECOND_LEVEL",
-                Description: []string{
-                    "A witness that allows us to sweep an HTLC output that was offered to us, and",
-                    "for which we have a payment preimage. This HTLC output isn't directly on our",
-                    "commitment transaction, but is the result of confirmed second-level HTLC",
-                    "transaction. As a result, we can only spend this after a CSV delay.",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "HTLC_OFFERED_REMOTE_TIMEOUT",
-                Description: []string{
-                    "A witness that allows us to sweep an HTLC that we offered to the remote",
-                    "party which lies in the commitment transaction of the remote party. We can",
-                    "spend this output after the absolute CLTV timeout of the HTLC as passed.",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "HTLC_ACCEPTED_REMOTE_SUCCESS",
-                Description: []string{
-                    "A witness that allows us to sweep an HTLC that was offered to us by the",
-                    "remote party. We use this witness in the case that the remote party goes to",
-                    "chain, and we know the pre-image to the HTLC. We can sweep this without any",
-                    "additional timeout.",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "HTLC_SECOND_LEVEL_REVOKE",
-                Description: []string{
-                    "A witness that allows us to sweep an HTLC from the remote party's commitment",
-                    "transaction in the case that the broadcast a revoked commitment, but then",
-                    "also immediately attempt to go to the second level to claim the HTLC.",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "WITNESS_KEY_HASH",
-                Description: []string{
-                    "A witness type that allows us to spend a regular p2wkh output that's sent to",
-                    "an output which is under complete control of the backing wallet.",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "NESTED_WITNESS_KEY_HASH",
-                Description: []string{
-                    "A witness type that allows us to sweep an output that sends to a nested P2SH",
-                    "script that pays to a key solely under our control.",
-                },
-                Type: EnumVarientType,
-            },
-            {
-                Name: "COMMITMENT_ANCHOR",
-                Description: []string{
-                    "A witness type that allows us to spend our anchor on the commitment",
-                    "transaction.",
-                },
-                Type: EnumVarientType,
-            },
-        },
-    }
-}
 func mklnrpc_AddressType() Type {
     return Type{
         Name: "lnrpc_AddressType",
@@ -1061,553 +739,359 @@ func mklnrpc_ResolutionType() Type {
         },
     }
 }
-func mkautopilotrpc_ModifyStatusRequest() Type {
+func mkwalletrpc_WitnessType() Type {
     return Type{
-        Name: "autopilotrpc_ModifyStatusRequest",
+        Name: "walletrpc_WitnessType",
         Fields: []Field{
             {
-                Name: "enable",
+                Name: "UNKNOWN_WITNESS",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "COMMITMENT_TIME_LOCK",
                 Description: []string{
-                    "Whether the autopilot agent should be enabled or not.",
+                    "A witness that allows us to spend the output of a commitment transaction",
+                    "after a relative lock-time lockout.",
                 },
-                Type: mkbool(),
+                Type: EnumVarientType,
+            },
+            {
+                Name: "COMMITMENT_NO_DELAY",
+                Description: []string{
+                    "A witness that allows us to spend a settled no-delay output immediately on a",
+                    "counterparty's commitment transaction.",
+                },
+                Type: EnumVarientType,
+            },
+            {
+                Name: "COMMITMENT_REVOKE",
+                Description: []string{
+                    "A witness that allows us to sweep the settled output of a malicious",
+                    "counterparty's who broadcasts a revoked commitment transaction.",
+                },
+                Type: EnumVarientType,
+            },
+            {
+                Name: "HTLC_OFFERED_REVOKE",
+                Description: []string{
+                    "A witness that allows us to sweep an HTLC which we offered to the remote",
+                    "party in the case that they broadcast a revoked commitment state.",
+                },
+                Type: EnumVarientType,
+            },
+            {
+                Name: "HTLC_ACCEPTED_REVOKE",
+                Description: []string{
+                    "A witness that allows us to sweep an HTLC output sent to us in the case that",
+                    "the remote party broadcasts a revoked commitment state.",
+                },
+                Type: EnumVarientType,
+            },
+            {
+                Name: "HTLC_OFFERED_TIMEOUT_SECOND_LEVEL",
+                Description: []string{
+                    "A witness that allows us to sweep an HTLC output that we extended to a",
+                    "party, but was never fulfilled.  This HTLC output isn't directly on the",
+                    "commitment transaction, but is the result of a confirmed second-level HTLC",
+                    "transaction. As a result, we can only spend this after a CSV delay.",
+                },
+                Type: EnumVarientType,
+            },
+            {
+                Name: "HTLC_ACCEPTED_SUCCESS_SECOND_LEVEL",
+                Description: []string{
+                    "A witness that allows us to sweep an HTLC output that was offered to us, and",
+                    "for which we have a payment preimage. This HTLC output isn't directly on our",
+                    "commitment transaction, but is the result of confirmed second-level HTLC",
+                    "transaction. As a result, we can only spend this after a CSV delay.",
+                },
+                Type: EnumVarientType,
+            },
+            {
+                Name: "HTLC_OFFERED_REMOTE_TIMEOUT",
+                Description: []string{
+                    "A witness that allows us to sweep an HTLC that we offered to the remote",
+                    "party which lies in the commitment transaction of the remote party. We can",
+                    "spend this output after the absolute CLTV timeout of the HTLC as passed.",
+                },
+                Type: EnumVarientType,
+            },
+            {
+                Name: "HTLC_ACCEPTED_REMOTE_SUCCESS",
+                Description: []string{
+                    "A witness that allows us to sweep an HTLC that was offered to us by the",
+                    "remote party. We use this witness in the case that the remote party goes to",
+                    "chain, and we know the pre-image to the HTLC. We can sweep this without any",
+                    "additional timeout.",
+                },
+                Type: EnumVarientType,
+            },
+            {
+                Name: "HTLC_SECOND_LEVEL_REVOKE",
+                Description: []string{
+                    "A witness that allows us to sweep an HTLC from the remote party's commitment",
+                    "transaction in the case that the broadcast a revoked commitment, but then",
+                    "also immediately attempt to go to the second level to claim the HTLC.",
+                },
+                Type: EnumVarientType,
+            },
+            {
+                Name: "WITNESS_KEY_HASH",
+                Description: []string{
+                    "A witness type that allows us to spend a regular p2wkh output that's sent to",
+                    "an output which is under complete control of the backing wallet.",
+                },
+                Type: EnumVarientType,
+            },
+            {
+                Name: "NESTED_WITNESS_KEY_HASH",
+                Description: []string{
+                    "A witness type that allows us to sweep an output that sends to a nested P2SH",
+                    "script that pays to a key solely under our control.",
+                },
+                Type: EnumVarientType,
+            },
+            {
+                Name: "COMMITMENT_ANCHOR",
+                Description: []string{
+                    "A witness type that allows us to spend our anchor on the commitment",
+                    "transaction.",
+                },
+                Type: EnumVarientType,
             },
         },
     }
 }
-func mkautopilotrpc_ModifyStatusResponse() Type {
+func mkrouterrpc_FailureDetail() Type {
     return Type{
-        Name: "autopilotrpc_ModifyStatusResponse",
-    }
-}
-func mkautopilotrpc_QueryScoresRequest() Type {
-    return Type{
-        Name: "autopilotrpc_QueryScoresRequest",
+        Name: "routerrpc_FailureDetail",
         Fields: []Field{
             {
-                Name: "pubkeys",
+                Name: "UNKNOWN",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "NO_DETAIL",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "ONION_DECODE",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "LINK_NOT_ELIGIBLE",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "ON_CHAIN_TIMEOUT",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "HTLC_EXCEEDS_MAX",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "INSUFFICIENT_BALANCE",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "INCOMPLETE_FORWARD",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "HTLC_ADD_FAILED",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "FORWARDS_DISABLED",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "INVOICE_CANCELED",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "INVOICE_UNDERPAID",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "INVOICE_EXPIRY_TOO_SOON",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "INVOICE_NOT_OPEN",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "MPP_INVOICE_TIMEOUT",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "ADDRESS_MISMATCH",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "SET_TOTAL_MISMATCH",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "SET_TOTAL_TOO_LOW",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "SET_OVERPAID",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "UNKNOWN_INVOICE",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "INVALID_KEYSEND",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "MPP_IN_PROGRESS",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "CIRCULAR_ROUTE",
+                Type: EnumVarientType,
+            },
+        },
+    }
+}
+func mkrouterrpc_HtlcEvent_EventType() Type {
+    return Type{
+        Name: "routerrpc_HtlcEvent_EventType",
+        Fields: []Field{
+            {
+                Name: "UNKNOWN",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "SEND",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "RECEIVE",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "FORWARD",
+                Type: EnumVarientType,
+            },
+        },
+    }
+}
+func mkrouterrpc_PaymentState() Type {
+    return Type{
+        Name: "routerrpc_PaymentState",
+        Fields: []Field{
+            {
+                Name: "IN_FLIGHT",
+                Description: []string{
+                    "Payment is still in flight.",
+                },
+                Type: EnumVarientType,
+            },
+            {
+                Name: "SUCCEEDED",
+                Description: []string{
+                    "Payment completed successfully.",
+                },
+                Type: EnumVarientType,
+            },
+            {
+                Name: "FAILED_TIMEOUT",
+                Description: []string{
+                    "There are more routes to try, but the payment timeout was exceeded.",
+                },
+                Type: EnumVarientType,
+            },
+            {
+                Name: "FAILED_NO_ROUTE",
+                Description: []string{
+                    "All possible routes were tried and failed permanently. Or were no",
+                    "routes to the destination at all.",
+                },
+                Type: EnumVarientType,
+            },
+            {
+                Name: "FAILED_ERROR",
+                Description: []string{
+                    "A non-recoverable error has occured.",
+                },
+                Type: EnumVarientType,
+            },
+            {
+                Name: "FAILED_INCORRECT_PAYMENT_DETAILS",
+                Description: []string{
+                    "Payment details incorrect (unknown hash, invalid amt or",
+                    "invalid final cltv delta)",
+                },
+                Type: EnumVarientType,
+            },
+            {
+                Name: "FAILED_INSUFFICIENT_BALANCE",
+                Description: []string{
+                    "Insufficient local balance.",
+                },
+                Type: EnumVarientType,
+            },
+        },
+    }
+}
+func mkrouterrpc_ResolveHoldForwardAction() Type {
+    return Type{
+        Name: "routerrpc_ResolveHoldForwardAction",
+        Fields: []Field{
+            {
+                Name: "SETTLE",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "FAIL",
+                Type: EnumVarientType,
+            },
+            {
+                Name: "RESUME",
+                Type: EnumVarientType,
+            },
+        },
+    }
+}
+func mkwatchtowerrpc_GetInfoRequest() Type {
+    return Type{
+        Name: "watchtowerrpc_GetInfoRequest",
+    }
+}
+func mkwatchtowerrpc_GetInfoResponse() Type {
+    return Type{
+        Name: "watchtowerrpc_GetInfoResponse",
+        Fields: []Field{
+            {
+                Name: "pubkey",
+                Description: []string{
+                    "The public key of the watchtower.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "listeners",
+                Description: []string{
+                    "The listening addresses of the watchtower.",
+                },
                 Repeated: true,
                 Type: mkstring(),
             },
             {
-                Name: "ignore_local_state",
+                Name: "uris",
                 Description: []string{
-                    "If set, we will ignore the local channel state when calculating scores.",
-                },
-                Type: mkbool(),
-            },
-        },
-    }
-}
-func mkautopilotrpc_QueryScoresResponse() Type {
-    return Type{
-        Name: "autopilotrpc_QueryScoresResponse",
-        Fields: []Field{
-            {
-                Name: "results",
-                Repeated: true,
-                Type: mkautopilotrpc_QueryScoresResponse_HeuristicResult(),
-            },
-        },
-    }
-}
-func mkautopilotrpc_QueryScoresResponse_HeuristicResult() Type {
-    return Type{
-        Name: "autopilotrpc_QueryScoresResponse_HeuristicResult",
-        Fields: []Field{
-            {
-                Name: "heuristic",
-                Type: mkstring(),
-            },
-            {
-                Name: "scores",
-                Repeated: true,
-                Type: mkautopilotrpc_QueryScoresResponse_HeuristicResult_ScoresEntry(),
-            },
-        },
-    }
-}
-func mkautopilotrpc_QueryScoresResponse_HeuristicResult_ScoresEntry() Type {
-    return Type{
-        Name: "autopilotrpc_QueryScoresResponse_HeuristicResult_ScoresEntry",
-        Fields: []Field{
-            {
-                Name: "key",
-                Type: mkstring(),
-            },
-            {
-                Name: "value",
-                Type: mkdouble(),
-            },
-        },
-    }
-}
-func mkautopilotrpc_SetScoresRequest() Type {
-    return Type{
-        Name: "autopilotrpc_SetScoresRequest",
-        Fields: []Field{
-            {
-                Name: "heuristic",
-                Description: []string{
-                    "The name of the heuristic to provide scores to.",
-                },
-                Type: mkstring(),
-            },
-            {
-                Name: "scores",
-                Description: []string{
-                    "A map from hex-encoded public keys to scores. Scores must be in the range",
-                    "[0.0, 1.0].",
+                    "The URIs of the watchtower.",
                 },
                 Repeated: true,
-                Type: mkautopilotrpc_SetScoresRequest_ScoresEntry(),
-            },
-        },
-    }
-}
-func mkautopilotrpc_SetScoresRequest_ScoresEntry() Type {
-    return Type{
-        Name: "autopilotrpc_SetScoresRequest_ScoresEntry",
-        Fields: []Field{
-            {
-                Name: "key",
                 Type: mkstring(),
-            },
-            {
-                Name: "value",
-                Type: mkdouble(),
-            },
-        },
-    }
-}
-func mkautopilotrpc_SetScoresResponse() Type {
-    return Type{
-        Name: "autopilotrpc_SetScoresResponse",
-    }
-}
-func mkautopilotrpc_StatusRequest() Type {
-    return Type{
-        Name: "autopilotrpc_StatusRequest",
-    }
-}
-func mkautopilotrpc_StatusResponse() Type {
-    return Type{
-        Name: "autopilotrpc_StatusResponse",
-        Fields: []Field{
-            {
-                Name: "active",
-                Description: []string{
-                    "Indicates whether the autopilot is active or not.",
-                },
-                Type: mkbool(),
-            },
-        },
-    }
-}
-func mkchainrpc_BlockEpoch() Type {
-    return Type{
-        Name: "chainrpc_BlockEpoch",
-        Fields: []Field{
-            {
-                Name: "hash",
-                Description: []string{
-                    "The hash of the block.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "height",
-                Description: []string{
-                    "The height of the block.",
-                },
-                Type: mkuint32(),
-            },
-        },
-    }
-}
-func mkchainrpc_ConfDetails() Type {
-    return Type{
-        Name: "chainrpc_ConfDetails",
-        Fields: []Field{
-            {
-                Name: "raw_tx",
-                Description: []string{
-                    "The raw bytes of the confirmed transaction.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "block_hash",
-                Description: []string{
-                    "The hash of the block in which the confirmed transaction was included in.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "block_height",
-                Description: []string{
-                    "The height of the block in which the confirmed transaction was included",
-                    "in.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "tx_index",
-                Description: []string{
-                    "The index of the confirmed transaction within the transaction.",
-                },
-                Type: mkuint32(),
-            },
-        },
-    }
-}
-func mkchainrpc_ConfEvent() Type {
-    return Type{
-        Name: "chainrpc_ConfEvent",
-        Fields: []Field{
-            {
-                Name: "conf",
-                Description: []string{
-                    "An event that includes the confirmation details of the request",
-                    "(txid/ouput script).",
-                },
-                Type: mkchainrpc_ConfDetails(),
-            },
-            {
-                Name: "reorg",
-                Description: []string{
-                    "An event send when the transaction of the request is reorged out of the",
-                    "chain.",
-                },
-                Type: mkchainrpc_Reorg(),
-            },
-        },
-    }
-}
-func mkchainrpc_ConfRequest() Type {
-    return Type{
-        Name: "chainrpc_ConfRequest",
-        Fields: []Field{
-            {
-                Name: "txid",
-                Description: []string{
-                    "The transaction hash for which we should request a confirmation notification",
-                    "for. If set to a hash of all zeros, then the confirmation notification will",
-                    "be requested for the script instead.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "script",
-                Description: []string{
-                    "An output script within a transaction with the hash above which will be used",
-                    "by light clients to match block filters. If the transaction hash is set to a",
-                    "hash of all zeros, then a confirmation notification will be requested for",
-                    "this script instead.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "num_confs",
-                Description: []string{
-                    "The number of desired confirmations the transaction/output script should",
-                    "reach before dispatching a confirmation notification.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "height_hint",
-                Description: []string{
-                    "The earliest height in the chain for which the transaction/output script",
-                    "could have been included in a block. This should in most cases be set to the",
-                    "broadcast height of the transaction/output script.",
-                },
-                Type: mkuint32(),
-            },
-        },
-    }
-}
-func mkchainrpc_Outpoint() Type {
-    return Type{
-        Name: "chainrpc_Outpoint",
-        Fields: []Field{
-            {
-                Name: "hash",
-                Description: []string{
-                    "The hash of the transaction.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "index",
-                Description: []string{
-                    "The index of the output within the transaction.",
-                },
-                Type: mkuint32(),
-            },
-        },
-    }
-}
-func mkchainrpc_Reorg() Type {
-    return Type{
-        Name: "chainrpc_Reorg",
-        Description: []string{
-            "TODO(wilmer): need to know how the client will use this first.",
-        },
-    }
-}
-func mkchainrpc_SpendDetails() Type {
-    return Type{
-        Name: "chainrpc_SpendDetails",
-        Fields: []Field{
-            {
-                Name: "spending_outpoint",
-                Description: []string{
-                    "The outpoint was that spent.",
-                },
-                Type: mkchainrpc_Outpoint(),
-            },
-            {
-                Name: "raw_spending_tx",
-                Description: []string{
-                    "The raw bytes of the spending transaction.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "spending_tx_hash",
-                Description: []string{
-                    "The hash of the spending transaction.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "spending_input_index",
-                Description: []string{
-                    "The input of the spending transaction that fulfilled the spend request.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "spending_height",
-                Description: []string{
-                    "The height at which the spending transaction was included in a block.",
-                },
-                Type: mkuint32(),
-            },
-        },
-    }
-}
-func mkchainrpc_SpendEvent() Type {
-    return Type{
-        Name: "chainrpc_SpendEvent",
-        Fields: []Field{
-            {
-                Name: "spend",
-                Description: []string{
-                    "An event that includes the details of the spending transaction of the",
-                    "request (outpoint/output script).",
-                },
-                Type: mkchainrpc_SpendDetails(),
-            },
-            {
-                Name: "reorg",
-                Description: []string{
-                    "An event sent when the spending transaction of the request was",
-                    "reorged out of the chain.",
-                },
-                Type: mkchainrpc_Reorg(),
-            },
-        },
-    }
-}
-func mkchainrpc_SpendRequest() Type {
-    return Type{
-        Name: "chainrpc_SpendRequest",
-        Fields: []Field{
-            {
-                Name: "outpoint",
-                Description: []string{
-                    "The outpoint for which we should request a spend notification for. If set to",
-                    "a zero outpoint, then the spend notification will be requested for the",
-                    "script instead.",
-                },
-                Type: mkchainrpc_Outpoint(),
-            },
-            {
-                Name: "script",
-                Description: []string{
-                    "The output script for the outpoint above. This will be used by light clients",
-                    "to match block filters. If the outpoint is set to a zero outpoint, then a",
-                    "spend notification will be requested for this script instead.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "height_hint",
-                Description: []string{
-                    "The earliest height in the chain for which the outpoint/output script could",
-                    "have been spent. This should in most cases be set to the broadcast height of",
-                    "the outpoint/output script.",
-                },
-                Type: mkuint32(),
-            },
-        },
-    }
-}
-func mkinvoicesrpc_AddHoldInvoiceRequest() Type {
-    return Type{
-        Name: "invoicesrpc_AddHoldInvoiceRequest",
-        Fields: []Field{
-            {
-                Name: "memo",
-                Description: []string{
-                    "An optional memo to attach along with the invoice. Used for record keeping",
-                    "purposes for the invoice's creator, and will also be set in the description",
-                    "field of the encoded payment request if the description_hash field is not",
-                    "being used.",
-                },
-                Type: mkstring(),
-            },
-            {
-                Name: "hash",
-                Description: []string{
-                    "The hash of the preimage",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "value",
-                Description: []string{
-                    "The value of this invoice in satoshis",
-                    "",
-                    "The fields value and value_msat are mutually exclusive.",
-                },
-                Type: mkint64(),
-            },
-            {
-                Name: "value_msat",
-                Description: []string{
-                    "The value of this invoice in millisatoshis",
-                    "",
-                    "The fields value and value_msat are mutually exclusive.",
-                },
-                Type: mkint64(),
-            },
-            {
-                Name: "description_hash",
-                Description: []string{
-                    "Hash (SHA-256) of a description of the payment. Used if the description of",
-                    "payment (memo) is too long to naturally fit within the description field",
-                    "of an encoded payment request.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "expiry",
-                Description: []string{
-                    "Payment request expiry time in seconds. Default is 3600 (1 hour).",
-                },
-                Type: mkint64(),
-            },
-            {
-                Name: "fallback_addr",
-                Description: []string{
-                    "Fallback on-chain address.",
-                },
-                Type: mkstring(),
-            },
-            {
-                Name: "cltv_expiry",
-                Description: []string{
-                    "Delta to use for the time-lock of the CLTV extended to the final hop.",
-                },
-                Type: mkuint64(),
-            },
-            {
-                Name: "route_hints",
-                Description: []string{
-                    "Route hints that can each be individually used to assist in reaching the",
-                    "invoice's destination.",
-                },
-                Repeated: true,
-                Type: mklnrpc_RouteHint(),
-            },
-            {
-                Name: "private",
-                Description: []string{
-                    "Whether this invoice should include routing hints for private channels.",
-                },
-                Type: mkbool(),
-            },
-        },
-    }
-}
-func mkinvoicesrpc_AddHoldInvoiceResp() Type {
-    return Type{
-        Name: "invoicesrpc_AddHoldInvoiceResp",
-        Fields: []Field{
-            {
-                Name: "payment_request",
-                Description: []string{
-                    "A bare-bones invoice for a payment within the Lightning Network.  With the",
-                    "details of the invoice, the sender has all the data necessary to send a",
-                    "payment to the recipient.",
-                },
-                Type: mkstring(),
-            },
-        },
-    }
-}
-func mkinvoicesrpc_CancelInvoiceMsg() Type {
-    return Type{
-        Name: "invoicesrpc_CancelInvoiceMsg",
-        Fields: []Field{
-            {
-                Name: "payment_hash",
-                Description: []string{
-                    "Hash corresponding to the (hold) invoice to cancel.",
-                },
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mkinvoicesrpc_CancelInvoiceResp() Type {
-    return Type{
-        Name: "invoicesrpc_CancelInvoiceResp",
-    }
-}
-func mkinvoicesrpc_SettleInvoiceMsg() Type {
-    return Type{
-        Name: "invoicesrpc_SettleInvoiceMsg",
-        Fields: []Field{
-            {
-                Name: "preimage",
-                Description: []string{
-                    "Externally discovered pre-image that should be used to settle the hold",
-                    "invoice.",
-                },
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mkinvoicesrpc_SettleInvoiceResp() Type {
-    return Type{
-        Name: "invoicesrpc_SettleInvoiceResp",
-    }
-}
-func mkinvoicesrpc_SubscribeSingleInvoiceRequest() Type {
-    return Type{
-        Name: "invoicesrpc_SubscribeSingleInvoiceRequest",
-        Fields: []Field{
-            {
-                Name: "r_hash",
-                Description: []string{
-                    "Hash corresponding to the (hold) invoice to subscribe to.",
-                },
-                Type: mkbytes(),
             },
         },
     }
@@ -1921,1225 +1405,6 @@ func mklnrpc_WalletStats() Type {
         },
     }
 }
-func mkrouterrpc_BuildRouteRequest() Type {
-    return Type{
-        Name: "routerrpc_BuildRouteRequest",
-        Fields: []Field{
-            {
-                Name: "amt_msat",
-                Description: []string{
-                    "The amount to send expressed in msat. If set to zero, the minimum routable",
-                    "amount is used.",
-                },
-                Type: mkint64(),
-            },
-            {
-                Name: "final_cltv_delta",
-                Description: []string{
-                    "CLTV delta from the current height that should be used for the timelock",
-                    "of the final hop",
-                },
-                Type: mkint32(),
-            },
-            {
-                Name: "outgoing_chan_id",
-                Description: []string{
-                    "The channel id of the channel that must be taken to the first hop. If zero,",
-                    "any channel may be used.",
-                },
-                Type: mkuint64(),
-            },
-            {
-                Name: "hop_pubkeys",
-                Description: []string{
-                    "A list of hops that defines the route. This does not include the source hop",
-                    "pubkey.",
-                },
-                Repeated: true,
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mkrouterrpc_BuildRouteResponse() Type {
-    return Type{
-        Name: "routerrpc_BuildRouteResponse",
-        Fields: []Field{
-            {
-                Name: "route",
-                Description: []string{
-                    "Fully specified route that can be used to execute the payment.",
-                },
-                Type: mklnrpc_Route(),
-            },
-        },
-    }
-}
-func mkrouterrpc_CircuitKey() Type {
-    return Type{
-        Name: "routerrpc_CircuitKey",
-        Fields: []Field{
-            {
-                Name: "chan_id",
-                Description: []string{
-                    "The id of the channel that the is part of this circuit.",
-                },
-                Type: mkuint64(),
-            },
-            {
-                Name: "htlc_id",
-                Description: []string{
-                    "The index of the incoming htlc in the incoming channel.",
-                },
-                Type: mkuint64(),
-            },
-        },
-    }
-}
-func mkrouterrpc_ForwardEvent() Type {
-    return Type{
-        Name: "routerrpc_ForwardEvent",
-        Fields: []Field{
-            {
-                Name: "info",
-                Description: []string{
-                    "Info contains details about the htlc that was forwarded.",
-                },
-                Type: mkrouterrpc_HtlcInfo(),
-            },
-        },
-    }
-}
-func mkrouterrpc_ForwardFailEvent() Type {
-    return Type{
-        Name: "routerrpc_ForwardFailEvent",
-    }
-}
-func mkrouterrpc_ForwardHtlcInterceptRequest() Type {
-    return Type{
-        Name: "routerrpc_ForwardHtlcInterceptRequest",
-        Fields: []Field{
-            {
-                Name: "incoming_circuit_key",
-                Description: []string{
-                    "The key of this forwarded htlc. It defines the incoming channel id and",
-                    "the index in this channel.",
-                },
-                Type: mkrouterrpc_CircuitKey(),
-            },
-            {
-                Name: "incoming_amount_msat",
-                Description: []string{
-                    "The incoming htlc amount.",
-                },
-                Type: mkuint64(),
-            },
-            {
-                Name: "incoming_expiry",
-                Description: []string{
-                    "The incoming htlc expiry.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "payment_hash",
-                Description: []string{
-                    "The htlc payment hash. This value is not guaranteed to be unique per",
-                    "request.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "outgoing_requested_chan_id",
-                Description: []string{
-                    "The requested outgoing channel id for this forwarded htlc. Because of",
-                    "non-strict forwarding, this isn't necessarily the channel over which the",
-                    "packet will be forwarded eventually. A different channel to the same peer",
-                    "may be selected as well.",
-                },
-                Type: mkuint64(),
-            },
-            {
-                Name: "outgoing_amount_msat",
-                Description: []string{
-                    "The outgoing htlc amount.",
-                },
-                Type: mkuint64(),
-            },
-            {
-                Name: "outgoing_expiry",
-                Description: []string{
-                    "The outgoing htlc expiry.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "custom_records",
-                Description: []string{
-                    "Any custom records that were present in the payload.",
-                },
-                Repeated: true,
-                Type: mkrouterrpc_ForwardHtlcInterceptRequest_CustomRecordsEntry(),
-            },
-            {
-                Name: "onion_blob",
-                Description: []string{
-                    "The onion blob for the next hop",
-                },
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mkrouterrpc_ForwardHtlcInterceptRequest_CustomRecordsEntry() Type {
-    return Type{
-        Name: "routerrpc_ForwardHtlcInterceptRequest_CustomRecordsEntry",
-        Fields: []Field{
-            {
-                Name: "key",
-                Type: mkuint64(),
-            },
-            {
-                Name: "value",
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mkrouterrpc_ForwardHtlcInterceptResponse() Type {
-    return Type{
-        Name: "routerrpc_ForwardHtlcInterceptResponse",
-        Description: []string{
-            "ForwardHtlcInterceptResponse enables the caller to resolve a previously hold",
-            "forward. The caller can choose either to:",
-            "- `Resume`: Execute the default behavior (usually forward).",
-            "- `Reject`: Fail the htlc backwards.",
-            "- `Settle`: Settle this htlc with a given preimage.",
-        },
-        Fields: []Field{
-            {
-                Name: "incoming_circuit_key",
-                Description: []string{
-                    "The key of this forwarded htlc. It defines the incoming channel id and",
-                    "the index in this channel.",
-                },
-                Type: mkrouterrpc_CircuitKey(),
-            },
-            {
-                Name: "action",
-                Description: []string{
-                    "The resolve action for this intercepted htlc.",
-                },
-                Type: mkrouterrpc_ResolveHoldForwardAction(),
-            },
-            {
-                Name: "preimage",
-                Description: []string{
-                    "The preimage in case the resolve action is Settle.",
-                },
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mkrouterrpc_HtlcEvent() Type {
-    return Type{
-        Name: "routerrpc_HtlcEvent",
-        Description: []string{
-            "HtlcEvent contains the htlc event that was processed. These are served on a",
-            "best-effort basis; events are not persisted, delivery is not guaranteed",
-            "(in the event of a crash in the switch, forward events may be lost) and",
-            "some events may be replayed upon restart. Events consumed from this package",
-            "should be de-duplicated by the htlc's unique combination of incoming and",
-            "outgoing channel id and htlc id. [EXPERIMENTAL]",
-        },
-        Fields: []Field{
-            {
-                Name: "incoming_channel_id",
-                Description: []string{
-                    "The short channel id that the incoming htlc arrived at our node on. This",
-                    "value is zero for sends.",
-                },
-                Type: mkuint64(),
-            },
-            {
-                Name: "outgoing_channel_id",
-                Description: []string{
-                    "The short channel id that the outgoing htlc left our node on. This value",
-                    "is zero for receives.",
-                },
-                Type: mkuint64(),
-            },
-            {
-                Name: "incoming_htlc_id",
-                Description: []string{
-                    "Incoming id is the index of the incoming htlc in the incoming channel.",
-                    "This value is zero for sends.",
-                },
-                Type: mkuint64(),
-            },
-            {
-                Name: "outgoing_htlc_id",
-                Description: []string{
-                    "Outgoing id is the index of the outgoing htlc in the outgoing channel.",
-                    "This value is zero for receives.",
-                },
-                Type: mkuint64(),
-            },
-            {
-                Name: "timestamp_ns",
-                Description: []string{
-                    "The time in unix nanoseconds that the event occurred.",
-                },
-                Type: mkuint64(),
-            },
-            {
-                Name: "event_type",
-                Description: []string{
-                    "The event type indicates whether the htlc was part of a send, receive or",
-                    "forward.",
-                },
-                Type: mkrouterrpc_HtlcEvent_EventType(),
-            },
-            {
-                Name: "forward_event",
-                Type: mkrouterrpc_ForwardEvent(),
-            },
-            {
-                Name: "forward_fail_event",
-                Type: mkrouterrpc_ForwardFailEvent(),
-            },
-            {
-                Name: "settle_event",
-                Type: mkrouterrpc_SettleEvent(),
-            },
-            {
-                Name: "link_fail_event",
-                Type: mkrouterrpc_LinkFailEvent(),
-            },
-        },
-    }
-}
-func mkrouterrpc_HtlcInfo() Type {
-    return Type{
-        Name: "routerrpc_HtlcInfo",
-        Fields: []Field{
-            {
-                Name: "incoming_timelock",
-                Description: []string{
-                    "The timelock on the incoming htlc.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "outgoing_timelock",
-                Description: []string{
-                    "The timelock on the outgoing htlc.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "incoming_amt_msat",
-                Description: []string{
-                    "The amount of the incoming htlc.",
-                },
-                Type: mkuint64(),
-            },
-            {
-                Name: "outgoing_amt_msat",
-                Description: []string{
-                    "The amount of the outgoing htlc.",
-                },
-                Type: mkuint64(),
-            },
-        },
-    }
-}
-func mkrouterrpc_LinkFailEvent() Type {
-    return Type{
-        Name: "routerrpc_LinkFailEvent",
-        Fields: []Field{
-            {
-                Name: "info",
-                Description: []string{
-                    "Info contains details about the htlc that we failed.",
-                },
-                Type: mkrouterrpc_HtlcInfo(),
-            },
-            {
-                Name: "wire_failure",
-                Description: []string{
-                    "FailureCode is the BOLT error code for the failure.",
-                },
-                Type: mklnrpc_Failure_FailureCode(),
-            },
-            {
-                Name: "failure_detail",
-                Description: []string{
-                    "FailureDetail provides additional information about the reason for the",
-                    "failure. This detail enriches the information provided by the wire message",
-                    "and may be 'no detail' if the wire message requires no additional metadata.",
-                },
-                Type: mkrouterrpc_FailureDetail(),
-            },
-            {
-                Name: "failure_string",
-                Description: []string{
-                    "A string representation of the link failure.",
-                },
-                Type: mkstring(),
-            },
-        },
-    }
-}
-func mkrouterrpc_PairData() Type {
-    return Type{
-        Name: "routerrpc_PairData",
-        Fields: []Field{
-            {
-                Name: "fail_time",
-                Description: []string{
-                    "Time of last failure.",
-                },
-                Type: mkint64(),
-            },
-            {
-                Name: "fail_amt_sat",
-                Description: []string{
-                    "Lowest amount that failed to forward rounded to whole sats. This may be",
-                    "set to zero if the failure is independent of amount.",
-                },
-                Type: mkint64(),
-            },
-            {
-                Name: "fail_amt_msat",
-                Description: []string{
-                    "Lowest amount that failed to forward in millisats. This may be",
-                    "set to zero if the failure is independent of amount.",
-                },
-                Type: mkint64(),
-            },
-            {
-                Name: "success_time",
-                Description: []string{
-                    "Time of last success.",
-                },
-                Type: mkint64(),
-            },
-            {
-                Name: "success_amt_sat",
-                Description: []string{
-                    "Highest amount that we could successfully forward rounded to whole sats.",
-                },
-                Type: mkint64(),
-            },
-            {
-                Name: "success_amt_msat",
-                Description: []string{
-                    "Highest amount that we could successfully forward in millisats.",
-                },
-                Type: mkint64(),
-            },
-        },
-    }
-}
-func mkrouterrpc_PairHistory() Type {
-    return Type{
-        Name: "routerrpc_PairHistory",
-        Description: []string{
-            "PairHistory contains the mission control state for a particular node pair.",
-        },
-        Fields: []Field{
-            {
-                Name: "node_from",
-                Description: []string{
-                    "The source node pubkey of the pair.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "node_to",
-                Description: []string{
-                    "The destination node pubkey of the pair.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "history",
-                Type: mkrouterrpc_PairData(),
-            },
-        },
-    }
-}
-func mkrouterrpc_PaymentStatus() Type {
-    return Type{
-        Name: "routerrpc_PaymentStatus",
-        Fields: []Field{
-            {
-                Name: "state",
-                Description: []string{
-                    "Current state the payment is in.",
-                },
-                Type: mkrouterrpc_PaymentState(),
-            },
-            {
-                Name: "preimage",
-                Description: []string{
-                    "The pre-image of the payment when state is SUCCEEDED.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "htlcs",
-                Description: []string{
-                    "The HTLCs made in attempt to settle the payment [EXPERIMENTAL].",
-                },
-                Repeated: true,
-                Type: mklnrpc_HTLCAttempt(),
-            },
-        },
-    }
-}
-func mkrouterrpc_QueryMissionControlRequest() Type {
-    return Type{
-        Name: "routerrpc_QueryMissionControlRequest",
-    }
-}
-func mkrouterrpc_QueryMissionControlResponse() Type {
-    return Type{
-        Name: "routerrpc_QueryMissionControlResponse",
-        Description: []string{
-            "QueryMissionControlResponse contains mission control state.",
-        },
-        Fields: []Field{
-            {
-                Name: "pairs",
-                Description: []string{
-                    "Node pair-level mission control state.",
-                },
-                Repeated: true,
-                Type: mkrouterrpc_PairHistory(),
-            },
-        },
-    }
-}
-func mkrouterrpc_QueryProbabilityRequest() Type {
-    return Type{
-        Name: "routerrpc_QueryProbabilityRequest",
-        Fields: []Field{
-            {
-                Name: "from_node",
-                Description: []string{
-                    "The source node pubkey of the pair.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "to_node",
-                Description: []string{
-                    "The destination node pubkey of the pair.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "amt_msat",
-                Description: []string{
-                    "The amount for which to calculate a probability.",
-                },
-                Type: mkint64(),
-            },
-        },
-    }
-}
-func mkrouterrpc_QueryProbabilityResponse() Type {
-    return Type{
-        Name: "routerrpc_QueryProbabilityResponse",
-        Fields: []Field{
-            {
-                Name: "probability",
-                Description: []string{
-                    "The success probability for the requested pair.",
-                },
-                Type: mkdouble(),
-            },
-            {
-                Name: "history",
-                Description: []string{
-                    "The historical data for the requested pair.",
-                },
-                Type: mkrouterrpc_PairData(),
-            },
-        },
-    }
-}
-func mkrouterrpc_ResetMissionControlRequest() Type {
-    return Type{
-        Name: "routerrpc_ResetMissionControlRequest",
-    }
-}
-func mkrouterrpc_ResetMissionControlResponse() Type {
-    return Type{
-        Name: "routerrpc_ResetMissionControlResponse",
-    }
-}
-func mkrouterrpc_RouteFeeRequest() Type {
-    return Type{
-        Name: "routerrpc_RouteFeeRequest",
-        Fields: []Field{
-            {
-                Name: "dest",
-                Description: []string{
-                    "The destination once wishes to obtain a routing fee quote to.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "amt_sat",
-                Description: []string{
-                    "The amount one wishes to send to the target destination.",
-                },
-                Type: mkint64(),
-            },
-        },
-    }
-}
-func mkrouterrpc_RouteFeeResponse() Type {
-    return Type{
-        Name: "routerrpc_RouteFeeResponse",
-        Fields: []Field{
-            {
-                Name: "routing_fee_msat",
-                Description: []string{
-                    "A lower bound of the estimated fee to the target destination within the",
-                    "network, expressed in milli-satoshis.",
-                },
-                Type: mkint64(),
-            },
-            {
-                Name: "time_lock_delay",
-                Description: []string{
-                    "An estimate of the worst case time delay that can occur. Note that callers",
-                    "will still need to factor in the final CLTV delta of the last hop into this",
-                    "value.",
-                },
-                Type: mkint64(),
-            },
-        },
-    }
-}
-func mkrouterrpc_SendPaymentRequest() Type {
-    return Type{
-        Name: "routerrpc_SendPaymentRequest",
-        Fields: []Field{
-            {
-                Name: "dest",
-                Description: []string{
-                    "The identity pubkey of the payment recipient",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "amt",
-                Description: []string{
-                    "Number of satoshis to send.",
-                    "",
-                    "The fields amt and amt_msat are mutually exclusive.",
-                },
-                Type: mkint64(),
-            },
-            {
-                Name: "amt_msat",
-                Description: []string{
-                    "Number of millisatoshis to send.",
-                    "",
-                    "The fields amt and amt_msat are mutually exclusive.",
-                },
-                Type: mkint64(),
-            },
-            {
-                Name: "payment_hash",
-                Description: []string{
-                    "The hash to use within the payment's HTLC",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "final_cltv_delta",
-                Description: []string{
-                    "The CLTV delta from the current height that should be used to set the",
-                    "timelock for the final hop.",
-                },
-                Type: mkint32(),
-            },
-            {
-                Name: "payment_request",
-                Description: []string{
-                    "A bare-bones invoice for a payment within the Lightning Network.  With the",
-                    "details of the invoice, the sender has all the data necessary to send a",
-                    "payment to the recipient. The amount in the payment request may be zero. In",
-                    "that case it is required to set the amt field as well. If no payment request",
-                    "is specified, the following fields are required: dest, amt and payment_hash.",
-                },
-                Type: mkstring(),
-            },
-            {
-                Name: "timeout_seconds",
-                Description: []string{
-                    "An upper limit on the amount of time we should spend when attempting to",
-                    "fulfill the payment. This is expressed in seconds. If we cannot make a",
-                    "successful payment within this time frame, an error will be returned.",
-                    "This field must be non-zero.",
-                },
-                Type: mkint32(),
-            },
-            {
-                Name: "fee_limit_sat",
-                Description: []string{
-                    "The maximum number of satoshis that will be paid as a fee of the payment.",
-                    "If this field is left to the default value of 0, only zero-fee routes will",
-                    "be considered. This usually means single hop routes connecting directly to",
-                    "the destination. To send the payment without a fee limit, use max int here.",
-                    "",
-                    "The fields fee_limit_sat and fee_limit_msat are mutually exclusive.",
-                },
-                Type: mkint64(),
-            },
-            {
-                Name: "fee_limit_msat",
-                Description: []string{
-                    "The maximum number of millisatoshis that will be paid as a fee of the",
-                    "payment. If this field is left to the default value of 0, only zero-fee",
-                    "routes will be considered. This usually means single hop routes connecting",
-                    "directly to the destination. To send the payment without a fee limit, use",
-                    "max int here.",
-                    "",
-                    "The fields fee_limit_sat and fee_limit_msat are mutually exclusive.",
-                },
-                Type: mkint64(),
-            },
-            {
-                Name: "outgoing_chan_id",
-                Description: []string{
-                    "Deprecated, use outgoing_chan_ids. The channel id of the channel that must",
-                    "be taken to the first hop. If zero, any channel may be used (unless",
-                    "outgoing_chan_ids are set).",
-                },
-                Type: mkuint64(),
-            },
-            {
-                Name: "outgoing_chan_ids",
-                Description: []string{
-                    "The channel ids of the channels are allowed for the first hop. If empty,",
-                    "any channel may be used.",
-                },
-                Repeated: true,
-                Type: mkuint64(),
-            },
-            {
-                Name: "last_hop_pubkey",
-                Description: []string{
-                    "The pubkey of the last hop of the route. If empty, any hop may be used.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "cltv_limit",
-                Description: []string{
-                    "An optional maximum total time lock for the route. This should not exceed",
-                    "lnd's `--max-cltv-expiry` setting. If zero, then the value of",
-                    "`--max-cltv-expiry` is enforced.",
-                },
-                Type: mkint32(),
-            },
-            {
-                Name: "route_hints",
-                Description: []string{
-                    "Optional route hints to reach the destination through private channels.",
-                },
-                Repeated: true,
-                Type: mklnrpc_RouteHint(),
-            },
-            {
-                Name: "dest_custom_records",
-                Description: []string{
-                    "An optional field that can be used to pass an arbitrary set of TLV records",
-                    "to a peer which understands the new records. This can be used to pass",
-                    "application specific data during the payment attempt. Record types are",
-                    "required to be in the custom range >= 65536. When using REST, the values",
-                    "must be encoded as base64.",
-                },
-                Repeated: true,
-                Type: mkrouterrpc_SendPaymentRequest_DestCustomRecordsEntry(),
-            },
-            {
-                Name: "allow_self_payment",
-                Description: []string{
-                    "If set, circular payments to self are permitted.",
-                },
-                Type: mkbool(),
-            },
-            {
-                Name: "dest_features",
-                Description: []string{
-                    "Features assumed to be supported by the final node. All transitive feature",
-                    "dependencies must also be set properly. For a given feature bit pair, either",
-                    "optional or remote may be set, but not both. If this field is nil or empty,",
-                    "the router will try to load destination features from the graph as a",
-                    "fallback.",
-                },
-                Repeated: true,
-                Type: mklnrpc_FeatureBit(),
-            },
-            {
-                Name: "max_parts",
-                Description: []string{
-                    "The maximum number of partial payments that may be use to complete the full",
-                    "amount.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "no_inflight_updates",
-                Description: []string{
-                    "If set, only the final payment update is streamed back. Intermediate updates",
-                    "that show which htlcs are still in flight are suppressed.",
-                },
-                Type: mkbool(),
-            },
-        },
-    }
-}
-func mkrouterrpc_SendPaymentRequest_DestCustomRecordsEntry() Type {
-    return Type{
-        Name: "routerrpc_SendPaymentRequest_DestCustomRecordsEntry",
-        Fields: []Field{
-            {
-                Name: "key",
-                Type: mkuint64(),
-            },
-            {
-                Name: "value",
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mkrouterrpc_SendToRouteRequest() Type {
-    return Type{
-        Name: "routerrpc_SendToRouteRequest",
-        Fields: []Field{
-            {
-                Name: "payment_hash",
-                Description: []string{
-                    "The payment hash to use for the HTLC.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "route",
-                Description: []string{
-                    "Route that should be used to attempt to complete the payment.",
-                },
-                Type: mklnrpc_Route(),
-            },
-        },
-    }
-}
-func mkrouterrpc_SendToRouteResponse() Type {
-    return Type{
-        Name: "routerrpc_SendToRouteResponse",
-        Fields: []Field{
-            {
-                Name: "preimage",
-                Description: []string{
-                    "The preimage obtained by making the payment.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "failure",
-                Description: []string{
-                    "The failure message in case the payment failed.",
-                },
-                Type: mklnrpc_Failure(),
-            },
-        },
-    }
-}
-func mkrouterrpc_SettleEvent() Type {
-    return Type{
-        Name: "routerrpc_SettleEvent",
-    }
-}
-func mkrouterrpc_SubscribeHtlcEventsRequest() Type {
-    return Type{
-        Name: "routerrpc_SubscribeHtlcEventsRequest",
-    }
-}
-func mkrouterrpc_TrackPaymentRequest() Type {
-    return Type{
-        Name: "routerrpc_TrackPaymentRequest",
-        Fields: []Field{
-            {
-                Name: "payment_hash",
-                Description: []string{
-                    "The hash of the payment to look up.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "no_inflight_updates",
-                Description: []string{
-                    "If set, only the final payment update is streamed back. Intermediate updates",
-                    "that show which htlcs are still in flight are suppressed.",
-                },
-                Type: mkbool(),
-            },
-        },
-    }
-}
-func mksignrpc_InputScript() Type {
-    return Type{
-        Name: "signrpc_InputScript",
-        Fields: []Field{
-            {
-                Name: "witness",
-                Description: []string{
-                    "The serializes witness stack for the specified input.",
-                },
-                Repeated: true,
-                Type: mkbytes(),
-            },
-            {
-                Name: "sig_script",
-                Description: []string{
-                    "The optional sig script for the specified witness that will only be set if",
-                    "the input specified is a nested p2sh witness program.",
-                },
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mksignrpc_InputScriptResp() Type {
-    return Type{
-        Name: "signrpc_InputScriptResp",
-        Fields: []Field{
-            {
-                Name: "input_scripts",
-                Description: []string{
-                    "The set of fully valid input scripts requested.",
-                },
-                Repeated: true,
-                Type: mksignrpc_InputScript(),
-            },
-        },
-    }
-}
-func mksignrpc_KeyDescriptor() Type {
-    return Type{
-        Name: "signrpc_KeyDescriptor",
-        Fields: []Field{
-            {
-                Name: "raw_key_bytes",
-                Description: []string{
-                    "The raw bytes of the key being identified. Either this or the KeyLocator",
-                    "must be specified.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "key_loc",
-                Description: []string{
-                    "The key locator that identifies which key to use for signing. Either this",
-                    "or the raw bytes of the target key must be specified.",
-                },
-                Type: mksignrpc_KeyLocator(),
-            },
-        },
-    }
-}
-func mksignrpc_KeyLocator() Type {
-    return Type{
-        Name: "signrpc_KeyLocator",
-        Fields: []Field{
-            {
-                Name: "key_family",
-                Description: []string{
-                    "The family of key being identified.",
-                },
-                Type: mkint32(),
-            },
-            {
-                Name: "key_index",
-                Description: []string{
-                    "The precise index of the key being identified.",
-                },
-                Type: mkint32(),
-            },
-        },
-    }
-}
-func mksignrpc_SharedKeyRequest() Type {
-    return Type{
-        Name: "signrpc_SharedKeyRequest",
-        Fields: []Field{
-            {
-                Name: "ephemeral_pubkey",
-                Description: []string{
-                    "The ephemeral public key to use for the DH key derivation.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "key_loc",
-                Description: []string{
-                    "Deprecated. The optional key locator of the local key that should be used.",
-                    "If this parameter is not set then the node's identity private key will be",
-                    "used.",
-                },
-                Type: mksignrpc_KeyLocator(),
-            },
-            {
-                Name: "key_desc",
-                Description: []string{
-                    "A key descriptor describes the key used for performing ECDH. Either a key",
-                    "locator or a raw public key is expected, if neither is supplied, defaults to",
-                    "the node's identity private key.",
-                },
-                Type: mksignrpc_KeyDescriptor(),
-            },
-        },
-    }
-}
-func mksignrpc_SharedKeyResponse() Type {
-    return Type{
-        Name: "signrpc_SharedKeyResponse",
-        Fields: []Field{
-            {
-                Name: "shared_key",
-                Description: []string{
-                    "The shared public key, hashed with sha256.",
-                },
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mksignrpc_SignDescriptor() Type {
-    return Type{
-        Name: "signrpc_SignDescriptor",
-        Fields: []Field{
-            {
-                Name: "key_desc",
-                Description: []string{
-                    "A descriptor that precisely describes *which* key to use for signing. This",
-                    "may provide the raw public key directly, or require the Signer to re-derive",
-                    "the key according to the populated derivation path.",
-                    "",
-                    "Note that if the key descriptor was obtained through walletrpc.DeriveKey,",
-                    "then the key locator MUST always be provided, since the derived keys are not",
-                    "persisted unlike with DeriveNextKey.",
-                },
-                Type: mksignrpc_KeyDescriptor(),
-            },
-            {
-                Name: "single_tweak",
-                Description: []string{
-                    "A scalar value that will be added to the private key corresponding to the",
-                    "above public key to obtain the private key to be used to sign this input.",
-                    "This value is typically derived via the following computation:",
-                    "",
-                    "derivedKey = privkey + sha256(perCommitmentPoint || pubKey) mod N",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "double_tweak",
-                Description: []string{
-                    "A private key that will be used in combination with its corresponding",
-                    "private key to derive the private key that is to be used to sign the target",
-                    "input. Within the Lightning protocol, this value is typically the",
-                    "commitment secret from a previously revoked commitment transaction. This",
-                    "value is in combination with two hash values, and the original private key",
-                    "to derive the private key to be used when signing.",
-                    "",
-                    "k = (privKey*sha256(pubKey || tweakPub) +",
-                    "tweakPriv*sha256(tweakPub || pubKey)) mod N",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "witness_script",
-                Description: []string{
-                    "The full script required to properly redeem the output.  This field will",
-                    "only be populated if a p2wsh or a p2sh output is being signed.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "output",
-                Description: []string{
-                    "A description of the output being spent. The value and script MUST be",
-                    "provided.",
-                },
-                Type: mksignrpc_TxOut(),
-            },
-            {
-                Name: "sighash",
-                Description: []string{
-                    "The target sighash type that should be used when generating the final",
-                    "sighash, and signature.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "input_index",
-                Description: []string{
-                    "The target input within the transaction that should be signed.",
-                },
-                Type: mkint32(),
-            },
-        },
-    }
-}
-func mksignrpc_SignMessageReq() Type {
-    return Type{
-        Name: "signrpc_SignMessageReq",
-        Fields: []Field{
-            {
-                Name: "msg",
-                Description: []string{
-                    "The message to be signed.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "key_loc",
-                Description: []string{
-                    "The key locator that identifies which key to use for signing.",
-                },
-                Type: mksignrpc_KeyLocator(),
-            },
-        },
-    }
-}
-func mksignrpc_SignMessageResp() Type {
-    return Type{
-        Name: "signrpc_SignMessageResp",
-        Fields: []Field{
-            {
-                Name: "signature",
-                Description: []string{
-                    "The signature for the given message in the fixed-size LN wire format.",
-                },
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mksignrpc_SignReq() Type {
-    return Type{
-        Name: "signrpc_SignReq",
-        Fields: []Field{
-            {
-                Name: "raw_tx_bytes",
-                Description: []string{
-                    "The raw bytes of the transaction to be signed.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "sign_descs",
-                Description: []string{
-                    "A set of sign descriptors, for each input to be signed.",
-                },
-                Repeated: true,
-                Type: mksignrpc_SignDescriptor(),
-            },
-        },
-    }
-}
-func mksignrpc_SignResp() Type {
-    return Type{
-        Name: "signrpc_SignResp",
-        Fields: []Field{
-            {
-                Name: "raw_sigs",
-                Description: []string{
-                    "A set of signatures realized in a fixed 64-byte format ordered in ascending",
-                    "input order.",
-                },
-                Repeated: true,
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mksignrpc_TxOut() Type {
-    return Type{
-        Name: "signrpc_TxOut",
-        Fields: []Field{
-            {
-                Name: "value",
-                Description: []string{
-                    "The value of the output being spent.",
-                },
-                Type: mkint64(),
-            },
-            {
-                Name: "pk_script",
-                Description: []string{
-                    "The script of the output being spent.",
-                },
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mksignrpc_VerifyMessageReq() Type {
-    return Type{
-        Name: "signrpc_VerifyMessageReq",
-        Fields: []Field{
-            {
-                Name: "msg",
-                Description: []string{
-                    "The message over which the signature is to be verified.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "signature",
-                Description: []string{
-                    "The fixed-size LN wire encoded signature to be verified over the given",
-                    "message.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "pubkey",
-                Description: []string{
-                    "The public key the signature has to be valid for.",
-                },
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mksignrpc_VerifyMessageResp() Type {
-    return Type{
-        Name: "signrpc_VerifyMessageResp",
-        Fields: []Field{
-            {
-                Name: "valid",
-                Description: []string{
-                    "Whether the signature was valid over the given message.",
-                },
-                Type: mkbool(),
-            },
-        },
-    }
-}
 func mkverrpc_Version() Type {
     return Type{
         Name: "verrpc_Version",
@@ -3216,707 +1481,253 @@ func mkverrpc_VersionRequest() Type {
         Name: "verrpc_VersionRequest",
     }
 }
-func mkwalletrpc_AddrRequest() Type {
+func mkchainrpc_BlockEpoch() Type {
     return Type{
-        Name: "walletrpc_AddrRequest",
-        Description: []string{
-            "No fields, as we always give out a p2wkh address.",
-        },
-    }
-}
-func mkwalletrpc_AddrResponse() Type {
-    return Type{
-        Name: "walletrpc_AddrResponse",
+        Name: "chainrpc_BlockEpoch",
         Fields: []Field{
             {
-                Name: "addr",
+                Name: "hash",
                 Description: []string{
-                    "The address encoded using a bech32 format.",
-                },
-                Type: mkstring(),
-            },
-        },
-    }
-}
-func mkwalletrpc_BumpFeeRequest() Type {
-    return Type{
-        Name: "walletrpc_BumpFeeRequest",
-        Fields: []Field{
-            {
-                Name: "outpoint",
-                Description: []string{
-                    "The input we're attempting to bump the fee of.",
-                },
-                Type: mklnrpc_OutPoint(),
-            },
-            {
-                Name: "target_conf",
-                Description: []string{
-                    "The target number of blocks that the input should be spent within.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "sat_per_byte",
-                Description: []string{
-                    "The fee rate, expressed in sat/byte, that should be used to spend the input",
-                    "with.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "force",
-                Description: []string{
-                    "Whether this input must be force-swept. This means that it is swept even",
-                    "if it has a negative yield.",
-                },
-                Type: mkbool(),
-            },
-        },
-    }
-}
-func mkwalletrpc_BumpFeeResponse() Type {
-    return Type{
-        Name: "walletrpc_BumpFeeResponse",
-    }
-}
-func mkwalletrpc_EstimateFeeRequest() Type {
-    return Type{
-        Name: "walletrpc_EstimateFeeRequest",
-        Fields: []Field{
-            {
-                Name: "conf_target",
-                Description: []string{
-                    "The number of confirmations to shoot for when estimating the fee.",
-                },
-                Type: mkint32(),
-            },
-        },
-    }
-}
-func mkwalletrpc_EstimateFeeResponse() Type {
-    return Type{
-        Name: "walletrpc_EstimateFeeResponse",
-        Fields: []Field{
-            {
-                Name: "sat_per_kw",
-                Description: []string{
-                    "The amount of satoshis per kw that should be used in order to reach the",
-                    "confirmation target in the request.",
-                },
-                Type: mkint64(),
-            },
-        },
-    }
-}
-func mkwalletrpc_FinalizePsbtRequest() Type {
-    return Type{
-        Name: "walletrpc_FinalizePsbtRequest",
-        Fields: []Field{
-            {
-                Name: "funded_psbt",
-                Description: []string{
-                    "A PSBT that should be signed and finalized. The PSBT must contain all",
-                    "required inputs, outputs, UTXO data and partial signatures of all other",
-                    "signers.",
-                },
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mkwalletrpc_FinalizePsbtResponse() Type {
-    return Type{
-        Name: "walletrpc_FinalizePsbtResponse",
-        Fields: []Field{
-            {
-                Name: "signed_psbt",
-                Description: []string{
-                    "The fully signed and finalized transaction in PSBT format.",
+                    "The hash of the block.",
                 },
                 Type: mkbytes(),
             },
             {
-                Name: "raw_final_tx",
+                Name: "height",
                 Description: []string{
-                    "The fully signed and finalized transaction in the raw wire format.",
-                },
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mkwalletrpc_FundPsbtRequest() Type {
-    return Type{
-        Name: "walletrpc_FundPsbtRequest",
-        Fields: []Field{
-            {
-                Name: "psbt",
-                Description: []string{
-                    "Use an existing PSBT packet as the template for the funded PSBT.",
-                    "",
-                    "The packet must contain at least one non-dust output. If one or more",
-                    "inputs are specified, no coin selection is performed. In that case every",
-                    "input must be an UTXO known to the wallet that has not been locked",
-                    "before. The sum of all inputs must be sufficiently greater than the sum",
-                    "of all outputs to pay a miner fee with the specified fee rate. A change",
-                    "output is added to the PSBT if necessary.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "raw",
-                Description: []string{
-                    "Use the outputs and optional inputs from this raw template.",
-                },
-                Type: mkwalletrpc_TxTemplate(),
-            },
-            {
-                Name: "target_conf",
-                Description: []string{
-                    "The target number of blocks that the transaction should be confirmed in.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "sat_per_vbyte",
-                Description: []string{
-                    "The fee rate, expressed in sat/vbyte, that should be used to spend the",
-                    "input with.",
+                    "The height of the block.",
                 },
                 Type: mkuint32(),
             },
         },
     }
 }
-func mkwalletrpc_FundPsbtResponse() Type {
+func mkchainrpc_ConfDetails() Type {
     return Type{
-        Name: "walletrpc_FundPsbtResponse",
-        Fields: []Field{
-            {
-                Name: "funded_psbt",
-                Description: []string{
-                    "The funded but not yet signed PSBT packet.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "change_output_index",
-                Description: []string{
-                    "The index of the added change output or -1 if no change was left over.",
-                },
-                Type: mkint32(),
-            },
-            {
-                Name: "locked_utxos",
-                Description: []string{
-                    "The list of lock leases that were acquired for the inputs in the funded PSBT",
-                    "packet.",
-                },
-                Repeated: true,
-                Type: mkwalletrpc_UtxoLease(),
-            },
-        },
-    }
-}
-func mkwalletrpc_KeyReq() Type {
-    return Type{
-        Name: "walletrpc_KeyReq",
-        Fields: []Field{
-            {
-                Name: "key_finger_print",
-                Description: []string{
-                    "Is the key finger print of the root pubkey that this request is targeting.",
-                    "This allows the WalletKit to possibly serve out keys for multiple HD chains",
-                    "via public derivation.",
-                },
-                Type: mkint32(),
-            },
-            {
-                Name: "key_family",
-                Description: []string{
-                    "The target key family to derive a key from. In other contexts, this is",
-                    "known as the \"account\".",
-                },
-                Type: mkint32(),
-            },
-        },
-    }
-}
-func mkwalletrpc_LabelTransactionRequest() Type {
-    return Type{
-        Name: "walletrpc_LabelTransactionRequest",
-        Fields: []Field{
-            {
-                Name: "txid",
-                Description: []string{
-                    "The txid of the transaction to label.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "label",
-                Description: []string{
-                    "The label to add to the transaction, limited to 500 characters.",
-                },
-                Type: mkstring(),
-            },
-            {
-                Name: "overwrite",
-                Description: []string{
-                    "Whether to overwrite the existing label, if it is present.",
-                },
-                Type: mkbool(),
-            },
-        },
-    }
-}
-func mkwalletrpc_LabelTransactionResponse() Type {
-    return Type{
-        Name: "walletrpc_LabelTransactionResponse",
-    }
-}
-func mkwalletrpc_LeaseOutputRequest() Type {
-    return Type{
-        Name: "walletrpc_LeaseOutputRequest",
-        Fields: []Field{
-            {
-                Name: "id",
-                Description: []string{
-                    "An ID of 32 random bytes that must be unique for each distinct application",
-                    "using this RPC which will be used to bound the output lease to.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "outpoint",
-                Description: []string{
-                    "The identifying outpoint of the output being leased.",
-                },
-                Type: mklnrpc_OutPoint(),
-            },
-        },
-    }
-}
-func mkwalletrpc_LeaseOutputResponse() Type {
-    return Type{
-        Name: "walletrpc_LeaseOutputResponse",
-        Fields: []Field{
-            {
-                Name: "expiration",
-                Description: []string{
-                    "The absolute expiration of the output lease represented as a unix timestamp.",
-                },
-                Type: mkuint64(),
-            },
-        },
-    }
-}
-func mkwalletrpc_ListSweepsRequest() Type {
-    return Type{
-        Name: "walletrpc_ListSweepsRequest",
-        Fields: []Field{
-            {
-                Name: "verbose",
-                Description: []string{
-                    "Retrieve the full sweep transaction details. If false, only the sweep txids",
-                    "will be returned. Note that some sweeps that LND publishes will have been",
-                    "replaced-by-fee, so will not be included in this output.",
-                },
-                Type: mkbool(),
-            },
-        },
-    }
-}
-func mkwalletrpc_ListSweepsResponse() Type {
-    return Type{
-        Name: "walletrpc_ListSweepsResponse",
-        Fields: []Field{
-            {
-                Name: "transaction_details",
-                Type: mklnrpc_TransactionDetails(),
-            },
-            {
-                Name: "transaction_ids",
-                Type: mkwalletrpc_ListSweepsResponse_TransactionIDs(),
-            },
-        },
-    }
-}
-func mkwalletrpc_ListSweepsResponse_TransactionIDs() Type {
-    return Type{
-        Name: "walletrpc_ListSweepsResponse_TransactionIDs",
-        Fields: []Field{
-            {
-                Name: "transaction_ids",
-                Description: []string{
-                    "Reversed, hex-encoded string representing the transaction ids of the",
-                    "sweeps that our node has broadcast. Note that these transactions may",
-                    "not have confirmed yet, we record sweeps on broadcast, not confirmation.",
-                },
-                Repeated: true,
-                Type: mkstring(),
-            },
-        },
-    }
-}
-func mkwalletrpc_ListUnspentRequest() Type {
-    return Type{
-        Name: "walletrpc_ListUnspentRequest",
-        Fields: []Field{
-            {
-                Name: "min_confs",
-                Description: []string{
-                    "The minimum number of confirmations to be included.",
-                },
-                Type: mkint32(),
-            },
-            {
-                Name: "max_confs",
-                Description: []string{
-                    "The maximum number of confirmations to be included.",
-                },
-                Type: mkint32(),
-            },
-        },
-    }
-}
-func mkwalletrpc_ListUnspentResponse() Type {
-    return Type{
-        Name: "walletrpc_ListUnspentResponse",
-        Fields: []Field{
-            {
-                Name: "utxos",
-                Description: []string{
-                    "A list of utxos satisfying the specified number of confirmations.",
-                },
-                Repeated: true,
-                Type: mklnrpc_Utxo(),
-            },
-        },
-    }
-}
-func mkwalletrpc_PendingSweep() Type {
-    return Type{
-        Name: "walletrpc_PendingSweep",
-        Fields: []Field{
-            {
-                Name: "outpoint",
-                Description: []string{
-                    "The outpoint of the output we're attempting to sweep.",
-                },
-                Type: mklnrpc_OutPoint(),
-            },
-            {
-                Name: "witness_type",
-                Description: []string{
-                    "The witness type of the output we're attempting to sweep.",
-                },
-                Type: mkwalletrpc_WitnessType(),
-            },
-            {
-                Name: "amount_sat",
-                Description: []string{
-                    "The value of the output we're attempting to sweep.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "sat_per_byte",
-                Description: []string{
-                    "The fee rate we'll use to sweep the output. The fee rate is only determined",
-                    "once a sweeping transaction for the output is created, so it's possible for",
-                    "this to be 0 before this.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "broadcast_attempts",
-                Description: []string{
-                    "The number of broadcast attempts we've made to sweep the output.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "next_broadcast_height",
-                Description: []string{
-                    "The next height of the chain at which we'll attempt to broadcast the",
-                    "sweep transaction of the output.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "requested_conf_target",
-                Description: []string{
-                    "The requested confirmation target for this output.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "requested_sat_per_byte",
-                Description: []string{
-                    "The requested fee rate, expressed in sat/byte, for this output.",
-                },
-                Type: mkuint32(),
-            },
-            {
-                Name: "force",
-                Description: []string{
-                    "Whether this input must be force-swept. This means that it is swept even",
-                    "if it has a negative yield.",
-                },
-                Type: mkbool(),
-            },
-        },
-    }
-}
-func mkwalletrpc_PendingSweepsRequest() Type {
-    return Type{
-        Name: "walletrpc_PendingSweepsRequest",
-    }
-}
-func mkwalletrpc_PendingSweepsResponse() Type {
-    return Type{
-        Name: "walletrpc_PendingSweepsResponse",
-        Fields: []Field{
-            {
-                Name: "pending_sweeps",
-                Description: []string{
-                    "The set of outputs currently being swept by lnd's central batching engine.",
-                },
-                Repeated: true,
-                Type: mkwalletrpc_PendingSweep(),
-            },
-        },
-    }
-}
-func mkwalletrpc_PublishResponse() Type {
-    return Type{
-        Name: "walletrpc_PublishResponse",
-        Fields: []Field{
-            {
-                Name: "publish_error",
-                Description: []string{
-                    "If blank, then no error occurred and the transaction was successfully",
-                    "published. If not the empty string, then a string representation of the",
-                    "broadcast error.",
-                    "",
-                    "TODO(roasbeef): map to a proper enum type",
-                },
-                Type: mkstring(),
-            },
-        },
-    }
-}
-func mkwalletrpc_ReleaseOutputRequest() Type {
-    return Type{
-        Name: "walletrpc_ReleaseOutputRequest",
-        Fields: []Field{
-            {
-                Name: "id",
-                Description: []string{
-                    "The unique ID that was used to lock the output.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "outpoint",
-                Description: []string{
-                    "The identifying outpoint of the output being released.",
-                },
-                Type: mklnrpc_OutPoint(),
-            },
-        },
-    }
-}
-func mkwalletrpc_ReleaseOutputResponse() Type {
-    return Type{
-        Name: "walletrpc_ReleaseOutputResponse",
-    }
-}
-func mkwalletrpc_SendOutputsRequest() Type {
-    return Type{
-        Name: "walletrpc_SendOutputsRequest",
-        Fields: []Field{
-            {
-                Name: "sat_per_kw",
-                Description: []string{
-                    "The number of satoshis per kilo weight that should be used when crafting",
-                    "this transaction.",
-                },
-                Type: mkint64(),
-            },
-            {
-                Name: "outputs",
-                Description: []string{
-                    "A slice of the outputs that should be created in the transaction produced.",
-                },
-                Repeated: true,
-                Type: mksignrpc_TxOut(),
-            },
-            {
-                Name: "label",
-                Description: []string{
-                    "An optional label for the transaction, limited to 500 characters.",
-                },
-                Type: mkstring(),
-            },
-            {
-                Name: "min_confs",
-                Description: []string{
-                    "The minimum number of confirmations each one of your outputs used for",
-                    "the transaction must satisfy.",
-                },
-                Type: mkint32(),
-            },
-            {
-                Name: "spend_unconfirmed",
-                Description: []string{
-                    "Whether unconfirmed outputs should be used as inputs for the transaction.",
-                },
-                Type: mkbool(),
-            },
-        },
-    }
-}
-func mkwalletrpc_SendOutputsResponse() Type {
-    return Type{
-        Name: "walletrpc_SendOutputsResponse",
+        Name: "chainrpc_ConfDetails",
         Fields: []Field{
             {
                 Name: "raw_tx",
                 Description: []string{
-                    "The serialized transaction sent out on the network.",
-                },
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mkwalletrpc_Transaction() Type {
-    return Type{
-        Name: "walletrpc_Transaction",
-        Fields: []Field{
-            {
-                Name: "tx_hex",
-                Description: []string{
-                    "The raw serialized transaction.",
+                    "The raw bytes of the confirmed transaction.",
                 },
                 Type: mkbytes(),
             },
             {
-                Name: "label",
+                Name: "block_hash",
                 Description: []string{
-                    "An optional label to save with the transaction. Limited to 500 characters.",
-                },
-                Type: mkstring(),
-            },
-        },
-    }
-}
-func mkwalletrpc_TxTemplate() Type {
-    return Type{
-        Name: "walletrpc_TxTemplate",
-        Fields: []Field{
-            {
-                Name: "inputs",
-                Description: []string{
-                    "An optional list of inputs to use. Every input must be an UTXO known to the",
-                    "wallet that has not been locked before. The sum of all inputs must be",
-                    "sufficiently greater than the sum of all outputs to pay a miner fee with the",
-                    "fee rate specified in the parent message.",
-                    "",
-                    "If no inputs are specified, coin selection will be performed instead and",
-                    "inputs of sufficient value will be added to the resulting PSBT.",
-                },
-                Repeated: true,
-                Type: mklnrpc_OutPoint(),
-            },
-            {
-                Name: "outputs",
-                Description: []string{
-                    "A map of all addresses and the amounts to send to in the funded PSBT.",
-                },
-                Repeated: true,
-                Type: mkwalletrpc_TxTemplate_OutputsEntry(),
-            },
-        },
-    }
-}
-func mkwalletrpc_TxTemplate_OutputsEntry() Type {
-    return Type{
-        Name: "walletrpc_TxTemplate_OutputsEntry",
-        Fields: []Field{
-            {
-                Name: "key",
-                Type: mkstring(),
-            },
-            {
-                Name: "value",
-                Type: mkuint64(),
-            },
-        },
-    }
-}
-func mkwalletrpc_UtxoLease() Type {
-    return Type{
-        Name: "walletrpc_UtxoLease",
-        Fields: []Field{
-            {
-                Name: "id",
-                Description: []string{
-                    "A 32 byte random ID that identifies the lease.",
+                    "The hash of the block in which the confirmed transaction was included in.",
                 },
                 Type: mkbytes(),
             },
+            {
+                Name: "block_height",
+                Description: []string{
+                    "The height of the block in which the confirmed transaction was included",
+                    "in.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "tx_index",
+                Description: []string{
+                    "The index of the confirmed transaction within the transaction.",
+                },
+                Type: mkuint32(),
+            },
+        },
+    }
+}
+func mkchainrpc_ConfEvent() Type {
+    return Type{
+        Name: "chainrpc_ConfEvent",
+        Fields: []Field{
+            {
+                Name: "conf",
+                Description: []string{
+                    "An event that includes the confirmation details of the request",
+                    "(txid/ouput script).",
+                },
+                Type: mkchainrpc_ConfDetails(),
+            },
+            {
+                Name: "reorg",
+                Description: []string{
+                    "An event send when the transaction of the request is reorged out of the",
+                    "chain.",
+                },
+                Type: mkchainrpc_Reorg(),
+            },
+        },
+    }
+}
+func mkchainrpc_ConfRequest() Type {
+    return Type{
+        Name: "chainrpc_ConfRequest",
+        Fields: []Field{
+            {
+                Name: "txid",
+                Description: []string{
+                    "The transaction hash for which we should request a confirmation notification",
+                    "for. If set to a hash of all zeros, then the confirmation notification will",
+                    "be requested for the script instead.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "script",
+                Description: []string{
+                    "An output script within a transaction with the hash above which will be used",
+                    "by light clients to match block filters. If the transaction hash is set to a",
+                    "hash of all zeros, then a confirmation notification will be requested for",
+                    "this script instead.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "num_confs",
+                Description: []string{
+                    "The number of desired confirmations the transaction/output script should",
+                    "reach before dispatching a confirmation notification.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "height_hint",
+                Description: []string{
+                    "The earliest height in the chain for which the transaction/output script",
+                    "could have been included in a block. This should in most cases be set to the",
+                    "broadcast height of the transaction/output script.",
+                },
+                Type: mkuint32(),
+            },
+        },
+    }
+}
+func mkchainrpc_Outpoint() Type {
+    return Type{
+        Name: "chainrpc_Outpoint",
+        Fields: []Field{
+            {
+                Name: "hash",
+                Description: []string{
+                    "The hash of the transaction.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "index",
+                Description: []string{
+                    "The index of the output within the transaction.",
+                },
+                Type: mkuint32(),
+            },
+        },
+    }
+}
+func mkchainrpc_Reorg() Type {
+    return Type{
+        Name: "chainrpc_Reorg",
+        Description: []string{
+            "TODO(wilmer): need to know how the client will use this first.",
+        },
+    }
+}
+func mkchainrpc_SpendDetails() Type {
+    return Type{
+        Name: "chainrpc_SpendDetails",
+        Fields: []Field{
+            {
+                Name: "spending_outpoint",
+                Description: []string{
+                    "The outpoint was that spent.",
+                },
+                Type: mkchainrpc_Outpoint(),
+            },
+            {
+                Name: "raw_spending_tx",
+                Description: []string{
+                    "The raw bytes of the spending transaction.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "spending_tx_hash",
+                Description: []string{
+                    "The hash of the spending transaction.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "spending_input_index",
+                Description: []string{
+                    "The input of the spending transaction that fulfilled the spend request.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "spending_height",
+                Description: []string{
+                    "The height at which the spending transaction was included in a block.",
+                },
+                Type: mkuint32(),
+            },
+        },
+    }
+}
+func mkchainrpc_SpendEvent() Type {
+    return Type{
+        Name: "chainrpc_SpendEvent",
+        Fields: []Field{
+            {
+                Name: "spend",
+                Description: []string{
+                    "An event that includes the details of the spending transaction of the",
+                    "request (outpoint/output script).",
+                },
+                Type: mkchainrpc_SpendDetails(),
+            },
+            {
+                Name: "reorg",
+                Description: []string{
+                    "An event sent when the spending transaction of the request was",
+                    "reorged out of the chain.",
+                },
+                Type: mkchainrpc_Reorg(),
+            },
+        },
+    }
+}
+func mkchainrpc_SpendRequest() Type {
+    return Type{
+        Name: "chainrpc_SpendRequest",
+        Fields: []Field{
             {
                 Name: "outpoint",
                 Description: []string{
-                    "The identifying outpoint of the output being leased.",
+                    "The outpoint for which we should request a spend notification for. If set to",
+                    "a zero outpoint, then the spend notification will be requested for the",
+                    "script instead.",
                 },
-                Type: mklnrpc_OutPoint(),
+                Type: mkchainrpc_Outpoint(),
             },
             {
-                Name: "expiration",
+                Name: "script",
                 Description: []string{
-                    "The absolute expiration of the output lease represented as a unix timestamp.",
-                },
-                Type: mkuint64(),
-            },
-        },
-    }
-}
-func mkwatchtowerrpc_GetInfoRequest() Type {
-    return Type{
-        Name: "watchtowerrpc_GetInfoRequest",
-    }
-}
-func mkwatchtowerrpc_GetInfoResponse() Type {
-    return Type{
-        Name: "watchtowerrpc_GetInfoResponse",
-        Fields: []Field{
-            {
-                Name: "pubkey",
-                Description: []string{
-                    "The public key of the watchtower.",
+                    "The output script for the outpoint above. This will be used by light clients",
+                    "to match block filters. If the outpoint is set to a zero outpoint, then a",
+                    "spend notification will be requested for this script instead.",
                 },
                 Type: mkbytes(),
             },
             {
-                Name: "listeners",
+                Name: "height_hint",
                 Description: []string{
-                    "The listening addresses of the watchtower.",
+                    "The earliest height in the chain for which the outpoint/output script could",
+                    "have been spent. This should in most cases be set to the broadcast height of",
+                    "the outpoint/output script.",
                 },
-                Repeated: true,
-                Type: mkstring(),
-            },
-            {
-                Name: "uris",
-                Description: []string{
-                    "The URIs of the watchtower.",
-                },
-                Repeated: true,
-                Type: mkstring(),
+                Type: mkuint32(),
             },
         },
     }
@@ -4181,294 +1992,6 @@ func mkwtclientrpc_TowerSession() Type {
                     "the justice transaction in the event of a channel breach.",
                 },
                 Type: mkuint32(),
-            },
-        },
-    }
-}
-func mklnrpc_GenSeedRequest() Type {
-    return Type{
-        Name: "lnrpc_GenSeedRequest",
-        Fields: []Field{
-            {
-                Name: "seed_passphrase",
-                Description: []string{
-                    "seed_passphrase is the optional user specified passphrase that will be used",
-                    "to encrypt the generated seed.",
-                },
-                Type: mkstring(),
-            },
-            {
-                Name: "seed_passphrase_bin",
-                Description: []string{
-                    "seed_passphrase_bin overrides seed_passphrase if specified, for binary",
-                    "representation of the passphrase. If using JSON then this field must be base64",
-                    "encoded.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "seed_entropy",
-                Description: []string{
-                    "seed_entropy is an optional 16-bytes generated via CSPRNG. If not",
-                    "specified, then a fresh set of randomness will be used to create the seed.",
-                    "When using REST, this field must be encoded as base64.",
-                },
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mklnrpc_GenSeedResponse() Type {
-    return Type{
-        Name: "lnrpc_GenSeedResponse",
-        Fields: []Field{
-            {
-                Name: "seed",
-                Description: []string{
-                    "seed is a 15-word mnemonic that encodes a secret root seed used to generate",
-                    "all private keys of the wallet.",
-                },
-                Repeated: true,
-                Type: mkstring(),
-            },
-        },
-    }
-}
-func mklnrpc_InitWalletRequest() Type {
-    return Type{
-        Name: "lnrpc_InitWalletRequest",
-        Fields: []Field{
-            {
-                Name: "wallet_passphrase",
-                Description: []string{
-                    "wallet_passphrase is the passphrase that should be used to encrypt the",
-                    "wallet. This MUST be at least 8 chars in length. After creation, this",
-                    "password is required to unlock the daemon.",
-                },
-                Type: mkstring(),
-            },
-            {
-                Name: "wallet_passphrase_bin",
-                Description: []string{
-                    "If specified, will override wallet_passphrase, but is expressed in binary.",
-                    "When using REST, this field must be encoded as base64.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "wallet_seed",
-                Description: []string{
-                    "wallet_seed is a 15-word wallet seed. This may have been generated by the",
-                    "GenSeed method, or be an existing seed.",
-                },
-                Repeated: true,
-                Type: mkstring(),
-            },
-            {
-                Name: "seed_passphrase",
-                Description: []string{
-                    "seed_passphrase is an optional user provided passphrase that will be used",
-                    "to encrypt the generated seed.",
-                },
-                Type: mkstring(),
-            },
-            {
-                Name: "seed_passphrase_bin",
-                Description: []string{
-                    "If specified, will override seed_passphrase, but is expressed in binary.",
-                    "When using REST, this field must be encoded as base64.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "recovery_window",
-                Description: []string{
-                    "recovery_window is an optional argument specifying the address lookahead",
-                    "when restoring a wallet seed. The recovery window applies to each",
-                    "individual branch of the BIP44 derivation paths. Supplying a recovery",
-                    "window of zero indicates that no addresses should be recovered, such after",
-                    "the first initialization of the wallet.",
-                },
-                Type: mkint32(),
-            },
-            {
-                Name: "channel_backups",
-                Description: []string{
-                    "channel_backups is an optional argument that allows clients to recover the",
-                    "settled funds within a set of channels. This should be populated if the",
-                    "user was unable to close out all channels and sweep funds before partial or",
-                    "total data loss occurred. If specified, then after on-chain recovery of",
-                    "funds, lnd begin to carry out the data loss recovery protocol in order to",
-                    "recover the funds in each channel from a remote force closed transaction.",
-                },
-                Type: mklnrpc_ChanBackupSnapshot(),
-            },
-        },
-    }
-}
-func mklnrpc_InitWalletResponse() Type {
-    return Type{
-        Name: "lnrpc_InitWalletResponse",
-    }
-}
-func mklnrpc_UnlockWalletRequest() Type {
-    return Type{
-        Name: "lnrpc_UnlockWalletRequest",
-        Fields: []Field{
-            {
-                Name: "wallet_passphrase",
-                Description: []string{
-                    "wallet_passphrase should be the current valid private passphrase for the daemon. This",
-                    "will be required to decrypt on-disk material that the daemon requires to",
-                    "function properly.",
-                },
-                Type: mkstring(),
-            },
-            {
-                Name: "wallet_passphrase_bin",
-                Description: []string{
-                    "If specified, will override wallet_passphrase, but is expressed in binary.",
-                    "When using REST, this field must be encoded as base64.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "recovery_window",
-                Description: []string{
-                    "recovery_window is an optional argument specifying the address lookahead",
-                    "when restoring a wallet seed. The recovery window applies to each",
-                    "individual branch of the BIP44 derivation paths. Supplying a recovery",
-                    "window of zero indicates that no addresses should be recovered, such after",
-                    "the first initialization of the wallet.",
-                },
-                Type: mkint32(),
-            },
-            {
-                Name: "channel_backups",
-                Description: []string{
-                    "channel_backups is an optional argument that allows clients to recover the",
-                    "settled funds within a set of channels. This should be populated if the",
-                    "user was unable to close out all channels and sweep funds before partial or",
-                    "total data loss occurred. If specified, then after on-chain recovery of",
-                    "funds, lnd begin to carry out the data loss recovery protocol in order to",
-                    "recover the funds in each channel from a remote force closed transaction.",
-                },
-                Type: mklnrpc_ChanBackupSnapshot(),
-            },
-        },
-    }
-}
-func mklnrpc_UnlockWalletResponse() Type {
-    return Type{
-        Name: "lnrpc_UnlockWalletResponse",
-    }
-}
-func mklnrpc_ChangePasswordRequest() Type {
-    return Type{
-        Name: "lnrpc_ChangePasswordRequest",
-        Fields: []Field{
-            {
-                Name: "current_passphrase",
-                Description: []string{
-                    "current_password should be the current valid passphrase used to unlock the daemon.",
-                },
-                Type: mkstring(),
-            },
-            {
-                Name: "current_password_bin",
-                Description: []string{
-                    "Binary form of current_passphrase, if specified will override current_passphrase.",
-                    "When using JSON, this field must be encoded as base64.",
-                },
-                Type: mkbytes(),
-            },
-            {
-                Name: "new_passphrase",
-                Description: []string{
-                    "new_passphrase should be the new passphrase that will be needed to unlock the",
-                    "daemon.",
-                },
-                Type: mkstring(),
-            },
-            {
-                Name: "new_passphrase_bin",
-                Description: []string{
-                    "Binary form of new_passphrase, if specified will override new_passphrase.",
-                    "When using JSON, this field must be encoded as base64.",
-                },
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mklnrpc_ChangePasswordResponse() Type {
-    return Type{
-        Name: "lnrpc_ChangePasswordResponse",
-    }
-}
-func mklnrpc_CheckPasswordRequest() Type {
-    return Type{
-        Name: "lnrpc_CheckPasswordRequest",
-        Fields: []Field{
-            {
-                Name: "wallet_passphrase",
-                Description: []string{
-                    "current_password should be the current valid passphrase used to unlock the daemon.",
-                },
-                Type: mkstring(),
-            },
-            {
-                Name: "wallet_password_bin",
-                Description: []string{
-                    "Binary form of current_passphrase, if specified will override current_passphrase.",
-                    "When using JSON, this field must be encoded as base64.",
-                },
-                Type: mkbytes(),
-            },
-        },
-    }
-}
-func mklnrpc_CheckPasswordResponse() Type {
-    return Type{
-        Name: "lnrpc_CheckPasswordResponse",
-        Fields: []Field{
-            {
-                Name: "valid_passphrase",
-                Type: mkbool(),
-            },
-        },
-    }
-}
-func mklnrpc_CrashRequest() Type {
-    return Type{
-        Name: "lnrpc_CrashRequest",
-    }
-}
-func mklnrpc_CrashResponse() Type {
-    return Type{
-        Name: "lnrpc_CrashResponse",
-    }
-}
-func mklnrpc_GetInfo2Request() Type {
-    return Type{
-        Name: "lnrpc_GetInfo2Request",
-    }
-}
-func mklnrpc_GetInfo2Response() Type {
-    return Type{
-        Name: "lnrpc_GetInfo2Response",
-        Fields: []Field{
-            {
-                Name: "neutrino",
-                Type: mklnrpc_NeutrinoInfo(),
-            },
-            {
-                Name: "wallet",
-                Type: mklnrpc_WalletInfo(),
-            },
-            {
-                Name: "lightning",
-                Type: mklnrpc_GetInfoResponse(),
             },
         },
     }
@@ -6118,6 +3641,62 @@ func mklnrpc_DebugLevelResponse() Type {
             {
                 Name: "sub_systems",
                 Type: mkstring(),
+            },
+        },
+    }
+}
+func mklnrpc_DecodeRawTransactionRequest() Type {
+    return Type{
+        Name: "lnrpc_DecodeRawTransactionRequest",
+        Fields: []Field{
+            {
+                Name: "hex_tx",
+                Type: mkstring(),
+            },
+            {
+                Name: "vin_extra",
+                Type: mkbool(),
+            },
+        },
+    }
+}
+func mklnrpc_DecodeRawTransactionResponse() Type {
+    return Type{
+        Name: "lnrpc_DecodeRawTransactionResponse",
+        Fields: []Field{
+            {
+                Name: "txid",
+                Type: mkstring(),
+            },
+            {
+                Name: "version",
+                Type: mkint32(),
+            },
+            {
+                Name: "locktime",
+                Type: mkuint32(),
+            },
+            {
+                Name: "sfee",
+                Type: mkstring(),
+            },
+            {
+                Name: "size",
+                Type: mkint32(),
+            },
+            {
+                Name: "vsize",
+                Type: mkint32(),
+            },
+            {
+                Name: "vin",
+                Repeated: true,
+                Type: mklnrpc_VinPrevOut(),
+            },
+            {
+                Name: "vout",
+                Repeated: true,
+                Type: mklnrpc_Vout(),
             },
         },
     }
@@ -9631,6 +7210,25 @@ func mklnrpc_PolicyUpdateResponse() Type {
         Name: "lnrpc_PolicyUpdateResponse",
     }
 }
+func mklnrpc_PrevOut() Type {
+    return Type{
+        Name: "lnrpc_PrevOut",
+        Fields: []Field{
+            {
+                Name: "address",
+                Type: mkstring(),
+            },
+            {
+                Name: "value_coins",
+                Type: mkdouble(),
+            },
+            {
+                Name: "svalue",
+                Type: mkstring(),
+            },
+        },
+    }
+}
 func mklnrpc_PsbtShim() Type {
     return Type{
         Name: "lnrpc_PsbtShim",
@@ -10115,6 +7713,21 @@ func mklnrpc_RoutingPolicy() Type {
             {
                 Name: "last_update",
                 Type: mkuint32(),
+            },
+        },
+    }
+}
+func mklnrpc_ScriptSig() Type {
+    return Type{
+        Name: "lnrpc_ScriptSig",
+        Fields: []Field{
+            {
+                Name: "asm",
+                Type: mkstring(),
+            },
+            {
+                Name: "hex",
+                Type: mkstring(),
             },
         },
     }
@@ -10826,6 +8439,84 @@ func mklnrpc_VerifyChanBackupResponse() Type {
         Name: "lnrpc_VerifyChanBackupResponse",
     }
 }
+func mklnrpc_VinPrevOut() Type {
+    return Type{
+        Name: "lnrpc_VinPrevOut",
+        Fields: []Field{
+            {
+                Name: "coinbase",
+                Type: mkstring(),
+            },
+            {
+                Name: "txid",
+                Type: mkstring(),
+            },
+            {
+                Name: "vout",
+                Type: mkuint32(),
+            },
+            {
+                Name: "script_sig",
+                Type: mklnrpc_ScriptSig(),
+            },
+            {
+                Name: "sequence",
+                Type: mkuint32(),
+            },
+            {
+                Name: "witness",
+                Repeated: true,
+                Type: mkstring(),
+            },
+            {
+                Name: "prev_out",
+                Type: mklnrpc_PrevOut(),
+            },
+        },
+    }
+}
+func mklnrpc_Vote() Type {
+    return Type{
+        Name: "lnrpc_Vote",
+        Fields: []Field{
+            {
+                Name: "for",
+                Type: mkstring(),
+            },
+            {
+                Name: "against",
+                Type: mkstring(),
+            },
+        },
+    }
+}
+func mklnrpc_Vout() Type {
+    return Type{
+        Name: "lnrpc_Vout",
+        Fields: []Field{
+            {
+                Name: "value_coins",
+                Type: mkdouble(),
+            },
+            {
+                Name: "svalue",
+                Type: mkstring(),
+            },
+            {
+                Name: "n",
+                Type: mkuint32(),
+            },
+            {
+                Name: "address",
+                Type: mkstring(),
+            },
+            {
+                Name: "vote",
+                Type: mklnrpc_Vote(),
+            },
+        },
+    }
+}
 func mklnrpc_WalletBalanceRequest() Type {
     return Type{
         Name: "lnrpc_WalletBalanceRequest",
@@ -10859,130 +8550,487 @@ func mklnrpc_WalletBalanceResponse() Type {
         },
     }
 }
-func mkgoogle_protobuf_Any() Type {
+func mksignrpc_InputScript() Type {
     return Type{
-        Name: "google_protobuf_Any",
-        Description: []string{
-            "`Any` contains an arbitrary serialized protocol buffer message along with a",
-            "URL that describes the type of the serialized message.",
-            "",
-            "Protobuf library provides support to pack/unpack Any values in the form",
-            "of utility functions or additional generated methods of the Any type.",
-            "",
-            "Example 1: Pack and unpack a message in C++.",
-            "",
-            "    Foo foo = ...;",
-            "    Any any;",
-            "    any.PackFrom(foo);",
-            "    ...",
-            "    if (any.UnpackTo(&foo)) {",
-            "      ...",
-            "    }",
-            "",
-            "Example 2: Pack and unpack a message in Java.",
-            "",
-            "    Foo foo = ...;",
-            "    Any any = Any.pack(foo);",
-            "    ...",
-            "    if (any.is(Foo.class)) {",
-            "      foo = any.unpack(Foo.class);",
-            "    }",
-            "",
-            " Example 3: Pack and unpack a message in Python.",
-            "",
-            "    foo = Foo(...)",
-            "    any = Any()",
-            "    any.Pack(foo)",
-            "    ...",
-            "    if any.Is(Foo.DESCRIPTOR):",
-            "      any.Unpack(foo)",
-            "      ...",
-            "",
-            " Example 4: Pack and unpack a message in Go",
-            "",
-            "     foo := &pb.Foo{...}",
-            "     any, err := ptypes.MarshalAny(foo)",
-            "     ...",
-            "     foo := &pb.Foo{}",
-            "     if err := ptypes.UnmarshalAny(any, foo); err != nil {",
-            "       ...",
-            "     }",
-            "",
-            "The pack methods provided by protobuf library will by default use",
-            "'type.googleapis.com/full.type.name' as the type URL and the unpack",
-            "methods only use the fully qualified type name after the last '/'",
-            "in the type URL, for example \"foo.bar.com/x/y.z\" will yield type",
-            "name \"y.z\".",
-            "",
-            "",
-            "JSON",
-            "====",
-            "The JSON representation of an `Any` value uses the regular",
-            "representation of the deserialized, embedded message, with an",
-            "additional field `@type` which contains the type URL. Example:",
-            "",
-            "    package google.profile;",
-            "    message Person {",
-            "      string first_name = 1;",
-            "      string last_name = 2;",
-            "    }",
-            "",
-            "    {",
-            "      \"@type\": \"type.googleapis.com/google.profile.Person\",",
-            "      \"firstName\": <string>,",
-            "      \"lastName\": <string>",
-            "    }",
-            "",
-            "If the embedded message type is well-known and has a custom JSON",
-            "representation, that representation will be embedded adding a field",
-            "`value` which holds the custom JSON in addition to the `@type`",
-            "field. Example (for message [google.protobuf.Duration][]):",
-            "",
-            "    {",
-            "      \"@type\": \"type.googleapis.com/google.protobuf.Duration\",",
-            "      \"value\": \"1.212s\"",
-            "    }",
-        },
+        Name: "signrpc_InputScript",
         Fields: []Field{
             {
-                Name: "type_url",
+                Name: "witness",
                 Description: []string{
-                    "A URL/resource name that uniquely identifies the type of the serialized",
-                    "protocol buffer message. This string must contain at least",
-                    "one \"/\" character. The last segment of the URL's path must represent",
-                    "the fully qualified name of the type (as in",
-                    "`path/google.protobuf.Duration`). The name should be in a canonical form",
-                    "(e.g., leading \".\" is not accepted).",
-                    "",
-                    "In practice, teams usually precompile into the binary all types that they",
-                    "expect it to use in the context of Any. However, for URLs which use the",
-                    "scheme `http`, `https`, or no scheme, one can optionally set up a type",
-                    "server that maps type URLs to message definitions as follows:",
-                    "",
-                    "* If no scheme is provided, `https` is assumed.",
-                    "* An HTTP GET on the URL must yield a [google.protobuf.Type][]",
-                    "  value in binary format, or produce an error.",
-                    "* Applications are allowed to cache lookup results based on the",
-                    "  URL, or have them precompiled into a binary to avoid any",
-                    "  lookup. Therefore, binary compatibility needs to be preserved",
-                    "  on changes to types. (Use versioned type names to manage",
-                    "  breaking changes.)",
-                    "",
-                    "Note: this functionality is not currently available in the official",
-                    "protobuf release, and it is not used for type URLs beginning with",
-                    "type.googleapis.com.",
-                    "",
-                    "Schemes other than `http`, `https` (or the empty scheme) might be",
-                    "used with implementation specific semantics.",
+                    "The serializes witness stack for the specified input.",
                 },
+                Repeated: true,
+                Type: mkbytes(),
+            },
+            {
+                Name: "sig_script",
+                Description: []string{
+                    "The optional sig script for the specified witness that will only be set if",
+                    "the input specified is a nested p2sh witness program.",
+                },
+                Type: mkbytes(),
+            },
+        },
+    }
+}
+func mksignrpc_InputScriptResp() Type {
+    return Type{
+        Name: "signrpc_InputScriptResp",
+        Fields: []Field{
+            {
+                Name: "input_scripts",
+                Description: []string{
+                    "The set of fully valid input scripts requested.",
+                },
+                Repeated: true,
+                Type: mksignrpc_InputScript(),
+            },
+        },
+    }
+}
+func mksignrpc_KeyDescriptor() Type {
+    return Type{
+        Name: "signrpc_KeyDescriptor",
+        Fields: []Field{
+            {
+                Name: "raw_key_bytes",
+                Description: []string{
+                    "The raw bytes of the key being identified. Either this or the KeyLocator",
+                    "must be specified.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "key_loc",
+                Description: []string{
+                    "The key locator that identifies which key to use for signing. Either this",
+                    "or the raw bytes of the target key must be specified.",
+                },
+                Type: mksignrpc_KeyLocator(),
+            },
+        },
+    }
+}
+func mksignrpc_KeyLocator() Type {
+    return Type{
+        Name: "signrpc_KeyLocator",
+        Fields: []Field{
+            {
+                Name: "key_family",
+                Description: []string{
+                    "The family of key being identified.",
+                },
+                Type: mkint32(),
+            },
+            {
+                Name: "key_index",
+                Description: []string{
+                    "The precise index of the key being identified.",
+                },
+                Type: mkint32(),
+            },
+        },
+    }
+}
+func mksignrpc_SharedKeyRequest() Type {
+    return Type{
+        Name: "signrpc_SharedKeyRequest",
+        Fields: []Field{
+            {
+                Name: "ephemeral_pubkey",
+                Description: []string{
+                    "The ephemeral public key to use for the DH key derivation.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "key_loc",
+                Description: []string{
+                    "Deprecated. The optional key locator of the local key that should be used.",
+                    "If this parameter is not set then the node's identity private key will be",
+                    "used.",
+                },
+                Type: mksignrpc_KeyLocator(),
+            },
+            {
+                Name: "key_desc",
+                Description: []string{
+                    "A key descriptor describes the key used for performing ECDH. Either a key",
+                    "locator or a raw public key is expected, if neither is supplied, defaults to",
+                    "the node's identity private key.",
+                },
+                Type: mksignrpc_KeyDescriptor(),
+            },
+        },
+    }
+}
+func mksignrpc_SharedKeyResponse() Type {
+    return Type{
+        Name: "signrpc_SharedKeyResponse",
+        Fields: []Field{
+            {
+                Name: "shared_key",
+                Description: []string{
+                    "The shared public key, hashed with sha256.",
+                },
+                Type: mkbytes(),
+            },
+        },
+    }
+}
+func mksignrpc_SignDescriptor() Type {
+    return Type{
+        Name: "signrpc_SignDescriptor",
+        Fields: []Field{
+            {
+                Name: "key_desc",
+                Description: []string{
+                    "A descriptor that precisely describes *which* key to use for signing. This",
+                    "may provide the raw public key directly, or require the Signer to re-derive",
+                    "the key according to the populated derivation path.",
+                    "",
+                    "Note that if the key descriptor was obtained through walletrpc.DeriveKey,",
+                    "then the key locator MUST always be provided, since the derived keys are not",
+                    "persisted unlike with DeriveNextKey.",
+                },
+                Type: mksignrpc_KeyDescriptor(),
+            },
+            {
+                Name: "single_tweak",
+                Description: []string{
+                    "A scalar value that will be added to the private key corresponding to the",
+                    "above public key to obtain the private key to be used to sign this input.",
+                    "This value is typically derived via the following computation:",
+                    "",
+                    "derivedKey = privkey + sha256(perCommitmentPoint || pubKey) mod N",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "double_tweak",
+                Description: []string{
+                    "A private key that will be used in combination with its corresponding",
+                    "private key to derive the private key that is to be used to sign the target",
+                    "input. Within the Lightning protocol, this value is typically the",
+                    "commitment secret from a previously revoked commitment transaction. This",
+                    "value is in combination with two hash values, and the original private key",
+                    "to derive the private key to be used when signing.",
+                    "",
+                    "k = (privKey*sha256(pubKey || tweakPub) +",
+                    "tweakPriv*sha256(tweakPub || pubKey)) mod N",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "witness_script",
+                Description: []string{
+                    "The full script required to properly redeem the output.  This field will",
+                    "only be populated if a p2wsh or a p2sh output is being signed.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "output",
+                Description: []string{
+                    "A description of the output being spent. The value and script MUST be",
+                    "provided.",
+                },
+                Type: mksignrpc_TxOut(),
+            },
+            {
+                Name: "sighash",
+                Description: []string{
+                    "The target sighash type that should be used when generating the final",
+                    "sighash, and signature.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "input_index",
+                Description: []string{
+                    "The target input within the transaction that should be signed.",
+                },
+                Type: mkint32(),
+            },
+        },
+    }
+}
+func mksignrpc_SignMessageReq() Type {
+    return Type{
+        Name: "signrpc_SignMessageReq",
+        Fields: []Field{
+            {
+                Name: "msg",
+                Description: []string{
+                    "The message to be signed.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "key_loc",
+                Description: []string{
+                    "The key locator that identifies which key to use for signing.",
+                },
+                Type: mksignrpc_KeyLocator(),
+            },
+        },
+    }
+}
+func mksignrpc_SignMessageResp() Type {
+    return Type{
+        Name: "signrpc_SignMessageResp",
+        Fields: []Field{
+            {
+                Name: "signature",
+                Description: []string{
+                    "The signature for the given message in the fixed-size LN wire format.",
+                },
+                Type: mkbytes(),
+            },
+        },
+    }
+}
+func mksignrpc_SignReq() Type {
+    return Type{
+        Name: "signrpc_SignReq",
+        Fields: []Field{
+            {
+                Name: "raw_tx_bytes",
+                Description: []string{
+                    "The raw bytes of the transaction to be signed.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "sign_descs",
+                Description: []string{
+                    "A set of sign descriptors, for each input to be signed.",
+                },
+                Repeated: true,
+                Type: mksignrpc_SignDescriptor(),
+            },
+        },
+    }
+}
+func mksignrpc_SignResp() Type {
+    return Type{
+        Name: "signrpc_SignResp",
+        Fields: []Field{
+            {
+                Name: "raw_sigs",
+                Description: []string{
+                    "A set of signatures realized in a fixed 64-byte format ordered in ascending",
+                    "input order.",
+                },
+                Repeated: true,
+                Type: mkbytes(),
+            },
+        },
+    }
+}
+func mksignrpc_TxOut() Type {
+    return Type{
+        Name: "signrpc_TxOut",
+        Fields: []Field{
+            {
+                Name: "value",
+                Description: []string{
+                    "The value of the output being spent.",
+                },
+                Type: mkint64(),
+            },
+            {
+                Name: "pk_script",
+                Description: []string{
+                    "The script of the output being spent.",
+                },
+                Type: mkbytes(),
+            },
+        },
+    }
+}
+func mksignrpc_VerifyMessageReq() Type {
+    return Type{
+        Name: "signrpc_VerifyMessageReq",
+        Fields: []Field{
+            {
+                Name: "msg",
+                Description: []string{
+                    "The message over which the signature is to be verified.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "signature",
+                Description: []string{
+                    "The fixed-size LN wire encoded signature to be verified over the given",
+                    "message.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "pubkey",
+                Description: []string{
+                    "The public key the signature has to be valid for.",
+                },
+                Type: mkbytes(),
+            },
+        },
+    }
+}
+func mksignrpc_VerifyMessageResp() Type {
+    return Type{
+        Name: "signrpc_VerifyMessageResp",
+        Fields: []Field{
+            {
+                Name: "valid",
+                Description: []string{
+                    "Whether the signature was valid over the given message.",
+                },
+                Type: mkbool(),
+            },
+        },
+    }
+}
+func mkautopilotrpc_ModifyStatusRequest() Type {
+    return Type{
+        Name: "autopilotrpc_ModifyStatusRequest",
+        Fields: []Field{
+            {
+                Name: "enable",
+                Description: []string{
+                    "Whether the autopilot agent should be enabled or not.",
+                },
+                Type: mkbool(),
+            },
+        },
+    }
+}
+func mkautopilotrpc_ModifyStatusResponse() Type {
+    return Type{
+        Name: "autopilotrpc_ModifyStatusResponse",
+    }
+}
+func mkautopilotrpc_QueryScoresRequest() Type {
+    return Type{
+        Name: "autopilotrpc_QueryScoresRequest",
+        Fields: []Field{
+            {
+                Name: "pubkeys",
+                Repeated: true,
+                Type: mkstring(),
+            },
+            {
+                Name: "ignore_local_state",
+                Description: []string{
+                    "If set, we will ignore the local channel state when calculating scores.",
+                },
+                Type: mkbool(),
+            },
+        },
+    }
+}
+func mkautopilotrpc_QueryScoresResponse() Type {
+    return Type{
+        Name: "autopilotrpc_QueryScoresResponse",
+        Fields: []Field{
+            {
+                Name: "results",
+                Repeated: true,
+                Type: mkautopilotrpc_QueryScoresResponse_HeuristicResult(),
+            },
+        },
+    }
+}
+func mkautopilotrpc_QueryScoresResponse_HeuristicResult() Type {
+    return Type{
+        Name: "autopilotrpc_QueryScoresResponse_HeuristicResult",
+        Fields: []Field{
+            {
+                Name: "heuristic",
+                Type: mkstring(),
+            },
+            {
+                Name: "scores",
+                Repeated: true,
+                Type: mkautopilotrpc_QueryScoresResponse_HeuristicResult_ScoresEntry(),
+            },
+        },
+    }
+}
+func mkautopilotrpc_QueryScoresResponse_HeuristicResult_ScoresEntry() Type {
+    return Type{
+        Name: "autopilotrpc_QueryScoresResponse_HeuristicResult_ScoresEntry",
+        Fields: []Field{
+            {
+                Name: "key",
                 Type: mkstring(),
             },
             {
                 Name: "value",
+                Type: mkdouble(),
+            },
+        },
+    }
+}
+func mkautopilotrpc_SetScoresRequest() Type {
+    return Type{
+        Name: "autopilotrpc_SetScoresRequest",
+        Fields: []Field{
+            {
+                Name: "heuristic",
                 Description: []string{
-                    "Must be a valid serialized protocol buffer of the above specified type.",
+                    "The name of the heuristic to provide scores to.",
                 },
-                Type: mkbytes(),
+                Type: mkstring(),
+            },
+            {
+                Name: "scores",
+                Description: []string{
+                    "A map from hex-encoded public keys to scores. Scores must be in the range",
+                    "[0.0, 1.0].",
+                },
+                Repeated: true,
+                Type: mkautopilotrpc_SetScoresRequest_ScoresEntry(),
+            },
+        },
+    }
+}
+func mkautopilotrpc_SetScoresRequest_ScoresEntry() Type {
+    return Type{
+        Name: "autopilotrpc_SetScoresRequest_ScoresEntry",
+        Fields: []Field{
+            {
+                Name: "key",
+                Type: mkstring(),
+            },
+            {
+                Name: "value",
+                Type: mkdouble(),
+            },
+        },
+    }
+}
+func mkautopilotrpc_SetScoresResponse() Type {
+    return Type{
+        Name: "autopilotrpc_SetScoresResponse",
+    }
+}
+func mkautopilotrpc_StatusRequest() Type {
+    return Type{
+        Name: "autopilotrpc_StatusRequest",
+    }
+}
+func mkautopilotrpc_StatusResponse() Type {
+    return Type{
+        Name: "autopilotrpc_StatusResponse",
+        Fields: []Field{
+            {
+                Name: "active",
+                Description: []string{
+                    "Indicates whether the autopilot is active or not.",
+                },
+                Type: mkbool(),
             },
         },
     }
@@ -11065,6 +9113,1553 @@ func mkrestrpc_WebSocketProtobufResponse() Type {
             {
                 Name: "error",
                 Type: mkrestrpc_WebSocketError(),
+            },
+        },
+    }
+}
+func mkwalletrpc_AddrRequest() Type {
+    return Type{
+        Name: "walletrpc_AddrRequest",
+        Description: []string{
+            "No fields, as we always give out a p2wkh address.",
+        },
+    }
+}
+func mkwalletrpc_AddrResponse() Type {
+    return Type{
+        Name: "walletrpc_AddrResponse",
+        Fields: []Field{
+            {
+                Name: "addr",
+                Description: []string{
+                    "The address encoded using a bech32 format.",
+                },
+                Type: mkstring(),
+            },
+        },
+    }
+}
+func mkwalletrpc_BumpFeeRequest() Type {
+    return Type{
+        Name: "walletrpc_BumpFeeRequest",
+        Fields: []Field{
+            {
+                Name: "outpoint",
+                Description: []string{
+                    "The input we're attempting to bump the fee of.",
+                },
+                Type: mklnrpc_OutPoint(),
+            },
+            {
+                Name: "target_conf",
+                Description: []string{
+                    "The target number of blocks that the input should be spent within.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "sat_per_byte",
+                Description: []string{
+                    "The fee rate, expressed in sat/byte, that should be used to spend the input",
+                    "with.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "force",
+                Description: []string{
+                    "Whether this input must be force-swept. This means that it is swept even",
+                    "if it has a negative yield.",
+                },
+                Type: mkbool(),
+            },
+        },
+    }
+}
+func mkwalletrpc_BumpFeeResponse() Type {
+    return Type{
+        Name: "walletrpc_BumpFeeResponse",
+    }
+}
+func mkwalletrpc_EstimateFeeRequest() Type {
+    return Type{
+        Name: "walletrpc_EstimateFeeRequest",
+        Fields: []Field{
+            {
+                Name: "conf_target",
+                Description: []string{
+                    "The number of confirmations to shoot for when estimating the fee.",
+                },
+                Type: mkint32(),
+            },
+        },
+    }
+}
+func mkwalletrpc_EstimateFeeResponse() Type {
+    return Type{
+        Name: "walletrpc_EstimateFeeResponse",
+        Fields: []Field{
+            {
+                Name: "sat_per_kw",
+                Description: []string{
+                    "The amount of satoshis per kw that should be used in order to reach the",
+                    "confirmation target in the request.",
+                },
+                Type: mkint64(),
+            },
+        },
+    }
+}
+func mkwalletrpc_FinalizePsbtRequest() Type {
+    return Type{
+        Name: "walletrpc_FinalizePsbtRequest",
+        Fields: []Field{
+            {
+                Name: "funded_psbt",
+                Description: []string{
+                    "A PSBT that should be signed and finalized. The PSBT must contain all",
+                    "required inputs, outputs, UTXO data and partial signatures of all other",
+                    "signers.",
+                },
+                Type: mkbytes(),
+            },
+        },
+    }
+}
+func mkwalletrpc_FinalizePsbtResponse() Type {
+    return Type{
+        Name: "walletrpc_FinalizePsbtResponse",
+        Fields: []Field{
+            {
+                Name: "signed_psbt",
+                Description: []string{
+                    "The fully signed and finalized transaction in PSBT format.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "raw_final_tx",
+                Description: []string{
+                    "The fully signed and finalized transaction in the raw wire format.",
+                },
+                Type: mkbytes(),
+            },
+        },
+    }
+}
+func mkwalletrpc_FundPsbtRequest() Type {
+    return Type{
+        Name: "walletrpc_FundPsbtRequest",
+        Fields: []Field{
+            {
+                Name: "psbt",
+                Description: []string{
+                    "Use an existing PSBT packet as the template for the funded PSBT.",
+                    "",
+                    "The packet must contain at least one non-dust output. If one or more",
+                    "inputs are specified, no coin selection is performed. In that case every",
+                    "input must be an UTXO known to the wallet that has not been locked",
+                    "before. The sum of all inputs must be sufficiently greater than the sum",
+                    "of all outputs to pay a miner fee with the specified fee rate. A change",
+                    "output is added to the PSBT if necessary.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "raw",
+                Description: []string{
+                    "Use the outputs and optional inputs from this raw template.",
+                },
+                Type: mkwalletrpc_TxTemplate(),
+            },
+            {
+                Name: "target_conf",
+                Description: []string{
+                    "The target number of blocks that the transaction should be confirmed in.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "sat_per_vbyte",
+                Description: []string{
+                    "The fee rate, expressed in sat/vbyte, that should be used to spend the",
+                    "input with.",
+                },
+                Type: mkuint32(),
+            },
+        },
+    }
+}
+func mkwalletrpc_FundPsbtResponse() Type {
+    return Type{
+        Name: "walletrpc_FundPsbtResponse",
+        Fields: []Field{
+            {
+                Name: "funded_psbt",
+                Description: []string{
+                    "The funded but not yet signed PSBT packet.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "change_output_index",
+                Description: []string{
+                    "The index of the added change output or -1 if no change was left over.",
+                },
+                Type: mkint32(),
+            },
+            {
+                Name: "locked_utxos",
+                Description: []string{
+                    "The list of lock leases that were acquired for the inputs in the funded PSBT",
+                    "packet.",
+                },
+                Repeated: true,
+                Type: mkwalletrpc_UtxoLease(),
+            },
+        },
+    }
+}
+func mkwalletrpc_KeyReq() Type {
+    return Type{
+        Name: "walletrpc_KeyReq",
+        Fields: []Field{
+            {
+                Name: "key_finger_print",
+                Description: []string{
+                    "Is the key finger print of the root pubkey that this request is targeting.",
+                    "This allows the WalletKit to possibly serve out keys for multiple HD chains",
+                    "via public derivation.",
+                },
+                Type: mkint32(),
+            },
+            {
+                Name: "key_family",
+                Description: []string{
+                    "The target key family to derive a key from. In other contexts, this is",
+                    "known as the \"account\".",
+                },
+                Type: mkint32(),
+            },
+        },
+    }
+}
+func mkwalletrpc_LabelTransactionRequest() Type {
+    return Type{
+        Name: "walletrpc_LabelTransactionRequest",
+        Fields: []Field{
+            {
+                Name: "txid",
+                Description: []string{
+                    "The txid of the transaction to label.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "label",
+                Description: []string{
+                    "The label to add to the transaction, limited to 500 characters.",
+                },
+                Type: mkstring(),
+            },
+            {
+                Name: "overwrite",
+                Description: []string{
+                    "Whether to overwrite the existing label, if it is present.",
+                },
+                Type: mkbool(),
+            },
+        },
+    }
+}
+func mkwalletrpc_LabelTransactionResponse() Type {
+    return Type{
+        Name: "walletrpc_LabelTransactionResponse",
+    }
+}
+func mkwalletrpc_LeaseOutputRequest() Type {
+    return Type{
+        Name: "walletrpc_LeaseOutputRequest",
+        Fields: []Field{
+            {
+                Name: "id",
+                Description: []string{
+                    "An ID of 32 random bytes that must be unique for each distinct application",
+                    "using this RPC which will be used to bound the output lease to.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "outpoint",
+                Description: []string{
+                    "The identifying outpoint of the output being leased.",
+                },
+                Type: mklnrpc_OutPoint(),
+            },
+        },
+    }
+}
+func mkwalletrpc_LeaseOutputResponse() Type {
+    return Type{
+        Name: "walletrpc_LeaseOutputResponse",
+        Fields: []Field{
+            {
+                Name: "expiration",
+                Description: []string{
+                    "The absolute expiration of the output lease represented as a unix timestamp.",
+                },
+                Type: mkuint64(),
+            },
+        },
+    }
+}
+func mkwalletrpc_ListSweepsRequest() Type {
+    return Type{
+        Name: "walletrpc_ListSweepsRequest",
+        Fields: []Field{
+            {
+                Name: "verbose",
+                Description: []string{
+                    "Retrieve the full sweep transaction details. If false, only the sweep txids",
+                    "will be returned. Note that some sweeps that LND publishes will have been",
+                    "replaced-by-fee, so will not be included in this output.",
+                },
+                Type: mkbool(),
+            },
+        },
+    }
+}
+func mkwalletrpc_ListSweepsResponse() Type {
+    return Type{
+        Name: "walletrpc_ListSweepsResponse",
+        Fields: []Field{
+            {
+                Name: "transaction_details",
+                Type: mklnrpc_TransactionDetails(),
+            },
+            {
+                Name: "transaction_ids",
+                Type: mkwalletrpc_ListSweepsResponse_TransactionIDs(),
+            },
+        },
+    }
+}
+func mkwalletrpc_ListSweepsResponse_TransactionIDs() Type {
+    return Type{
+        Name: "walletrpc_ListSweepsResponse_TransactionIDs",
+        Fields: []Field{
+            {
+                Name: "transaction_ids",
+                Description: []string{
+                    "Reversed, hex-encoded string representing the transaction ids of the",
+                    "sweeps that our node has broadcast. Note that these transactions may",
+                    "not have confirmed yet, we record sweeps on broadcast, not confirmation.",
+                },
+                Repeated: true,
+                Type: mkstring(),
+            },
+        },
+    }
+}
+func mkwalletrpc_ListUnspentRequest() Type {
+    return Type{
+        Name: "walletrpc_ListUnspentRequest",
+        Fields: []Field{
+            {
+                Name: "min_confs",
+                Description: []string{
+                    "The minimum number of confirmations to be included.",
+                },
+                Type: mkint32(),
+            },
+            {
+                Name: "max_confs",
+                Description: []string{
+                    "The maximum number of confirmations to be included.",
+                },
+                Type: mkint32(),
+            },
+        },
+    }
+}
+func mkwalletrpc_ListUnspentResponse() Type {
+    return Type{
+        Name: "walletrpc_ListUnspentResponse",
+        Fields: []Field{
+            {
+                Name: "utxos",
+                Description: []string{
+                    "A list of utxos satisfying the specified number of confirmations.",
+                },
+                Repeated: true,
+                Type: mklnrpc_Utxo(),
+            },
+        },
+    }
+}
+func mkwalletrpc_PendingSweep() Type {
+    return Type{
+        Name: "walletrpc_PendingSweep",
+        Fields: []Field{
+            {
+                Name: "outpoint",
+                Description: []string{
+                    "The outpoint of the output we're attempting to sweep.",
+                },
+                Type: mklnrpc_OutPoint(),
+            },
+            {
+                Name: "witness_type",
+                Description: []string{
+                    "The witness type of the output we're attempting to sweep.",
+                },
+                Type: mkwalletrpc_WitnessType(),
+            },
+            {
+                Name: "amount_sat",
+                Description: []string{
+                    "The value of the output we're attempting to sweep.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "sat_per_byte",
+                Description: []string{
+                    "The fee rate we'll use to sweep the output. The fee rate is only determined",
+                    "once a sweeping transaction for the output is created, so it's possible for",
+                    "this to be 0 before this.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "broadcast_attempts",
+                Description: []string{
+                    "The number of broadcast attempts we've made to sweep the output.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "next_broadcast_height",
+                Description: []string{
+                    "The next height of the chain at which we'll attempt to broadcast the",
+                    "sweep transaction of the output.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "requested_conf_target",
+                Description: []string{
+                    "The requested confirmation target for this output.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "requested_sat_per_byte",
+                Description: []string{
+                    "The requested fee rate, expressed in sat/byte, for this output.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "force",
+                Description: []string{
+                    "Whether this input must be force-swept. This means that it is swept even",
+                    "if it has a negative yield.",
+                },
+                Type: mkbool(),
+            },
+        },
+    }
+}
+func mkwalletrpc_PendingSweepsRequest() Type {
+    return Type{
+        Name: "walletrpc_PendingSweepsRequest",
+    }
+}
+func mkwalletrpc_PendingSweepsResponse() Type {
+    return Type{
+        Name: "walletrpc_PendingSweepsResponse",
+        Fields: []Field{
+            {
+                Name: "pending_sweeps",
+                Description: []string{
+                    "The set of outputs currently being swept by lnd's central batching engine.",
+                },
+                Repeated: true,
+                Type: mkwalletrpc_PendingSweep(),
+            },
+        },
+    }
+}
+func mkwalletrpc_PublishResponse() Type {
+    return Type{
+        Name: "walletrpc_PublishResponse",
+        Fields: []Field{
+            {
+                Name: "publish_error",
+                Description: []string{
+                    "If blank, then no error occurred and the transaction was successfully",
+                    "published. If not the empty string, then a string representation of the",
+                    "broadcast error.",
+                    "",
+                    "TODO(roasbeef): map to a proper enum type",
+                },
+                Type: mkstring(),
+            },
+        },
+    }
+}
+func mkwalletrpc_ReleaseOutputRequest() Type {
+    return Type{
+        Name: "walletrpc_ReleaseOutputRequest",
+        Fields: []Field{
+            {
+                Name: "id",
+                Description: []string{
+                    "The unique ID that was used to lock the output.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "outpoint",
+                Description: []string{
+                    "The identifying outpoint of the output being released.",
+                },
+                Type: mklnrpc_OutPoint(),
+            },
+        },
+    }
+}
+func mkwalletrpc_ReleaseOutputResponse() Type {
+    return Type{
+        Name: "walletrpc_ReleaseOutputResponse",
+    }
+}
+func mkwalletrpc_SendOutputsRequest() Type {
+    return Type{
+        Name: "walletrpc_SendOutputsRequest",
+        Fields: []Field{
+            {
+                Name: "sat_per_kw",
+                Description: []string{
+                    "The number of satoshis per kilo weight that should be used when crafting",
+                    "this transaction.",
+                },
+                Type: mkint64(),
+            },
+            {
+                Name: "outputs",
+                Description: []string{
+                    "A slice of the outputs that should be created in the transaction produced.",
+                },
+                Repeated: true,
+                Type: mksignrpc_TxOut(),
+            },
+            {
+                Name: "label",
+                Description: []string{
+                    "An optional label for the transaction, limited to 500 characters.",
+                },
+                Type: mkstring(),
+            },
+            {
+                Name: "min_confs",
+                Description: []string{
+                    "The minimum number of confirmations each one of your outputs used for",
+                    "the transaction must satisfy.",
+                },
+                Type: mkint32(),
+            },
+            {
+                Name: "spend_unconfirmed",
+                Description: []string{
+                    "Whether unconfirmed outputs should be used as inputs for the transaction.",
+                },
+                Type: mkbool(),
+            },
+        },
+    }
+}
+func mkwalletrpc_SendOutputsResponse() Type {
+    return Type{
+        Name: "walletrpc_SendOutputsResponse",
+        Fields: []Field{
+            {
+                Name: "raw_tx",
+                Description: []string{
+                    "The serialized transaction sent out on the network.",
+                },
+                Type: mkbytes(),
+            },
+        },
+    }
+}
+func mkwalletrpc_Transaction() Type {
+    return Type{
+        Name: "walletrpc_Transaction",
+        Fields: []Field{
+            {
+                Name: "tx_hex",
+                Description: []string{
+                    "The raw serialized transaction.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "label",
+                Description: []string{
+                    "An optional label to save with the transaction. Limited to 500 characters.",
+                },
+                Type: mkstring(),
+            },
+        },
+    }
+}
+func mkwalletrpc_TxTemplate() Type {
+    return Type{
+        Name: "walletrpc_TxTemplate",
+        Fields: []Field{
+            {
+                Name: "inputs",
+                Description: []string{
+                    "An optional list of inputs to use. Every input must be an UTXO known to the",
+                    "wallet that has not been locked before. The sum of all inputs must be",
+                    "sufficiently greater than the sum of all outputs to pay a miner fee with the",
+                    "fee rate specified in the parent message.",
+                    "",
+                    "If no inputs are specified, coin selection will be performed instead and",
+                    "inputs of sufficient value will be added to the resulting PSBT.",
+                },
+                Repeated: true,
+                Type: mklnrpc_OutPoint(),
+            },
+            {
+                Name: "outputs",
+                Description: []string{
+                    "A map of all addresses and the amounts to send to in the funded PSBT.",
+                },
+                Repeated: true,
+                Type: mkwalletrpc_TxTemplate_OutputsEntry(),
+            },
+        },
+    }
+}
+func mkwalletrpc_TxTemplate_OutputsEntry() Type {
+    return Type{
+        Name: "walletrpc_TxTemplate_OutputsEntry",
+        Fields: []Field{
+            {
+                Name: "key",
+                Type: mkstring(),
+            },
+            {
+                Name: "value",
+                Type: mkuint64(),
+            },
+        },
+    }
+}
+func mkwalletrpc_UtxoLease() Type {
+    return Type{
+        Name: "walletrpc_UtxoLease",
+        Fields: []Field{
+            {
+                Name: "id",
+                Description: []string{
+                    "A 32 byte random ID that identifies the lease.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "outpoint",
+                Description: []string{
+                    "The identifying outpoint of the output being leased.",
+                },
+                Type: mklnrpc_OutPoint(),
+            },
+            {
+                Name: "expiration",
+                Description: []string{
+                    "The absolute expiration of the output lease represented as a unix timestamp.",
+                },
+                Type: mkuint64(),
+            },
+        },
+    }
+}
+func mkrouterrpc_BuildRouteRequest() Type {
+    return Type{
+        Name: "routerrpc_BuildRouteRequest",
+        Fields: []Field{
+            {
+                Name: "amt_msat",
+                Description: []string{
+                    "The amount to send expressed in msat. If set to zero, the minimum routable",
+                    "amount is used.",
+                },
+                Type: mkint64(),
+            },
+            {
+                Name: "final_cltv_delta",
+                Description: []string{
+                    "CLTV delta from the current height that should be used for the timelock",
+                    "of the final hop",
+                },
+                Type: mkint32(),
+            },
+            {
+                Name: "outgoing_chan_id",
+                Description: []string{
+                    "The channel id of the channel that must be taken to the first hop. If zero,",
+                    "any channel may be used.",
+                },
+                Type: mkuint64(),
+            },
+            {
+                Name: "hop_pubkeys",
+                Description: []string{
+                    "A list of hops that defines the route. This does not include the source hop",
+                    "pubkey.",
+                },
+                Repeated: true,
+                Type: mkbytes(),
+            },
+        },
+    }
+}
+func mkrouterrpc_BuildRouteResponse() Type {
+    return Type{
+        Name: "routerrpc_BuildRouteResponse",
+        Fields: []Field{
+            {
+                Name: "route",
+                Description: []string{
+                    "Fully specified route that can be used to execute the payment.",
+                },
+                Type: mklnrpc_Route(),
+            },
+        },
+    }
+}
+func mkrouterrpc_CircuitKey() Type {
+    return Type{
+        Name: "routerrpc_CircuitKey",
+        Fields: []Field{
+            {
+                Name: "chan_id",
+                Description: []string{
+                    "The id of the channel that the is part of this circuit.",
+                },
+                Type: mkuint64(),
+            },
+            {
+                Name: "htlc_id",
+                Description: []string{
+                    "The index of the incoming htlc in the incoming channel.",
+                },
+                Type: mkuint64(),
+            },
+        },
+    }
+}
+func mkrouterrpc_ForwardEvent() Type {
+    return Type{
+        Name: "routerrpc_ForwardEvent",
+        Fields: []Field{
+            {
+                Name: "info",
+                Description: []string{
+                    "Info contains details about the htlc that was forwarded.",
+                },
+                Type: mkrouterrpc_HtlcInfo(),
+            },
+        },
+    }
+}
+func mkrouterrpc_ForwardFailEvent() Type {
+    return Type{
+        Name: "routerrpc_ForwardFailEvent",
+    }
+}
+func mkrouterrpc_ForwardHtlcInterceptRequest() Type {
+    return Type{
+        Name: "routerrpc_ForwardHtlcInterceptRequest",
+        Fields: []Field{
+            {
+                Name: "incoming_circuit_key",
+                Description: []string{
+                    "The key of this forwarded htlc. It defines the incoming channel id and",
+                    "the index in this channel.",
+                },
+                Type: mkrouterrpc_CircuitKey(),
+            },
+            {
+                Name: "incoming_amount_msat",
+                Description: []string{
+                    "The incoming htlc amount.",
+                },
+                Type: mkuint64(),
+            },
+            {
+                Name: "incoming_expiry",
+                Description: []string{
+                    "The incoming htlc expiry.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "payment_hash",
+                Description: []string{
+                    "The htlc payment hash. This value is not guaranteed to be unique per",
+                    "request.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "outgoing_requested_chan_id",
+                Description: []string{
+                    "The requested outgoing channel id for this forwarded htlc. Because of",
+                    "non-strict forwarding, this isn't necessarily the channel over which the",
+                    "packet will be forwarded eventually. A different channel to the same peer",
+                    "may be selected as well.",
+                },
+                Type: mkuint64(),
+            },
+            {
+                Name: "outgoing_amount_msat",
+                Description: []string{
+                    "The outgoing htlc amount.",
+                },
+                Type: mkuint64(),
+            },
+            {
+                Name: "outgoing_expiry",
+                Description: []string{
+                    "The outgoing htlc expiry.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "custom_records",
+                Description: []string{
+                    "Any custom records that were present in the payload.",
+                },
+                Repeated: true,
+                Type: mkrouterrpc_ForwardHtlcInterceptRequest_CustomRecordsEntry(),
+            },
+            {
+                Name: "onion_blob",
+                Description: []string{
+                    "The onion blob for the next hop",
+                },
+                Type: mkbytes(),
+            },
+        },
+    }
+}
+func mkrouterrpc_ForwardHtlcInterceptRequest_CustomRecordsEntry() Type {
+    return Type{
+        Name: "routerrpc_ForwardHtlcInterceptRequest_CustomRecordsEntry",
+        Fields: []Field{
+            {
+                Name: "key",
+                Type: mkuint64(),
+            },
+            {
+                Name: "value",
+                Type: mkbytes(),
+            },
+        },
+    }
+}
+func mkrouterrpc_ForwardHtlcInterceptResponse() Type {
+    return Type{
+        Name: "routerrpc_ForwardHtlcInterceptResponse",
+        Description: []string{
+            "ForwardHtlcInterceptResponse enables the caller to resolve a previously hold",
+            "forward. The caller can choose either to:",
+            "- `Resume`: Execute the default behavior (usually forward).",
+            "- `Reject`: Fail the htlc backwards.",
+            "- `Settle`: Settle this htlc with a given preimage.",
+        },
+        Fields: []Field{
+            {
+                Name: "incoming_circuit_key",
+                Description: []string{
+                    "The key of this forwarded htlc. It defines the incoming channel id and",
+                    "the index in this channel.",
+                },
+                Type: mkrouterrpc_CircuitKey(),
+            },
+            {
+                Name: "action",
+                Description: []string{
+                    "The resolve action for this intercepted htlc.",
+                },
+                Type: mkrouterrpc_ResolveHoldForwardAction(),
+            },
+            {
+                Name: "preimage",
+                Description: []string{
+                    "The preimage in case the resolve action is Settle.",
+                },
+                Type: mkbytes(),
+            },
+        },
+    }
+}
+func mkrouterrpc_HtlcEvent() Type {
+    return Type{
+        Name: "routerrpc_HtlcEvent",
+        Description: []string{
+            "HtlcEvent contains the htlc event that was processed. These are served on a",
+            "best-effort basis; events are not persisted, delivery is not guaranteed",
+            "(in the event of a crash in the switch, forward events may be lost) and",
+            "some events may be replayed upon restart. Events consumed from this package",
+            "should be de-duplicated by the htlc's unique combination of incoming and",
+            "outgoing channel id and htlc id. [EXPERIMENTAL]",
+        },
+        Fields: []Field{
+            {
+                Name: "incoming_channel_id",
+                Description: []string{
+                    "The short channel id that the incoming htlc arrived at our node on. This",
+                    "value is zero for sends.",
+                },
+                Type: mkuint64(),
+            },
+            {
+                Name: "outgoing_channel_id",
+                Description: []string{
+                    "The short channel id that the outgoing htlc left our node on. This value",
+                    "is zero for receives.",
+                },
+                Type: mkuint64(),
+            },
+            {
+                Name: "incoming_htlc_id",
+                Description: []string{
+                    "Incoming id is the index of the incoming htlc in the incoming channel.",
+                    "This value is zero for sends.",
+                },
+                Type: mkuint64(),
+            },
+            {
+                Name: "outgoing_htlc_id",
+                Description: []string{
+                    "Outgoing id is the index of the outgoing htlc in the outgoing channel.",
+                    "This value is zero for receives.",
+                },
+                Type: mkuint64(),
+            },
+            {
+                Name: "timestamp_ns",
+                Description: []string{
+                    "The time in unix nanoseconds that the event occurred.",
+                },
+                Type: mkuint64(),
+            },
+            {
+                Name: "event_type",
+                Description: []string{
+                    "The event type indicates whether the htlc was part of a send, receive or",
+                    "forward.",
+                },
+                Type: mkrouterrpc_HtlcEvent_EventType(),
+            },
+            {
+                Name: "forward_event",
+                Type: mkrouterrpc_ForwardEvent(),
+            },
+            {
+                Name: "forward_fail_event",
+                Type: mkrouterrpc_ForwardFailEvent(),
+            },
+            {
+                Name: "settle_event",
+                Type: mkrouterrpc_SettleEvent(),
+            },
+            {
+                Name: "link_fail_event",
+                Type: mkrouterrpc_LinkFailEvent(),
+            },
+        },
+    }
+}
+func mkrouterrpc_HtlcInfo() Type {
+    return Type{
+        Name: "routerrpc_HtlcInfo",
+        Fields: []Field{
+            {
+                Name: "incoming_timelock",
+                Description: []string{
+                    "The timelock on the incoming htlc.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "outgoing_timelock",
+                Description: []string{
+                    "The timelock on the outgoing htlc.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "incoming_amt_msat",
+                Description: []string{
+                    "The amount of the incoming htlc.",
+                },
+                Type: mkuint64(),
+            },
+            {
+                Name: "outgoing_amt_msat",
+                Description: []string{
+                    "The amount of the outgoing htlc.",
+                },
+                Type: mkuint64(),
+            },
+        },
+    }
+}
+func mkrouterrpc_LinkFailEvent() Type {
+    return Type{
+        Name: "routerrpc_LinkFailEvent",
+        Fields: []Field{
+            {
+                Name: "info",
+                Description: []string{
+                    "Info contains details about the htlc that we failed.",
+                },
+                Type: mkrouterrpc_HtlcInfo(),
+            },
+            {
+                Name: "wire_failure",
+                Description: []string{
+                    "FailureCode is the BOLT error code for the failure.",
+                },
+                Type: mklnrpc_Failure_FailureCode(),
+            },
+            {
+                Name: "failure_detail",
+                Description: []string{
+                    "FailureDetail provides additional information about the reason for the",
+                    "failure. This detail enriches the information provided by the wire message",
+                    "and may be 'no detail' if the wire message requires no additional metadata.",
+                },
+                Type: mkrouterrpc_FailureDetail(),
+            },
+            {
+                Name: "failure_string",
+                Description: []string{
+                    "A string representation of the link failure.",
+                },
+                Type: mkstring(),
+            },
+        },
+    }
+}
+func mkrouterrpc_PairData() Type {
+    return Type{
+        Name: "routerrpc_PairData",
+        Fields: []Field{
+            {
+                Name: "fail_time",
+                Description: []string{
+                    "Time of last failure.",
+                },
+                Type: mkint64(),
+            },
+            {
+                Name: "fail_amt_sat",
+                Description: []string{
+                    "Lowest amount that failed to forward rounded to whole sats. This may be",
+                    "set to zero if the failure is independent of amount.",
+                },
+                Type: mkint64(),
+            },
+            {
+                Name: "fail_amt_msat",
+                Description: []string{
+                    "Lowest amount that failed to forward in millisats. This may be",
+                    "set to zero if the failure is independent of amount.",
+                },
+                Type: mkint64(),
+            },
+            {
+                Name: "success_time",
+                Description: []string{
+                    "Time of last success.",
+                },
+                Type: mkint64(),
+            },
+            {
+                Name: "success_amt_sat",
+                Description: []string{
+                    "Highest amount that we could successfully forward rounded to whole sats.",
+                },
+                Type: mkint64(),
+            },
+            {
+                Name: "success_amt_msat",
+                Description: []string{
+                    "Highest amount that we could successfully forward in millisats.",
+                },
+                Type: mkint64(),
+            },
+        },
+    }
+}
+func mkrouterrpc_PairHistory() Type {
+    return Type{
+        Name: "routerrpc_PairHistory",
+        Description: []string{
+            "PairHistory contains the mission control state for a particular node pair.",
+        },
+        Fields: []Field{
+            {
+                Name: "node_from",
+                Description: []string{
+                    "The source node pubkey of the pair.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "node_to",
+                Description: []string{
+                    "The destination node pubkey of the pair.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "history",
+                Type: mkrouterrpc_PairData(),
+            },
+        },
+    }
+}
+func mkrouterrpc_PaymentStatus() Type {
+    return Type{
+        Name: "routerrpc_PaymentStatus",
+        Fields: []Field{
+            {
+                Name: "state",
+                Description: []string{
+                    "Current state the payment is in.",
+                },
+                Type: mkrouterrpc_PaymentState(),
+            },
+            {
+                Name: "preimage",
+                Description: []string{
+                    "The pre-image of the payment when state is SUCCEEDED.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "htlcs",
+                Description: []string{
+                    "The HTLCs made in attempt to settle the payment [EXPERIMENTAL].",
+                },
+                Repeated: true,
+                Type: mklnrpc_HTLCAttempt(),
+            },
+        },
+    }
+}
+func mkrouterrpc_QueryMissionControlRequest() Type {
+    return Type{
+        Name: "routerrpc_QueryMissionControlRequest",
+    }
+}
+func mkrouterrpc_QueryMissionControlResponse() Type {
+    return Type{
+        Name: "routerrpc_QueryMissionControlResponse",
+        Description: []string{
+            "QueryMissionControlResponse contains mission control state.",
+        },
+        Fields: []Field{
+            {
+                Name: "pairs",
+                Description: []string{
+                    "Node pair-level mission control state.",
+                },
+                Repeated: true,
+                Type: mkrouterrpc_PairHistory(),
+            },
+        },
+    }
+}
+func mkrouterrpc_QueryProbabilityRequest() Type {
+    return Type{
+        Name: "routerrpc_QueryProbabilityRequest",
+        Fields: []Field{
+            {
+                Name: "from_node",
+                Description: []string{
+                    "The source node pubkey of the pair.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "to_node",
+                Description: []string{
+                    "The destination node pubkey of the pair.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "amt_msat",
+                Description: []string{
+                    "The amount for which to calculate a probability.",
+                },
+                Type: mkint64(),
+            },
+        },
+    }
+}
+func mkrouterrpc_QueryProbabilityResponse() Type {
+    return Type{
+        Name: "routerrpc_QueryProbabilityResponse",
+        Fields: []Field{
+            {
+                Name: "probability",
+                Description: []string{
+                    "The success probability for the requested pair.",
+                },
+                Type: mkdouble(),
+            },
+            {
+                Name: "history",
+                Description: []string{
+                    "The historical data for the requested pair.",
+                },
+                Type: mkrouterrpc_PairData(),
+            },
+        },
+    }
+}
+func mkrouterrpc_ResetMissionControlRequest() Type {
+    return Type{
+        Name: "routerrpc_ResetMissionControlRequest",
+    }
+}
+func mkrouterrpc_ResetMissionControlResponse() Type {
+    return Type{
+        Name: "routerrpc_ResetMissionControlResponse",
+    }
+}
+func mkrouterrpc_RouteFeeRequest() Type {
+    return Type{
+        Name: "routerrpc_RouteFeeRequest",
+        Fields: []Field{
+            {
+                Name: "dest",
+                Description: []string{
+                    "The destination once wishes to obtain a routing fee quote to.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "amt_sat",
+                Description: []string{
+                    "The amount one wishes to send to the target destination.",
+                },
+                Type: mkint64(),
+            },
+        },
+    }
+}
+func mkrouterrpc_RouteFeeResponse() Type {
+    return Type{
+        Name: "routerrpc_RouteFeeResponse",
+        Fields: []Field{
+            {
+                Name: "routing_fee_msat",
+                Description: []string{
+                    "A lower bound of the estimated fee to the target destination within the",
+                    "network, expressed in milli-satoshis.",
+                },
+                Type: mkint64(),
+            },
+            {
+                Name: "time_lock_delay",
+                Description: []string{
+                    "An estimate of the worst case time delay that can occur. Note that callers",
+                    "will still need to factor in the final CLTV delta of the last hop into this",
+                    "value.",
+                },
+                Type: mkint64(),
+            },
+        },
+    }
+}
+func mkrouterrpc_SendPaymentRequest() Type {
+    return Type{
+        Name: "routerrpc_SendPaymentRequest",
+        Fields: []Field{
+            {
+                Name: "dest",
+                Description: []string{
+                    "The identity pubkey of the payment recipient",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "amt",
+                Description: []string{
+                    "Number of satoshis to send.",
+                    "",
+                    "The fields amt and amt_msat are mutually exclusive.",
+                },
+                Type: mkint64(),
+            },
+            {
+                Name: "amt_msat",
+                Description: []string{
+                    "Number of millisatoshis to send.",
+                    "",
+                    "The fields amt and amt_msat are mutually exclusive.",
+                },
+                Type: mkint64(),
+            },
+            {
+                Name: "payment_hash",
+                Description: []string{
+                    "The hash to use within the payment's HTLC",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "final_cltv_delta",
+                Description: []string{
+                    "The CLTV delta from the current height that should be used to set the",
+                    "timelock for the final hop.",
+                },
+                Type: mkint32(),
+            },
+            {
+                Name: "payment_request",
+                Description: []string{
+                    "A bare-bones invoice for a payment within the Lightning Network.  With the",
+                    "details of the invoice, the sender has all the data necessary to send a",
+                    "payment to the recipient. The amount in the payment request may be zero. In",
+                    "that case it is required to set the amt field as well. If no payment request",
+                    "is specified, the following fields are required: dest, amt and payment_hash.",
+                },
+                Type: mkstring(),
+            },
+            {
+                Name: "timeout_seconds",
+                Description: []string{
+                    "An upper limit on the amount of time we should spend when attempting to",
+                    "fulfill the payment. This is expressed in seconds. If we cannot make a",
+                    "successful payment within this time frame, an error will be returned.",
+                    "This field must be non-zero.",
+                },
+                Type: mkint32(),
+            },
+            {
+                Name: "fee_limit_sat",
+                Description: []string{
+                    "The maximum number of satoshis that will be paid as a fee of the payment.",
+                    "If this field is left to the default value of 0, only zero-fee routes will",
+                    "be considered. This usually means single hop routes connecting directly to",
+                    "the destination. To send the payment without a fee limit, use max int here.",
+                    "",
+                    "The fields fee_limit_sat and fee_limit_msat are mutually exclusive.",
+                },
+                Type: mkint64(),
+            },
+            {
+                Name: "fee_limit_msat",
+                Description: []string{
+                    "The maximum number of millisatoshis that will be paid as a fee of the",
+                    "payment. If this field is left to the default value of 0, only zero-fee",
+                    "routes will be considered. This usually means single hop routes connecting",
+                    "directly to the destination. To send the payment without a fee limit, use",
+                    "max int here.",
+                    "",
+                    "The fields fee_limit_sat and fee_limit_msat are mutually exclusive.",
+                },
+                Type: mkint64(),
+            },
+            {
+                Name: "outgoing_chan_id",
+                Description: []string{
+                    "Deprecated, use outgoing_chan_ids. The channel id of the channel that must",
+                    "be taken to the first hop. If zero, any channel may be used (unless",
+                    "outgoing_chan_ids are set).",
+                },
+                Type: mkuint64(),
+            },
+            {
+                Name: "outgoing_chan_ids",
+                Description: []string{
+                    "The channel ids of the channels are allowed for the first hop. If empty,",
+                    "any channel may be used.",
+                },
+                Repeated: true,
+                Type: mkuint64(),
+            },
+            {
+                Name: "last_hop_pubkey",
+                Description: []string{
+                    "The pubkey of the last hop of the route. If empty, any hop may be used.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "cltv_limit",
+                Description: []string{
+                    "An optional maximum total time lock for the route. This should not exceed",
+                    "lnd's `--max-cltv-expiry` setting. If zero, then the value of",
+                    "`--max-cltv-expiry` is enforced.",
+                },
+                Type: mkint32(),
+            },
+            {
+                Name: "route_hints",
+                Description: []string{
+                    "Optional route hints to reach the destination through private channels.",
+                },
+                Repeated: true,
+                Type: mklnrpc_RouteHint(),
+            },
+            {
+                Name: "dest_custom_records",
+                Description: []string{
+                    "An optional field that can be used to pass an arbitrary set of TLV records",
+                    "to a peer which understands the new records. This can be used to pass",
+                    "application specific data during the payment attempt. Record types are",
+                    "required to be in the custom range >= 65536. When using REST, the values",
+                    "must be encoded as base64.",
+                },
+                Repeated: true,
+                Type: mkrouterrpc_SendPaymentRequest_DestCustomRecordsEntry(),
+            },
+            {
+                Name: "allow_self_payment",
+                Description: []string{
+                    "If set, circular payments to self are permitted.",
+                },
+                Type: mkbool(),
+            },
+            {
+                Name: "dest_features",
+                Description: []string{
+                    "Features assumed to be supported by the final node. All transitive feature",
+                    "dependencies must also be set properly. For a given feature bit pair, either",
+                    "optional or remote may be set, but not both. If this field is nil or empty,",
+                    "the router will try to load destination features from the graph as a",
+                    "fallback.",
+                },
+                Repeated: true,
+                Type: mklnrpc_FeatureBit(),
+            },
+            {
+                Name: "max_parts",
+                Description: []string{
+                    "The maximum number of partial payments that may be use to complete the full",
+                    "amount.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "no_inflight_updates",
+                Description: []string{
+                    "If set, only the final payment update is streamed back. Intermediate updates",
+                    "that show which htlcs are still in flight are suppressed.",
+                },
+                Type: mkbool(),
+            },
+        },
+    }
+}
+func mkrouterrpc_SendPaymentRequest_DestCustomRecordsEntry() Type {
+    return Type{
+        Name: "routerrpc_SendPaymentRequest_DestCustomRecordsEntry",
+        Fields: []Field{
+            {
+                Name: "key",
+                Type: mkuint64(),
+            },
+            {
+                Name: "value",
+                Type: mkbytes(),
+            },
+        },
+    }
+}
+func mkrouterrpc_SendToRouteRequest() Type {
+    return Type{
+        Name: "routerrpc_SendToRouteRequest",
+        Fields: []Field{
+            {
+                Name: "payment_hash",
+                Description: []string{
+                    "The payment hash to use for the HTLC.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "route",
+                Description: []string{
+                    "Route that should be used to attempt to complete the payment.",
+                },
+                Type: mklnrpc_Route(),
+            },
+        },
+    }
+}
+func mkrouterrpc_SendToRouteResponse() Type {
+    return Type{
+        Name: "routerrpc_SendToRouteResponse",
+        Fields: []Field{
+            {
+                Name: "preimage",
+                Description: []string{
+                    "The preimage obtained by making the payment.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "failure",
+                Description: []string{
+                    "The failure message in case the payment failed.",
+                },
+                Type: mklnrpc_Failure(),
+            },
+        },
+    }
+}
+func mkrouterrpc_SettleEvent() Type {
+    return Type{
+        Name: "routerrpc_SettleEvent",
+    }
+}
+func mkrouterrpc_SubscribeHtlcEventsRequest() Type {
+    return Type{
+        Name: "routerrpc_SubscribeHtlcEventsRequest",
+    }
+}
+func mkrouterrpc_TrackPaymentRequest() Type {
+    return Type{
+        Name: "routerrpc_TrackPaymentRequest",
+        Fields: []Field{
+            {
+                Name: "payment_hash",
+                Description: []string{
+                    "The hash of the payment to look up.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "no_inflight_updates",
+                Description: []string{
+                    "If set, only the final payment update is streamed back. Intermediate updates",
+                    "that show which htlcs are still in flight are suppressed.",
+                },
+                Type: mkbool(),
             },
         },
     }
@@ -11204,52 +10799,635 @@ func mkhelp_Type() Type {
         },
     }
 }
-func Autopilot_Status() Method {
-    return Method{
-        Name: "Status",
-        Service: "Autopilot",
+func mkgoogle_protobuf_Any() Type {
+    return Type{
+        Name: "google_protobuf_Any",
         Description: []string{
-            "Status returns whether the daemon's autopilot agent is active.",
+            "`Any` contains an arbitrary serialized protocol buffer message along with a",
+            "URL that describes the type of the serialized message.",
+            "",
+            "Protobuf library provides support to pack/unpack Any values in the form",
+            "of utility functions or additional generated methods of the Any type.",
+            "",
+            "Example 1: Pack and unpack a message in C++.",
+            "",
+            "    Foo foo = ...;",
+            "    Any any;",
+            "    any.PackFrom(foo);",
+            "    ...",
+            "    if (any.UnpackTo(&foo)) {",
+            "      ...",
+            "    }",
+            "",
+            "Example 2: Pack and unpack a message in Java.",
+            "",
+            "    Foo foo = ...;",
+            "    Any any = Any.pack(foo);",
+            "    ...",
+            "    if (any.is(Foo.class)) {",
+            "      foo = any.unpack(Foo.class);",
+            "    }",
+            "",
+            " Example 3: Pack and unpack a message in Python.",
+            "",
+            "    foo = Foo(...)",
+            "    any = Any()",
+            "    any.Pack(foo)",
+            "    ...",
+            "    if any.Is(Foo.DESCRIPTOR):",
+            "      any.Unpack(foo)",
+            "      ...",
+            "",
+            " Example 4: Pack and unpack a message in Go",
+            "",
+            "     foo := &pb.Foo{...}",
+            "     any, err := ptypes.MarshalAny(foo)",
+            "     ...",
+            "     foo := &pb.Foo{}",
+            "     if err := ptypes.UnmarshalAny(any, foo); err != nil {",
+            "       ...",
+            "     }",
+            "",
+            "The pack methods provided by protobuf library will by default use",
+            "'type.googleapis.com/full.type.name' as the type URL and the unpack",
+            "methods only use the fully qualified type name after the last '/'",
+            "in the type URL, for example \"foo.bar.com/x/y.z\" will yield type",
+            "name \"y.z\".",
+            "",
+            "",
+            "JSON",
+            "====",
+            "The JSON representation of an `Any` value uses the regular",
+            "representation of the deserialized, embedded message, with an",
+            "additional field `@type` which contains the type URL. Example:",
+            "",
+            "    package google.profile;",
+            "    message Person {",
+            "      string first_name = 1;",
+            "      string last_name = 2;",
+            "    }",
+            "",
+            "    {",
+            "      \"@type\": \"type.googleapis.com/google.profile.Person\",",
+            "      \"firstName\": <string>,",
+            "      \"lastName\": <string>",
+            "    }",
+            "",
+            "If the embedded message type is well-known and has a custom JSON",
+            "representation, that representation will be embedded adding a field",
+            "`value` which holds the custom JSON in addition to the `@type`",
+            "field. Example (for message [google.protobuf.Duration][]):",
+            "",
+            "    {",
+            "      \"@type\": \"type.googleapis.com/google.protobuf.Duration\",",
+            "      \"value\": \"1.212s\"",
+            "    }",
         },
-        Req: mkautopilotrpc_StatusRequest(),
-        Res: mkautopilotrpc_StatusResponse(),
+        Fields: []Field{
+            {
+                Name: "type_url",
+                Description: []string{
+                    "A URL/resource name that uniquely identifies the type of the serialized",
+                    "protocol buffer message. This string must contain at least",
+                    "one \"/\" character. The last segment of the URL's path must represent",
+                    "the fully qualified name of the type (as in",
+                    "`path/google.protobuf.Duration`). The name should be in a canonical form",
+                    "(e.g., leading \".\" is not accepted).",
+                    "",
+                    "In practice, teams usually precompile into the binary all types that they",
+                    "expect it to use in the context of Any. However, for URLs which use the",
+                    "scheme `http`, `https`, or no scheme, one can optionally set up a type",
+                    "server that maps type URLs to message definitions as follows:",
+                    "",
+                    "* If no scheme is provided, `https` is assumed.",
+                    "* An HTTP GET on the URL must yield a [google.protobuf.Type][]",
+                    "  value in binary format, or produce an error.",
+                    "* Applications are allowed to cache lookup results based on the",
+                    "  URL, or have them precompiled into a binary to avoid any",
+                    "  lookup. Therefore, binary compatibility needs to be preserved",
+                    "  on changes to types. (Use versioned type names to manage",
+                    "  breaking changes.)",
+                    "",
+                    "Note: this functionality is not currently available in the official",
+                    "protobuf release, and it is not used for type URLs beginning with",
+                    "type.googleapis.com.",
+                    "",
+                    "Schemes other than `http`, `https` (or the empty scheme) might be",
+                    "used with implementation specific semantics.",
+                },
+                Type: mkstring(),
+            },
+            {
+                Name: "value",
+                Description: []string{
+                    "Must be a valid serialized protocol buffer of the above specified type.",
+                },
+                Type: mkbytes(),
+            },
+        },
     }
 }
-func Autopilot_ModifyStatus() Method {
-    return Method{
-        Name: "ModifyStatus",
-        Service: "Autopilot",
-        Description: []string{
-            "ModifyStatus is used to modify the status of the autopilot agent, like",
-            "enabling or disabling it.",
+func mkinvoicesrpc_AddHoldInvoiceRequest() Type {
+    return Type{
+        Name: "invoicesrpc_AddHoldInvoiceRequest",
+        Fields: []Field{
+            {
+                Name: "memo",
+                Description: []string{
+                    "An optional memo to attach along with the invoice. Used for record keeping",
+                    "purposes for the invoice's creator, and will also be set in the description",
+                    "field of the encoded payment request if the description_hash field is not",
+                    "being used.",
+                },
+                Type: mkstring(),
+            },
+            {
+                Name: "hash",
+                Description: []string{
+                    "The hash of the preimage",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "value",
+                Description: []string{
+                    "The value of this invoice in satoshis",
+                    "",
+                    "The fields value and value_msat are mutually exclusive.",
+                },
+                Type: mkint64(),
+            },
+            {
+                Name: "value_msat",
+                Description: []string{
+                    "The value of this invoice in millisatoshis",
+                    "",
+                    "The fields value and value_msat are mutually exclusive.",
+                },
+                Type: mkint64(),
+            },
+            {
+                Name: "description_hash",
+                Description: []string{
+                    "Hash (SHA-256) of a description of the payment. Used if the description of",
+                    "payment (memo) is too long to naturally fit within the description field",
+                    "of an encoded payment request.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "expiry",
+                Description: []string{
+                    "Payment request expiry time in seconds. Default is 3600 (1 hour).",
+                },
+                Type: mkint64(),
+            },
+            {
+                Name: "fallback_addr",
+                Description: []string{
+                    "Fallback on-chain address.",
+                },
+                Type: mkstring(),
+            },
+            {
+                Name: "cltv_expiry",
+                Description: []string{
+                    "Delta to use for the time-lock of the CLTV extended to the final hop.",
+                },
+                Type: mkuint64(),
+            },
+            {
+                Name: "route_hints",
+                Description: []string{
+                    "Route hints that can each be individually used to assist in reaching the",
+                    "invoice's destination.",
+                },
+                Repeated: true,
+                Type: mklnrpc_RouteHint(),
+            },
+            {
+                Name: "private",
+                Description: []string{
+                    "Whether this invoice should include routing hints for private channels.",
+                },
+                Type: mkbool(),
+            },
         },
-        Req: mkautopilotrpc_ModifyStatusRequest(),
-        Res: mkautopilotrpc_ModifyStatusResponse(),
     }
 }
-func Autopilot_QueryScores() Method {
-    return Method{
-        Name: "QueryScores",
-        Service: "Autopilot",
-        Description: []string{
-            "QueryScores queries all available autopilot heuristics, in addition to any",
-            "active combination of these heruristics, for the scores they would give to",
-            "the given nodes.",
+func mkinvoicesrpc_AddHoldInvoiceResp() Type {
+    return Type{
+        Name: "invoicesrpc_AddHoldInvoiceResp",
+        Fields: []Field{
+            {
+                Name: "payment_request",
+                Description: []string{
+                    "A bare-bones invoice for a payment within the Lightning Network.  With the",
+                    "details of the invoice, the sender has all the data necessary to send a",
+                    "payment to the recipient.",
+                },
+                Type: mkstring(),
+            },
         },
-        Req: mkautopilotrpc_QueryScoresRequest(),
-        Res: mkautopilotrpc_QueryScoresResponse(),
     }
 }
-func Autopilot_SetScores() Method {
-    return Method{
-        Name: "SetScores",
-        Service: "Autopilot",
-        Description: []string{
-            "SetScores attempts to set the scores used by the running autopilot agent,",
-            "if the external scoring heuristic is enabled.",
+func mkinvoicesrpc_CancelInvoiceMsg() Type {
+    return Type{
+        Name: "invoicesrpc_CancelInvoiceMsg",
+        Fields: []Field{
+            {
+                Name: "payment_hash",
+                Description: []string{
+                    "Hash corresponding to the (hold) invoice to cancel.",
+                },
+                Type: mkbytes(),
+            },
         },
-        Req: mkautopilotrpc_SetScoresRequest(),
-        Res: mkautopilotrpc_SetScoresResponse(),
+    }
+}
+func mkinvoicesrpc_CancelInvoiceResp() Type {
+    return Type{
+        Name: "invoicesrpc_CancelInvoiceResp",
+    }
+}
+func mkinvoicesrpc_SettleInvoiceMsg() Type {
+    return Type{
+        Name: "invoicesrpc_SettleInvoiceMsg",
+        Fields: []Field{
+            {
+                Name: "preimage",
+                Description: []string{
+                    "Externally discovered pre-image that should be used to settle the hold",
+                    "invoice.",
+                },
+                Type: mkbytes(),
+            },
+        },
+    }
+}
+func mkinvoicesrpc_SettleInvoiceResp() Type {
+    return Type{
+        Name: "invoicesrpc_SettleInvoiceResp",
+    }
+}
+func mkinvoicesrpc_SubscribeSingleInvoiceRequest() Type {
+    return Type{
+        Name: "invoicesrpc_SubscribeSingleInvoiceRequest",
+        Fields: []Field{
+            {
+                Name: "r_hash",
+                Description: []string{
+                    "Hash corresponding to the (hold) invoice to subscribe to.",
+                },
+                Type: mkbytes(),
+            },
+        },
+    }
+}
+func mklnrpc_ChangePasswordRequest() Type {
+    return Type{
+        Name: "lnrpc_ChangePasswordRequest",
+        Fields: []Field{
+            {
+                Name: "current_passphrase",
+                Description: []string{
+                    "current_password should be the current valid passphrase used to unlock the daemon.",
+                },
+                Type: mkstring(),
+            },
+            {
+                Name: "current_password_bin",
+                Description: []string{
+                    "Binary form of current_passphrase, if specified will override current_passphrase.",
+                    "When using JSON, this field must be encoded as base64.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "new_passphrase",
+                Description: []string{
+                    "new_passphrase should be the new passphrase that will be needed to unlock the",
+                    "daemon.",
+                },
+                Type: mkstring(),
+            },
+            {
+                Name: "new_passphrase_bin",
+                Description: []string{
+                    "Binary form of new_passphrase, if specified will override new_passphrase.",
+                    "When using JSON, this field must be encoded as base64.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "wallet_name",
+                Description: []string{
+                    "wallet_name is optional, if specified will override default wallet.db",
+                },
+                Type: mkstring(),
+            },
+        },
+    }
+}
+func mklnrpc_ChangePasswordResponse() Type {
+    return Type{
+        Name: "lnrpc_ChangePasswordResponse",
+    }
+}
+func mklnrpc_CheckPasswordRequest() Type {
+    return Type{
+        Name: "lnrpc_CheckPasswordRequest",
+        Fields: []Field{
+            {
+                Name: "wallet_passphrase",
+                Description: []string{
+                    "current_password should be the current valid passphrase used to unlock the daemon.",
+                },
+                Type: mkstring(),
+            },
+            {
+                Name: "wallet_password_bin",
+                Description: []string{
+                    "Binary form of current_passphrase, if specified will override current_passphrase.",
+                    "When using JSON, this field must be encoded as base64.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "wallet_name",
+                Description: []string{
+                    "wallet_name is optional, if specified will override default wallet.db",
+                },
+                Type: mkstring(),
+            },
+        },
+    }
+}
+func mklnrpc_CheckPasswordResponse() Type {
+    return Type{
+        Name: "lnrpc_CheckPasswordResponse",
+        Fields: []Field{
+            {
+                Name: "valid_passphrase",
+                Type: mkbool(),
+            },
+        },
+    }
+}
+func mklnrpc_CrashRequest() Type {
+    return Type{
+        Name: "lnrpc_CrashRequest",
+    }
+}
+func mklnrpc_CrashResponse() Type {
+    return Type{
+        Name: "lnrpc_CrashResponse",
+    }
+}
+func mklnrpc_GetInfo2Request() Type {
+    return Type{
+        Name: "lnrpc_GetInfo2Request",
+    }
+}
+func mklnrpc_GetInfo2Response() Type {
+    return Type{
+        Name: "lnrpc_GetInfo2Response",
+        Fields: []Field{
+            {
+                Name: "neutrino",
+                Type: mklnrpc_NeutrinoInfo(),
+            },
+            {
+                Name: "wallet",
+                Type: mklnrpc_WalletInfo(),
+            },
+            {
+                Name: "lightning",
+                Type: mklnrpc_GetInfoResponse(),
+            },
+        },
+    }
+}
+func mklnrpc_GenSeedRequest() Type {
+    return Type{
+        Name: "lnrpc_GenSeedRequest",
+        Fields: []Field{
+            {
+                Name: "seed_passphrase",
+                Description: []string{
+                    "seed_passphrase is the optional user specified passphrase that will be used",
+                    "to encrypt the generated seed.",
+                },
+                Type: mkstring(),
+            },
+            {
+                Name: "seed_passphrase_bin",
+                Description: []string{
+                    "seed_passphrase_bin overrides seed_passphrase if specified, for binary",
+                    "representation of the passphrase. If using JSON then this field must be base64",
+                    "encoded.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "seed_entropy",
+                Description: []string{
+                    "seed_entropy is an optional 16-bytes generated via CSPRNG. If not",
+                    "specified, then a fresh set of randomness will be used to create the seed.",
+                    "When using REST, this field must be encoded as base64.",
+                },
+                Type: mkbytes(),
+            },
+        },
+    }
+}
+func mklnrpc_GenSeedResponse() Type {
+    return Type{
+        Name: "lnrpc_GenSeedResponse",
+        Fields: []Field{
+            {
+                Name: "seed",
+                Description: []string{
+                    "seed is a 15-word mnemonic that encodes a secret root seed used to generate",
+                    "all private keys of the wallet.",
+                },
+                Repeated: true,
+                Type: mkstring(),
+            },
+        },
+    }
+}
+func mklnrpc_InitWalletRequest() Type {
+    return Type{
+        Name: "lnrpc_InitWalletRequest",
+        Fields: []Field{
+            {
+                Name: "wallet_passphrase",
+                Description: []string{
+                    "wallet_passphrase is the passphrase that should be used to encrypt the",
+                    "wallet. This MUST be at least 8 chars in length. After creation, this",
+                    "password is required to unlock the daemon.",
+                },
+                Type: mkstring(),
+            },
+            {
+                Name: "wallet_passphrase_bin",
+                Description: []string{
+                    "If specified, will override wallet_passphrase, but is expressed in binary.",
+                    "When using REST, this field must be encoded as base64.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "wallet_seed",
+                Description: []string{
+                    "wallet_seed is a 15-word wallet seed. This may have been generated by the",
+                    "GenSeed method, or be an existing seed.",
+                },
+                Repeated: true,
+                Type: mkstring(),
+            },
+            {
+                Name: "seed_passphrase",
+                Description: []string{
+                    "seed_passphrase is an optional user provided passphrase that will be used",
+                    "to encrypt the generated seed.",
+                },
+                Type: mkstring(),
+            },
+            {
+                Name: "seed_passphrase_bin",
+                Description: []string{
+                    "If specified, will override seed_passphrase, but is expressed in binary.",
+                    "When using REST, this field must be encoded as base64.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "recovery_window",
+                Description: []string{
+                    "recovery_window is an optional argument specifying the address lookahead",
+                    "when restoring a wallet seed. The recovery window applies to each",
+                    "individual branch of the BIP44 derivation paths. Supplying a recovery",
+                    "window of zero indicates that no addresses should be recovered, such after",
+                    "the first initialization of the wallet.",
+                },
+                Type: mkint32(),
+            },
+            {
+                Name: "channel_backups",
+                Description: []string{
+                    "channel_backups is an optional argument that allows clients to recover the",
+                    "settled funds within a set of channels. This should be populated if the",
+                    "user was unable to close out all channels and sweep funds before partial or",
+                    "total data loss occurred. If specified, then after on-chain recovery of",
+                    "funds, lnd begin to carry out the data loss recovery protocol in order to",
+                    "recover the funds in each channel from a remote force closed transaction.",
+                },
+                Type: mklnrpc_ChanBackupSnapshot(),
+            },
+            {
+                Name: "wallet_name",
+                Description: []string{
+                    "wallet_name is an optional argument that allows to define the ",
+                    "wallet filename other than the default wallet.db",
+                },
+                Type: mkstring(),
+            },
+        },
+    }
+}
+func mklnrpc_InitWalletResponse() Type {
+    return Type{
+        Name: "lnrpc_InitWalletResponse",
+    }
+}
+func mklnrpc_UnlockWalletRequest() Type {
+    return Type{
+        Name: "lnrpc_UnlockWalletRequest",
+        Fields: []Field{
+            {
+                Name: "wallet_passphrase",
+                Description: []string{
+                    "wallet_passphrase should be the current valid private passphrase for the daemon. This",
+                    "will be required to decrypt on-disk material that the daemon requires to",
+                    "function properly.",
+                },
+                Type: mkstring(),
+            },
+            {
+                Name: "wallet_passphrase_bin",
+                Description: []string{
+                    "If specified, will override wallet_passphrase, but is expressed in binary.",
+                    "When using REST, this field must be encoded as base64.",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "recovery_window",
+                Description: []string{
+                    "recovery_window is an optional argument specifying the address lookahead",
+                    "when restoring a wallet seed. The recovery window applies to each",
+                    "individual branch of the BIP44 derivation paths. Supplying a recovery",
+                    "window of zero indicates that no addresses should be recovered, such after",
+                    "the first initialization of the wallet.",
+                },
+                Type: mkint32(),
+            },
+            {
+                Name: "channel_backups",
+                Description: []string{
+                    "channel_backups is an optional argument that allows clients to recover the",
+                    "settled funds within a set of channels. This should be populated if the",
+                    "user was unable to close out all channels and sweep funds before partial or",
+                    "total data loss occurred. If specified, then after on-chain recovery of",
+                    "funds, lnd begin to carry out the data loss recovery protocol in order to",
+                    "recover the funds in each channel from a remote force closed transaction.",
+                },
+                Type: mklnrpc_ChanBackupSnapshot(),
+            },
+            {
+                Name: "wallet_name",
+                Description: []string{
+                    "wallet_name is optional when the user wants to load a specified wallet other ",
+                    "than the default wallet.db",
+                },
+                Type: mkstring(),
+            },
+        },
+    }
+}
+func mklnrpc_UnlockWalletResponse() Type {
+    return Type{
+        Name: "lnrpc_UnlockWalletResponse",
+    }
+}
+func Watchtower_GetInfo() Method {
+    return Method{
+        Name: "GetInfo",
+        Service: "Watchtower",
+        Description: []string{
+            "lncli: tower info",
+            "GetInfo returns general information concerning the companion watchtower",
+            "including its public key and URIs where the server is currently",
+            "listening for clients.",
+        },
+        Req: mkwatchtowerrpc_GetInfoRequest(),
+        Res: mkwatchtowerrpc_GetInfoResponse(),
+    }
+}
+func Versioner_GetVersion() Method {
+    return Method{
+        Name: "GetVersion",
+        Service: "Versioner",
+        Category: "Meta",
+        ShortDescription: "Display pldctl and pld version info",
+        Description: []string{
+            "GetVersion returns the current version and build information of the running",
+            "daemon.",
+        },
+        Req: mkverrpc_VersionRequest(),
+        Res: mkverrpc_Version(),
     }
 }
 func ChainNotifier_RegisterConfirmationsNtfn() Method {
@@ -11299,585 +11477,6 @@ func ChainNotifier_RegisterBlockEpochNtfn() Method {
         },
         Req: mkchainrpc_BlockEpoch(),
         Res: mkchainrpc_BlockEpoch(),
-    }
-}
-func Invoices_SubscribeSingleInvoice() Method {
-    return Method{
-        Name: "SubscribeSingleInvoice",
-        Service: "Invoices",
-        Description: []string{
-            "SubscribeSingleInvoice returns a uni-directional stream (server -> client)",
-            "to notify the client of state transitions of the specified invoice.",
-            "Initially the current invoice state is always sent out.",
-        },
-        Req: mkinvoicesrpc_SubscribeSingleInvoiceRequest(),
-        Res: mklnrpc_Invoice(),
-    }
-}
-func Invoices_CancelInvoice() Method {
-    return Method{
-        Name: "CancelInvoice",
-        Service: "Invoices",
-        Description: []string{
-            "CancelInvoice cancels a currently open invoice. If the invoice is already",
-            "canceled, this call will succeed. If the invoice is already settled, it will",
-            "fail.",
-        },
-        Req: mkinvoicesrpc_CancelInvoiceMsg(),
-        Res: mkinvoicesrpc_CancelInvoiceResp(),
-    }
-}
-func Invoices_AddHoldInvoice() Method {
-    return Method{
-        Name: "AddHoldInvoice",
-        Service: "Invoices",
-        Description: []string{
-            "AddHoldInvoice creates a hold invoice. It ties the invoice to the hash",
-            "supplied in the request.",
-        },
-        Req: mkinvoicesrpc_AddHoldInvoiceRequest(),
-        Res: mkinvoicesrpc_AddHoldInvoiceResp(),
-    }
-}
-func Invoices_SettleInvoice() Method {
-    return Method{
-        Name: "SettleInvoice",
-        Service: "Invoices",
-        Description: []string{
-            "SettleInvoice settles an accepted invoice. If the invoice is already",
-            "settled, this call will succeed.",
-        },
-        Req: mkinvoicesrpc_SettleInvoiceMsg(),
-        Res: mkinvoicesrpc_SettleInvoiceResp(),
-    }
-}
-func Router_SendPaymentV2() Method {
-    return Method{
-        Name: "SendPaymentV2",
-        Service: "Router",
-        Category: "Payment",
-        ShortDescription: "Send a payment over lightning",
-        Description: []string{
-            "SendPaymentV2 attempts to route a payment described by the passed",
-            "PaymentRequest to the final destination. The call returns a stream of",
-            "payment updates.",
-        },
-        Req: mkrouterrpc_SendPaymentRequest(),
-        Res: mklnrpc_Payment(),
-    }
-}
-func Router_TrackPaymentV2() Method {
-    return Method{
-        Name: "TrackPaymentV2",
-        Service: "Router",
-        Category: "Payment",
-        ShortDescription: "Track payment",
-        Description: []string{
-            "TrackPaymentV2 returns an update stream for the payment identified by the",
-            "payment hash.",
-        },
-        Req: mkrouterrpc_TrackPaymentRequest(),
-        Res: mklnrpc_Payment(),
-    }
-}
-func Router_EstimateRouteFee() Method {
-    return Method{
-        Name: "EstimateRouteFee",
-        Service: "Router",
-        Description: []string{
-            "EstimateRouteFee allows callers to obtain a lower bound w.r.t how much it",
-            "may cost to send an HTLC to the target end destination.",
-        },
-        Req: mkrouterrpc_RouteFeeRequest(),
-        Res: mkrouterrpc_RouteFeeResponse(),
-    }
-}
-func Router_SendToRoute() Method {
-    return Method{
-        Name: "SendToRoute",
-        Service: "Router",
-        Description: []string{
-            "Deprecated, use SendToRouteV2. SendToRoute attempts to make a payment via",
-            "the specified route. This method differs from SendPayment in that it",
-            "allows users to specify a full route manually. This can be used for",
-            "things like rebalancing, and atomic swaps. It differs from the newer",
-            "SendToRouteV2 in that it doesn't return the full HTLC information.",
-        },
-        Req: mkrouterrpc_SendToRouteRequest(),
-        Res: mkrouterrpc_SendToRouteResponse(),
-    }
-}
-func Router_SendToRouteV2() Method {
-    return Method{
-        Name: "SendToRouteV2",
-        Service: "Router",
-        Category: "Payment",
-        ShortDescription: "Send a payment over a predefined route",
-        Description: []string{
-            "SendToRouteV2 attempts to make a payment via the specified route. This",
-            "method differs from SendPayment in that it allows users to specify a full",
-            "route manually. This can be used for things like rebalancing, and atomic",
-            "swaps.",
-        },
-        Req: mkrouterrpc_SendToRouteRequest(),
-        Res: mklnrpc_HTLCAttempt(),
-    }
-}
-func Router_ResetMissionControl() Method {
-    return Method{
-        Name: "ResetMissionControl",
-        Service: "Router",
-        Category: "Payment",
-        ShortDescription: "Reset internal mission control state",
-        Description: []string{
-            "ResetMissionControl clears all mission control state and starts with a clean",
-            "slate.",
-        },
-        Req: mkrouterrpc_ResetMissionControlRequest(),
-        Res: mkrouterrpc_ResetMissionControlResponse(),
-    }
-}
-func Router_QueryMissionControl() Method {
-    return Method{
-        Name: "QueryMissionControl",
-        Service: "Router",
-        Category: "Payment",
-        ShortDescription: "Query the internal mission control state",
-        Description: []string{
-            "QueryMissionControl exposes the internal mission control state to callers.",
-            "It is a development feature.",
-        },
-        Req: mkrouterrpc_QueryMissionControlRequest(),
-        Res: mkrouterrpc_QueryMissionControlResponse(),
-    }
-}
-func Router_QueryProbability() Method {
-    return Method{
-        Name: "QueryProbability",
-        Service: "Router",
-        Category: "Payment",
-        ShortDescription: "Estimate a success probability",
-        Description: []string{
-            "QueryProbability returns the current success probability estimate for a",
-            "given node pair and amount.",
-        },
-        Req: mkrouterrpc_QueryProbabilityRequest(),
-        Res: mkrouterrpc_QueryProbabilityResponse(),
-    }
-}
-func Router_BuildRoute() Method {
-    return Method{
-        Name: "BuildRoute",
-        Service: "Router",
-        Category: "Payment",
-        ShortDescription: "Build a route from a list of hop pubkeys",
-        Description: []string{
-            "BuildRoute builds a fully specified route based on a list of hop public",
-            "keys. It retrieves the relevant channel policies from the graph in order to",
-            "calculate the correct fees and time locks.",
-        },
-        Req: mkrouterrpc_BuildRouteRequest(),
-        Res: mkrouterrpc_BuildRouteResponse(),
-    }
-}
-func Router_SubscribeHtlcEvents() Method {
-    return Method{
-        Name: "SubscribeHtlcEvents",
-        Service: "Router",
-        Description: []string{
-            "SubscribeHtlcEvents creates a uni-directional stream from the server to",
-            "the client which delivers a stream of htlc events.",
-        },
-        Req: mkrouterrpc_SubscribeHtlcEventsRequest(),
-        Res: mkrouterrpc_HtlcEvent(),
-    }
-}
-func Router_SendPayment() Method {
-    return Method{
-        Name: "SendPayment",
-        Service: "Router",
-        Description: []string{
-            "Deprecated, use SendPaymentV2. SendPayment attempts to route a payment",
-            "described by the passed PaymentRequest to the final destination. The call",
-            "returns a stream of payment status updates.",
-        },
-        Req: mkrouterrpc_SendPaymentRequest(),
-        Res: mkrouterrpc_PaymentStatus(),
-    }
-}
-func Router_TrackPayment() Method {
-    return Method{
-        Name: "TrackPayment",
-        Service: "Router",
-        Description: []string{
-            "Deprecated, use TrackPaymentV2. TrackPayment returns an update stream for",
-            "the payment identified by the payment hash.",
-        },
-        Req: mkrouterrpc_TrackPaymentRequest(),
-        Res: mkrouterrpc_PaymentStatus(),
-    }
-}
-func Router_HtlcInterceptor() Method {
-    return Method{
-        Name: "HtlcInterceptor",
-        Service: "Router",
-        Description: []string{
-            "HtlcInterceptor dispatches a bi-directional streaming RPC in which",
-            "Forwarded HTLC requests are sent to the client and the client responds with",
-            "a boolean that tells LND if this htlc should be intercepted.",
-            "In case of interception, the htlc can be either settled, cancelled or",
-            "resumed later by using the ResolveHoldForward endpoint.",
-        },
-        Req: mkrouterrpc_ForwardHtlcInterceptResponse(),
-        Res: mkrouterrpc_ForwardHtlcInterceptRequest(),
-    }
-}
-func Signer_SignOutputRaw() Method {
-    return Method{
-        Name: "SignOutputRaw",
-        Service: "Signer",
-        Description: []string{
-            "SignOutputRaw is a method that can be used to generated a signature for a",
-            "set of inputs/outputs to a transaction. Each request specifies details",
-            "concerning how the outputs should be signed, which keys they should be",
-            "signed with, and also any optional tweaks. The return value is a fixed",
-            "64-byte signature (the same format as we use on the wire in Lightning).",
-            "If we are  unable to sign using the specified keys, then an error will be",
-            "returned.",
-        },
-        Req: mksignrpc_SignReq(),
-        Res: mksignrpc_SignResp(),
-    }
-}
-func Signer_ComputeInputScript() Method {
-    return Method{
-        Name: "ComputeInputScript",
-        Service: "Signer",
-        Description: []string{
-            "ComputeInputScript generates a complete InputIndex for the passed",
-            "transaction with the signature as defined within the passed SignDescriptor.",
-            "This method should be capable of generating the proper input script for",
-            "both regular p2wkh output and p2wkh outputs nested within a regular p2sh",
-            "output.",
-            "Note that when using this method to sign inputs belonging to the wallet,",
-            "the only items of the SignDescriptor that need to be populated are pkScript",
-            "in the TxOut field, the value in that same field, and finally the input",
-            "index.",
-        },
-        Req: mksignrpc_SignReq(),
-        Res: mksignrpc_InputScriptResp(),
-    }
-}
-func Signer_SignMessage() Method {
-    return Method{
-        Name: "SignMessage",
-        Service: "Signer",
-        Description: []string{
-            "SignMessage signs a message with the key specified in the key locator. The",
-            "returned signature is fixed-size LN wire format encoded.",
-            "The main difference to SignMessage in the main RPC is that a specific key is",
-            "used to sign the message instead of the node identity private key.",
-        },
-        Req: mksignrpc_SignMessageReq(),
-        Res: mksignrpc_SignMessageResp(),
-    }
-}
-func Signer_VerifyMessage() Method {
-    return Method{
-        Name: "VerifyMessage",
-        Service: "Signer",
-        Description: []string{
-            "VerifyMessage verifies a signature over a message using the public key",
-            "provided. The signature must be fixed-size LN wire format encoded.",
-            "The main difference to VerifyMessage in the main RPC is that the public key",
-            "used to sign the message does not have to be a node known to the network.",
-        },
-        Req: mksignrpc_VerifyMessageReq(),
-        Res: mksignrpc_VerifyMessageResp(),
-    }
-}
-func Signer_DeriveSharedKey() Method {
-    return Method{
-        Name: "DeriveSharedKey",
-        Service: "Signer",
-        Description: []string{
-            "DeriveSharedKey returns a shared secret key by performing Diffie-Hellman key",
-            "derivation between the ephemeral public key in the request and the node's",
-            "key specified in the key_desc parameter. Either a key locator or a raw",
-            "public key is expected in the key_desc, if neither is supplied, defaults to",
-            "the node's identity private key:",
-            "P_shared = privKeyNode * ephemeralPubkey",
-            "The resulting shared public key is serialized in the compressed format and",
-            "hashed with sha256, resulting in the final key length of 256bit.",
-        },
-        Req: mksignrpc_SharedKeyRequest(),
-        Res: mksignrpc_SharedKeyResponse(),
-    }
-}
-func Versioner_GetVersion() Method {
-    return Method{
-        Name: "GetVersion",
-        Service: "Versioner",
-        Category: "Meta",
-        ShortDescription: "Display pldctl and pld version info",
-        Description: []string{
-            "GetVersion returns the current version and build information of the running",
-            "daemon.",
-        },
-        Req: mkverrpc_VersionRequest(),
-        Res: mkverrpc_Version(),
-    }
-}
-func WalletKit_ListUnspent() Method {
-    return Method{
-        Name: "ListUnspent",
-        Service: "WalletKit",
-        Category: "Unspent",
-        ShortDescription: "List utxos available for spending",
-        Description: []string{
-            "ListUnspent returns a list of all utxos spendable by the wallet with a",
-            "number of confirmations between the specified minimum and maximum.",
-        },
-        Req: mkwalletrpc_ListUnspentRequest(),
-        Res: mkwalletrpc_ListUnspentResponse(),
-    }
-}
-func WalletKit_LeaseOutput() Method {
-    return Method{
-        Name: "LeaseOutput",
-        Service: "WalletKit",
-        Description: []string{
-            "LeaseOutput locks an output to the given ID, preventing it from being",
-            "available for any future coin selection attempts. The absolute time of the",
-            "lock's expiration is returned. The expiration of the lock can be extended by",
-            "successive invocations of this RPC. Outputs can be unlocked before their",
-            "expiration through `ReleaseOutput`.",
-        },
-        Req: mkwalletrpc_LeaseOutputRequest(),
-        Res: mkwalletrpc_LeaseOutputResponse(),
-    }
-}
-func WalletKit_ReleaseOutput() Method {
-    return Method{
-        Name: "ReleaseOutput",
-        Service: "WalletKit",
-        Description: []string{
-            "ReleaseOutput unlocks an output, allowing it to be available for coin",
-            "selection if it remains unspent. The ID should match the one used to",
-            "originally lock the output.",
-        },
-        Req: mkwalletrpc_ReleaseOutputRequest(),
-        Res: mkwalletrpc_ReleaseOutputResponse(),
-    }
-}
-func WalletKit_DeriveNextKey() Method {
-    return Method{
-        Name: "DeriveNextKey",
-        Service: "WalletKit",
-        Description: []string{
-            "DeriveNextKey attempts to derive the *next* key within the key family",
-            "(account in BIP43) specified. This method should return the next external",
-            "child within this branch.",
-        },
-        Req: mkwalletrpc_KeyReq(),
-        Res: mksignrpc_KeyDescriptor(),
-    }
-}
-func WalletKit_DeriveKey() Method {
-    return Method{
-        Name: "DeriveKey",
-        Service: "WalletKit",
-        Description: []string{
-            "DeriveKey attempts to derive an arbitrary key specified by the passed",
-            "KeyLocator.",
-        },
-        Req: mksignrpc_KeyLocator(),
-        Res: mksignrpc_KeyDescriptor(),
-    }
-}
-func WalletKit_NextAddr() Method {
-    return Method{
-        Name: "NextAddr",
-        Service: "WalletKit",
-        Description: []string{
-            "NextAddr returns the next unused address within the wallet.",
-        },
-        Req: mkwalletrpc_AddrRequest(),
-        Res: mkwalletrpc_AddrResponse(),
-    }
-}
-func WalletKit_PublishTransaction() Method {
-    return Method{
-        Name: "PublishTransaction",
-        Service: "WalletKit",
-        Description: []string{
-            "PublishTransaction attempts to publish the passed transaction to the",
-            "network. Once this returns without an error, the wallet will continually",
-            "attempt to re-broadcast the transaction on start up, until it enters the",
-            "chain.",
-        },
-        Req: mkwalletrpc_Transaction(),
-        Res: mkwalletrpc_PublishResponse(),
-    }
-}
-func WalletKit_SendOutputs() Method {
-    return Method{
-        Name: "SendOutputs",
-        Service: "WalletKit",
-        Description: []string{
-            "SendOutputs is similar to the existing sendmany call in Bitcoind, and",
-            "allows the caller to create a transaction that sends to several outputs at",
-            "once. This is ideal when wanting to batch create a set of transactions.",
-        },
-        Req: mkwalletrpc_SendOutputsRequest(),
-        Res: mkwalletrpc_SendOutputsResponse(),
-    }
-}
-func WalletKit_EstimateFee() Method {
-    return Method{
-        Name: "EstimateFee",
-        Service: "WalletKit",
-        Description: []string{
-            "EstimateFee attempts to query the internal fee estimator of the wallet to",
-            "determine the fee (in sat/kw) to attach to a transaction in order to",
-            "achieve the confirmation target.",
-        },
-        Req: mkwalletrpc_EstimateFeeRequest(),
-        Res: mkwalletrpc_EstimateFeeResponse(),
-    }
-}
-func WalletKit_PendingSweeps() Method {
-    return Method{
-        Name: "PendingSweeps",
-        Service: "WalletKit",
-        Description: []string{
-            "PendingSweeps returns lists of on-chain outputs that lnd is currently",
-            "attempting to sweep within its central batching engine. Outputs with similar",
-            "fee rates are batched together in order to sweep them within a single",
-            "transaction.",
-            "NOTE: Some of the fields within PendingSweepsRequest are not guaranteed to",
-            "remain supported. This is an advanced API that depends on the internals of",
-            "the UtxoSweeper, so things may change.",
-        },
-        Req: mkwalletrpc_PendingSweepsRequest(),
-        Res: mkwalletrpc_PendingSweepsResponse(),
-    }
-}
-func WalletKit_BumpFee() Method {
-    return Method{
-        Name: "BumpFee",
-        Service: "WalletKit",
-        Description: []string{
-            "BumpFee bumps the fee of an arbitrary input within a transaction. This RPC",
-            "takes a different approach than bitcoind's bumpfee command. lnd has a",
-            "central batching engine in which inputs with similar fee rates are batched",
-            "together to save on transaction fees. Due to this, we cannot rely on",
-            "bumping the fee on a specific transaction, since transactions can change at",
-            "any point with the addition of new inputs. The list of inputs that",
-            "currently exist within lnd's central batching engine can be retrieved",
-            "through the PendingSweeps RPC.",
-            "When bumping the fee of an input that currently exists within lnd's central",
-            "batching engine, a higher fee transaction will be created that replaces the",
-            "lower fee transaction through the Replace-By-Fee (RBF) policy. If it",
-            "This RPC also serves useful when wanting to perform a Child-Pays-For-Parent",
-            "(CPFP), where the child transaction pays for its parent's fee. This can be",
-            "done by specifying an outpoint within the low fee transaction that is under",
-            "the control of the wallet.",
-            "The fee preference can be expressed either as a specific fee rate or a delta",
-            "of blocks in which the output should be swept on-chain within. If a fee",
-            "preference is not explicitly specified, then an error is returned.",
-            "Note that this RPC currently doesn't perform any validation checks on the",
-            "fee preference being provided. For now, the responsibility of ensuring that",
-            "the new fee preference is sufficient is delegated to the user.",
-        },
-        Req: mkwalletrpc_BumpFeeRequest(),
-        Res: mkwalletrpc_BumpFeeResponse(),
-    }
-}
-func WalletKit_ListSweeps() Method {
-    return Method{
-        Name: "ListSweeps",
-        Service: "WalletKit",
-        Description: []string{
-            "ListSweeps returns a list of the sweep transactions our node has produced.",
-            "Note that these sweeps may not be confirmed yet, as we record sweeps on",
-            "broadcast, not confirmation.",
-        },
-        Req: mkwalletrpc_ListSweepsRequest(),
-        Res: mkwalletrpc_ListSweepsResponse(),
-    }
-}
-func WalletKit_LabelTransaction() Method {
-    return Method{
-        Name: "LabelTransaction",
-        Service: "WalletKit",
-        Description: []string{
-            "LabelTransaction adds a label to a transaction. If the transaction already",
-            "has a label the call will fail unless the overwrite bool is set. This will",
-            "overwrite the exiting transaction label. Labels must not be empty, and",
-            "cannot exceed 500 characters.",
-        },
-        Req: mkwalletrpc_LabelTransactionRequest(),
-        Res: mkwalletrpc_LabelTransactionResponse(),
-    }
-}
-func WalletKit_FundPsbt() Method {
-    return Method{
-        Name: "FundPsbt",
-        Service: "WalletKit",
-        Description: []string{
-            "FundPsbt creates a fully populated PSBT that contains enough inputs to fund",
-            "the outputs specified in the template. There are two ways of specifying a",
-            "template: Either by passing in a PSBT with at least one output declared or",
-            "by passing in a raw TxTemplate message.",
-            "If there are no inputs specified in the template, coin selection is",
-            "performed automatically. If the template does contain any inputs, it is",
-            "assumed that full coin selection happened externally and no additional",
-            "inputs are added. If the specified inputs aren't enough to fund the outputs",
-            "with the given fee rate, an error is returned.",
-            "After either selecting or verifying the inputs, all input UTXOs are locked",
-            "with an internal app ID.",
-            "NOTE: If this method returns without an error, it is the caller's",
-            "responsibility to either spend the locked UTXOs (by finalizing and then",
-            "publishing the transaction) or to unlock/release the locked UTXOs in case of",
-            "an error on the caller's side.",
-        },
-        Req: mkwalletrpc_FundPsbtRequest(),
-        Res: mkwalletrpc_FundPsbtResponse(),
-    }
-}
-func WalletKit_FinalizePsbt() Method {
-    return Method{
-        Name: "FinalizePsbt",
-        Service: "WalletKit",
-        Description: []string{
-            "FinalizePsbt expects a partial transaction with all inputs and outputs fully",
-            "declared and tries to sign all inputs that belong to the wallet. Lnd must be",
-            "the last signer of the transaction. That means, if there are any unsigned",
-            "non-witness inputs or inputs without UTXO information attached or inputs",
-            "without witness data that do not belong to lnd's wallet, this method will",
-            "fail. If no error is returned, the PSBT is ready to be extracted and the",
-            "final TX within to be broadcast.",
-            "NOTE: This method does NOT publish the transaction once finalized. It is the",
-            "caller's responsibility to either publish the transaction on success or",
-            "unlock/release any locked UTXOs in case of an error in this method.",
-        },
-        Req: mkwalletrpc_FinalizePsbtRequest(),
-        Res: mkwalletrpc_FinalizePsbtResponse(),
-    }
-}
-func Watchtower_GetInfo() Method {
-    return Method{
-        Name: "GetInfo",
-        Service: "Watchtower",
-        Description: []string{
-            "lncli: tower info",
-            "GetInfo returns general information concerning the companion watchtower",
-            "including its public key and URIs where the server is currently",
-            "listening for clients.",
-        },
-        Req: mkwatchtowerrpc_GetInfoRequest(),
-        Res: mkwatchtowerrpc_GetInfoResponse(),
     }
 }
 func WatchtowerClient_AddTower() Method {
@@ -11962,93 +11561,6 @@ func WatchtowerClient_Policy() Method {
         },
         Req: mkwtclientrpc_PolicyRequest(),
         Res: mkwtclientrpc_PolicyResponse(),
-    }
-}
-func WalletUnlocker_GenSeed() Method {
-    return Method{
-        Name: "GenSeed",
-        Service: "WalletUnlocker",
-        Category: "Seed",
-        ShortDescription: "Create a secret seed",
-        Description: []string{
-            "GenSeed is the first method that should be used to instantiate a new lnd",
-            "instance. This method allows a caller to generate a new aezeed cipher seed",
-            "given an optional passphrase. If provided, the passphrase will be necessary",
-            "to decrypt the cipherseed to expose the internal wallet seed.",
-            "Once the cipherseed is obtained and verified by the user, the InitWallet",
-            "method should be used to commit the newly generated seed, and create the",
-            "wallet.",
-        },
-        Req: mklnrpc_GenSeedRequest(),
-        Res: mklnrpc_GenSeedResponse(),
-    }
-}
-func WalletUnlocker_InitWallet() Method {
-    return Method{
-        Name: "InitWallet",
-        Service: "WalletUnlocker",
-        Category: "Wallet",
-        ShortDescription: "Initialize a wallet when starting lnd for the first time",
-        Description: []string{
-            "InitWallet is used when lnd is starting up for the first time to fully",
-            "initialize the daemon and its internal wallet. At the very least a wallet",
-            "password must be provided. This will be used to encrypt sensitive material",
-            "on disk.",
-            "In the case of a recovery scenario, the user can also specify their aezeed",
-            "mnemonic and passphrase. If set, then the daemon will use this prior state",
-            "to initialize its internal wallet.",
-            "Alternatively, this can be used along with the GenSeed RPC to obtain a",
-            "seed, then present it to the user. Once it has been verified by the user,",
-            "the seed can be fed into this RPC in order to commit the new wallet.",
-        },
-        Req: mklnrpc_InitWalletRequest(),
-        Res: mklnrpc_InitWalletResponse(),
-    }
-}
-func WalletUnlocker_UnlockWallet() Method {
-    return Method{
-        Name: "UnlockWallet",
-        Service: "WalletUnlocker",
-        Category: "Wallet",
-        ShortDescription: "Unlock an encrypted wallet at startup",
-        Description: []string{
-            "UnlockWallet is used at startup of lnd to provide a password to unlock",
-            "the wallet database.",
-        },
-        Req: mklnrpc_UnlockWalletRequest(),
-        Res: mklnrpc_UnlockWalletResponse(),
-    }
-}
-func MetaService_GetInfo2() Method {
-    return Method{
-        Name: "GetInfo2",
-        Service: "MetaService",
-        Req: mklnrpc_GetInfo2Request(),
-        Res: mklnrpc_GetInfo2Response(),
-    }
-}
-func MetaService_ChangePassword() Method {
-    return Method{
-        Name: "ChangePassword",
-        Service: "MetaService",
-        Req: mklnrpc_ChangePasswordRequest(),
-        Res: mklnrpc_ChangePasswordResponse(),
-    }
-}
-func MetaService_CheckPassword() Method {
-    return Method{
-        Name: "CheckPassword",
-        Service: "MetaService",
-        Req: mklnrpc_CheckPasswordRequest(),
-        Res: mklnrpc_CheckPasswordResponse(),
-    }
-}
-func MetaService_ForceCrash() Method {
-    return Method{
-        Name: "ForceCrash",
-        Service: "MetaService",
-        Req: mklnrpc_CrashRequest(),
-        Res: mklnrpc_CrashResponse(),
     }
 }
 func Lightning_WalletBalance() Method {
@@ -13100,5 +12612,704 @@ func Lightning_SendFrom() Method {
         },
         Req: mklnrpc_SendFromRequest(),
         Res: mklnrpc_SendFromResponse(),
+    }
+}
+func Lightning_DecodeRawTransaction() Method {
+    return Method{
+        Name: "DecodeRawTransaction",
+        Service: "Lightning",
+        Category: "Util",
+        ShortDescription: "Returns a JSON object representing the provided serialized, hex-encoded transaction.",
+        Description: []string{
+            "DecodeRawTransaction returns a JSON object representing the provided serialized, hex-encoded transaction.",
+        },
+        Req: mklnrpc_DecodeRawTransactionRequest(),
+        Res: mklnrpc_DecodeRawTransactionResponse(),
+    }
+}
+func Signer_SignOutputRaw() Method {
+    return Method{
+        Name: "SignOutputRaw",
+        Service: "Signer",
+        Description: []string{
+            "SignOutputRaw is a method that can be used to generated a signature for a",
+            "set of inputs/outputs to a transaction. Each request specifies details",
+            "concerning how the outputs should be signed, which keys they should be",
+            "signed with, and also any optional tweaks. The return value is a fixed",
+            "64-byte signature (the same format as we use on the wire in Lightning).",
+            "If we are  unable to sign using the specified keys, then an error will be",
+            "returned.",
+        },
+        Req: mksignrpc_SignReq(),
+        Res: mksignrpc_SignResp(),
+    }
+}
+func Signer_ComputeInputScript() Method {
+    return Method{
+        Name: "ComputeInputScript",
+        Service: "Signer",
+        Description: []string{
+            "ComputeInputScript generates a complete InputIndex for the passed",
+            "transaction with the signature as defined within the passed SignDescriptor.",
+            "This method should be capable of generating the proper input script for",
+            "both regular p2wkh output and p2wkh outputs nested within a regular p2sh",
+            "output.",
+            "Note that when using this method to sign inputs belonging to the wallet,",
+            "the only items of the SignDescriptor that need to be populated are pkScript",
+            "in the TxOut field, the value in that same field, and finally the input",
+            "index.",
+        },
+        Req: mksignrpc_SignReq(),
+        Res: mksignrpc_InputScriptResp(),
+    }
+}
+func Signer_SignMessage() Method {
+    return Method{
+        Name: "SignMessage",
+        Service: "Signer",
+        Description: []string{
+            "SignMessage signs a message with the key specified in the key locator. The",
+            "returned signature is fixed-size LN wire format encoded.",
+            "The main difference to SignMessage in the main RPC is that a specific key is",
+            "used to sign the message instead of the node identity private key.",
+        },
+        Req: mksignrpc_SignMessageReq(),
+        Res: mksignrpc_SignMessageResp(),
+    }
+}
+func Signer_VerifyMessage() Method {
+    return Method{
+        Name: "VerifyMessage",
+        Service: "Signer",
+        Description: []string{
+            "VerifyMessage verifies a signature over a message using the public key",
+            "provided. The signature must be fixed-size LN wire format encoded.",
+            "The main difference to VerifyMessage in the main RPC is that the public key",
+            "used to sign the message does not have to be a node known to the network.",
+        },
+        Req: mksignrpc_VerifyMessageReq(),
+        Res: mksignrpc_VerifyMessageResp(),
+    }
+}
+func Signer_DeriveSharedKey() Method {
+    return Method{
+        Name: "DeriveSharedKey",
+        Service: "Signer",
+        Description: []string{
+            "DeriveSharedKey returns a shared secret key by performing Diffie-Hellman key",
+            "derivation between the ephemeral public key in the request and the node's",
+            "key specified in the key_desc parameter. Either a key locator or a raw",
+            "public key is expected in the key_desc, if neither is supplied, defaults to",
+            "the node's identity private key:",
+            "P_shared = privKeyNode * ephemeralPubkey",
+            "The resulting shared public key is serialized in the compressed format and",
+            "hashed with sha256, resulting in the final key length of 256bit.",
+        },
+        Req: mksignrpc_SharedKeyRequest(),
+        Res: mksignrpc_SharedKeyResponse(),
+    }
+}
+func Autopilot_Status() Method {
+    return Method{
+        Name: "Status",
+        Service: "Autopilot",
+        Description: []string{
+            "Status returns whether the daemon's autopilot agent is active.",
+        },
+        Req: mkautopilotrpc_StatusRequest(),
+        Res: mkautopilotrpc_StatusResponse(),
+    }
+}
+func Autopilot_ModifyStatus() Method {
+    return Method{
+        Name: "ModifyStatus",
+        Service: "Autopilot",
+        Description: []string{
+            "ModifyStatus is used to modify the status of the autopilot agent, like",
+            "enabling or disabling it.",
+        },
+        Req: mkautopilotrpc_ModifyStatusRequest(),
+        Res: mkautopilotrpc_ModifyStatusResponse(),
+    }
+}
+func Autopilot_QueryScores() Method {
+    return Method{
+        Name: "QueryScores",
+        Service: "Autopilot",
+        Description: []string{
+            "QueryScores queries all available autopilot heuristics, in addition to any",
+            "active combination of these heruristics, for the scores they would give to",
+            "the given nodes.",
+        },
+        Req: mkautopilotrpc_QueryScoresRequest(),
+        Res: mkautopilotrpc_QueryScoresResponse(),
+    }
+}
+func Autopilot_SetScores() Method {
+    return Method{
+        Name: "SetScores",
+        Service: "Autopilot",
+        Description: []string{
+            "SetScores attempts to set the scores used by the running autopilot agent,",
+            "if the external scoring heuristic is enabled.",
+        },
+        Req: mkautopilotrpc_SetScoresRequest(),
+        Res: mkautopilotrpc_SetScoresResponse(),
+    }
+}
+func WalletKit_ListUnspent() Method {
+    return Method{
+        Name: "ListUnspent",
+        Service: "WalletKit",
+        Category: "Unspent",
+        ShortDescription: "List utxos available for spending",
+        Description: []string{
+            "ListUnspent returns a list of all utxos spendable by the wallet with a",
+            "number of confirmations between the specified minimum and maximum.",
+        },
+        Req: mkwalletrpc_ListUnspentRequest(),
+        Res: mkwalletrpc_ListUnspentResponse(),
+    }
+}
+func WalletKit_LeaseOutput() Method {
+    return Method{
+        Name: "LeaseOutput",
+        Service: "WalletKit",
+        Description: []string{
+            "LeaseOutput locks an output to the given ID, preventing it from being",
+            "available for any future coin selection attempts. The absolute time of the",
+            "lock's expiration is returned. The expiration of the lock can be extended by",
+            "successive invocations of this RPC. Outputs can be unlocked before their",
+            "expiration through `ReleaseOutput`.",
+        },
+        Req: mkwalletrpc_LeaseOutputRequest(),
+        Res: mkwalletrpc_LeaseOutputResponse(),
+    }
+}
+func WalletKit_ReleaseOutput() Method {
+    return Method{
+        Name: "ReleaseOutput",
+        Service: "WalletKit",
+        Description: []string{
+            "ReleaseOutput unlocks an output, allowing it to be available for coin",
+            "selection if it remains unspent. The ID should match the one used to",
+            "originally lock the output.",
+        },
+        Req: mkwalletrpc_ReleaseOutputRequest(),
+        Res: mkwalletrpc_ReleaseOutputResponse(),
+    }
+}
+func WalletKit_DeriveNextKey() Method {
+    return Method{
+        Name: "DeriveNextKey",
+        Service: "WalletKit",
+        Description: []string{
+            "DeriveNextKey attempts to derive the *next* key within the key family",
+            "(account in BIP43) specified. This method should return the next external",
+            "child within this branch.",
+        },
+        Req: mkwalletrpc_KeyReq(),
+        Res: mksignrpc_KeyDescriptor(),
+    }
+}
+func WalletKit_DeriveKey() Method {
+    return Method{
+        Name: "DeriveKey",
+        Service: "WalletKit",
+        Description: []string{
+            "DeriveKey attempts to derive an arbitrary key specified by the passed",
+            "KeyLocator.",
+        },
+        Req: mksignrpc_KeyLocator(),
+        Res: mksignrpc_KeyDescriptor(),
+    }
+}
+func WalletKit_NextAddr() Method {
+    return Method{
+        Name: "NextAddr",
+        Service: "WalletKit",
+        Description: []string{
+            "NextAddr returns the next unused address within the wallet.",
+        },
+        Req: mkwalletrpc_AddrRequest(),
+        Res: mkwalletrpc_AddrResponse(),
+    }
+}
+func WalletKit_PublishTransaction() Method {
+    return Method{
+        Name: "PublishTransaction",
+        Service: "WalletKit",
+        Description: []string{
+            "PublishTransaction attempts to publish the passed transaction to the",
+            "network. Once this returns without an error, the wallet will continually",
+            "attempt to re-broadcast the transaction on start up, until it enters the",
+            "chain.",
+        },
+        Req: mkwalletrpc_Transaction(),
+        Res: mkwalletrpc_PublishResponse(),
+    }
+}
+func WalletKit_SendOutputs() Method {
+    return Method{
+        Name: "SendOutputs",
+        Service: "WalletKit",
+        Description: []string{
+            "SendOutputs is similar to the existing sendmany call in Bitcoind, and",
+            "allows the caller to create a transaction that sends to several outputs at",
+            "once. This is ideal when wanting to batch create a set of transactions.",
+        },
+        Req: mkwalletrpc_SendOutputsRequest(),
+        Res: mkwalletrpc_SendOutputsResponse(),
+    }
+}
+func WalletKit_EstimateFee() Method {
+    return Method{
+        Name: "EstimateFee",
+        Service: "WalletKit",
+        Description: []string{
+            "EstimateFee attempts to query the internal fee estimator of the wallet to",
+            "determine the fee (in sat/kw) to attach to a transaction in order to",
+            "achieve the confirmation target.",
+        },
+        Req: mkwalletrpc_EstimateFeeRequest(),
+        Res: mkwalletrpc_EstimateFeeResponse(),
+    }
+}
+func WalletKit_PendingSweeps() Method {
+    return Method{
+        Name: "PendingSweeps",
+        Service: "WalletKit",
+        Description: []string{
+            "PendingSweeps returns lists of on-chain outputs that lnd is currently",
+            "attempting to sweep within its central batching engine. Outputs with similar",
+            "fee rates are batched together in order to sweep them within a single",
+            "transaction.",
+            "NOTE: Some of the fields within PendingSweepsRequest are not guaranteed to",
+            "remain supported. This is an advanced API that depends on the internals of",
+            "the UtxoSweeper, so things may change.",
+        },
+        Req: mkwalletrpc_PendingSweepsRequest(),
+        Res: mkwalletrpc_PendingSweepsResponse(),
+    }
+}
+func WalletKit_BumpFee() Method {
+    return Method{
+        Name: "BumpFee",
+        Service: "WalletKit",
+        Description: []string{
+            "BumpFee bumps the fee of an arbitrary input within a transaction. This RPC",
+            "takes a different approach than bitcoind's bumpfee command. lnd has a",
+            "central batching engine in which inputs with similar fee rates are batched",
+            "together to save on transaction fees. Due to this, we cannot rely on",
+            "bumping the fee on a specific transaction, since transactions can change at",
+            "any point with the addition of new inputs. The list of inputs that",
+            "currently exist within lnd's central batching engine can be retrieved",
+            "through the PendingSweeps RPC.",
+            "When bumping the fee of an input that currently exists within lnd's central",
+            "batching engine, a higher fee transaction will be created that replaces the",
+            "lower fee transaction through the Replace-By-Fee (RBF) policy. If it",
+            "This RPC also serves useful when wanting to perform a Child-Pays-For-Parent",
+            "(CPFP), where the child transaction pays for its parent's fee. This can be",
+            "done by specifying an outpoint within the low fee transaction that is under",
+            "the control of the wallet.",
+            "The fee preference can be expressed either as a specific fee rate or a delta",
+            "of blocks in which the output should be swept on-chain within. If a fee",
+            "preference is not explicitly specified, then an error is returned.",
+            "Note that this RPC currently doesn't perform any validation checks on the",
+            "fee preference being provided. For now, the responsibility of ensuring that",
+            "the new fee preference is sufficient is delegated to the user.",
+        },
+        Req: mkwalletrpc_BumpFeeRequest(),
+        Res: mkwalletrpc_BumpFeeResponse(),
+    }
+}
+func WalletKit_ListSweeps() Method {
+    return Method{
+        Name: "ListSweeps",
+        Service: "WalletKit",
+        Description: []string{
+            "ListSweeps returns a list of the sweep transactions our node has produced.",
+            "Note that these sweeps may not be confirmed yet, as we record sweeps on",
+            "broadcast, not confirmation.",
+        },
+        Req: mkwalletrpc_ListSweepsRequest(),
+        Res: mkwalletrpc_ListSweepsResponse(),
+    }
+}
+func WalletKit_LabelTransaction() Method {
+    return Method{
+        Name: "LabelTransaction",
+        Service: "WalletKit",
+        Description: []string{
+            "LabelTransaction adds a label to a transaction. If the transaction already",
+            "has a label the call will fail unless the overwrite bool is set. This will",
+            "overwrite the exiting transaction label. Labels must not be empty, and",
+            "cannot exceed 500 characters.",
+        },
+        Req: mkwalletrpc_LabelTransactionRequest(),
+        Res: mkwalletrpc_LabelTransactionResponse(),
+    }
+}
+func WalletKit_FundPsbt() Method {
+    return Method{
+        Name: "FundPsbt",
+        Service: "WalletKit",
+        Description: []string{
+            "FundPsbt creates a fully populated PSBT that contains enough inputs to fund",
+            "the outputs specified in the template. There are two ways of specifying a",
+            "template: Either by passing in a PSBT with at least one output declared or",
+            "by passing in a raw TxTemplate message.",
+            "If there are no inputs specified in the template, coin selection is",
+            "performed automatically. If the template does contain any inputs, it is",
+            "assumed that full coin selection happened externally and no additional",
+            "inputs are added. If the specified inputs aren't enough to fund the outputs",
+            "with the given fee rate, an error is returned.",
+            "After either selecting or verifying the inputs, all input UTXOs are locked",
+            "with an internal app ID.",
+            "NOTE: If this method returns without an error, it is the caller's",
+            "responsibility to either spend the locked UTXOs (by finalizing and then",
+            "publishing the transaction) or to unlock/release the locked UTXOs in case of",
+            "an error on the caller's side.",
+        },
+        Req: mkwalletrpc_FundPsbtRequest(),
+        Res: mkwalletrpc_FundPsbtResponse(),
+    }
+}
+func WalletKit_FinalizePsbt() Method {
+    return Method{
+        Name: "FinalizePsbt",
+        Service: "WalletKit",
+        Description: []string{
+            "FinalizePsbt expects a partial transaction with all inputs and outputs fully",
+            "declared and tries to sign all inputs that belong to the wallet. Lnd must be",
+            "the last signer of the transaction. That means, if there are any unsigned",
+            "non-witness inputs or inputs without UTXO information attached or inputs",
+            "without witness data that do not belong to lnd's wallet, this method will",
+            "fail. If no error is returned, the PSBT is ready to be extracted and the",
+            "final TX within to be broadcast.",
+            "NOTE: This method does NOT publish the transaction once finalized. It is the",
+            "caller's responsibility to either publish the transaction on success or",
+            "unlock/release any locked UTXOs in case of an error in this method.",
+        },
+        Req: mkwalletrpc_FinalizePsbtRequest(),
+        Res: mkwalletrpc_FinalizePsbtResponse(),
+    }
+}
+func Router_SendPaymentV2() Method {
+    return Method{
+        Name: "SendPaymentV2",
+        Service: "Router",
+        Category: "Payment",
+        ShortDescription: "Send a payment over lightning",
+        Description: []string{
+            "SendPaymentV2 attempts to route a payment described by the passed",
+            "PaymentRequest to the final destination. The call returns a stream of",
+            "payment updates.",
+        },
+        Req: mkrouterrpc_SendPaymentRequest(),
+        Res: mklnrpc_Payment(),
+    }
+}
+func Router_TrackPaymentV2() Method {
+    return Method{
+        Name: "TrackPaymentV2",
+        Service: "Router",
+        Category: "Payment",
+        ShortDescription: "Track payment",
+        Description: []string{
+            "TrackPaymentV2 returns an update stream for the payment identified by the",
+            "payment hash.",
+        },
+        Req: mkrouterrpc_TrackPaymentRequest(),
+        Res: mklnrpc_Payment(),
+    }
+}
+func Router_EstimateRouteFee() Method {
+    return Method{
+        Name: "EstimateRouteFee",
+        Service: "Router",
+        Description: []string{
+            "EstimateRouteFee allows callers to obtain a lower bound w.r.t how much it",
+            "may cost to send an HTLC to the target end destination.",
+        },
+        Req: mkrouterrpc_RouteFeeRequest(),
+        Res: mkrouterrpc_RouteFeeResponse(),
+    }
+}
+func Router_SendToRoute() Method {
+    return Method{
+        Name: "SendToRoute",
+        Service: "Router",
+        Description: []string{
+            "Deprecated, use SendToRouteV2. SendToRoute attempts to make a payment via",
+            "the specified route. This method differs from SendPayment in that it",
+            "allows users to specify a full route manually. This can be used for",
+            "things like rebalancing, and atomic swaps. It differs from the newer",
+            "SendToRouteV2 in that it doesn't return the full HTLC information.",
+        },
+        Req: mkrouterrpc_SendToRouteRequest(),
+        Res: mkrouterrpc_SendToRouteResponse(),
+    }
+}
+func Router_SendToRouteV2() Method {
+    return Method{
+        Name: "SendToRouteV2",
+        Service: "Router",
+        Category: "Payment",
+        ShortDescription: "Send a payment over a predefined route",
+        Description: []string{
+            "SendToRouteV2 attempts to make a payment via the specified route. This",
+            "method differs from SendPayment in that it allows users to specify a full",
+            "route manually. This can be used for things like rebalancing, and atomic",
+            "swaps.",
+        },
+        Req: mkrouterrpc_SendToRouteRequest(),
+        Res: mklnrpc_HTLCAttempt(),
+    }
+}
+func Router_ResetMissionControl() Method {
+    return Method{
+        Name: "ResetMissionControl",
+        Service: "Router",
+        Category: "Payment",
+        ShortDescription: "Reset internal mission control state",
+        Description: []string{
+            "ResetMissionControl clears all mission control state and starts with a clean",
+            "slate.",
+        },
+        Req: mkrouterrpc_ResetMissionControlRequest(),
+        Res: mkrouterrpc_ResetMissionControlResponse(),
+    }
+}
+func Router_QueryMissionControl() Method {
+    return Method{
+        Name: "QueryMissionControl",
+        Service: "Router",
+        Category: "Payment",
+        ShortDescription: "Query the internal mission control state",
+        Description: []string{
+            "QueryMissionControl exposes the internal mission control state to callers.",
+            "It is a development feature.",
+        },
+        Req: mkrouterrpc_QueryMissionControlRequest(),
+        Res: mkrouterrpc_QueryMissionControlResponse(),
+    }
+}
+func Router_QueryProbability() Method {
+    return Method{
+        Name: "QueryProbability",
+        Service: "Router",
+        Category: "Payment",
+        ShortDescription: "Estimate a success probability",
+        Description: []string{
+            "QueryProbability returns the current success probability estimate for a",
+            "given node pair and amount.",
+        },
+        Req: mkrouterrpc_QueryProbabilityRequest(),
+        Res: mkrouterrpc_QueryProbabilityResponse(),
+    }
+}
+func Router_BuildRoute() Method {
+    return Method{
+        Name: "BuildRoute",
+        Service: "Router",
+        Category: "Payment",
+        ShortDescription: "Build a route from a list of hop pubkeys",
+        Description: []string{
+            "BuildRoute builds a fully specified route based on a list of hop public",
+            "keys. It retrieves the relevant channel policies from the graph in order to",
+            "calculate the correct fees and time locks.",
+        },
+        Req: mkrouterrpc_BuildRouteRequest(),
+        Res: mkrouterrpc_BuildRouteResponse(),
+    }
+}
+func Router_SubscribeHtlcEvents() Method {
+    return Method{
+        Name: "SubscribeHtlcEvents",
+        Service: "Router",
+        Description: []string{
+            "SubscribeHtlcEvents creates a uni-directional stream from the server to",
+            "the client which delivers a stream of htlc events.",
+        },
+        Req: mkrouterrpc_SubscribeHtlcEventsRequest(),
+        Res: mkrouterrpc_HtlcEvent(),
+    }
+}
+func Router_SendPayment() Method {
+    return Method{
+        Name: "SendPayment",
+        Service: "Router",
+        Description: []string{
+            "Deprecated, use SendPaymentV2. SendPayment attempts to route a payment",
+            "described by the passed PaymentRequest to the final destination. The call",
+            "returns a stream of payment status updates.",
+        },
+        Req: mkrouterrpc_SendPaymentRequest(),
+        Res: mkrouterrpc_PaymentStatus(),
+    }
+}
+func Router_TrackPayment() Method {
+    return Method{
+        Name: "TrackPayment",
+        Service: "Router",
+        Description: []string{
+            "Deprecated, use TrackPaymentV2. TrackPayment returns an update stream for",
+            "the payment identified by the payment hash.",
+        },
+        Req: mkrouterrpc_TrackPaymentRequest(),
+        Res: mkrouterrpc_PaymentStatus(),
+    }
+}
+func Router_HtlcInterceptor() Method {
+    return Method{
+        Name: "HtlcInterceptor",
+        Service: "Router",
+        Description: []string{
+            "HtlcInterceptor dispatches a bi-directional streaming RPC in which",
+            "Forwarded HTLC requests are sent to the client and the client responds with",
+            "a boolean that tells LND if this htlc should be intercepted.",
+            "In case of interception, the htlc can be either settled, cancelled or",
+            "resumed later by using the ResolveHoldForward endpoint.",
+        },
+        Req: mkrouterrpc_ForwardHtlcInterceptResponse(),
+        Res: mkrouterrpc_ForwardHtlcInterceptRequest(),
+    }
+}
+func Invoices_SubscribeSingleInvoice() Method {
+    return Method{
+        Name: "SubscribeSingleInvoice",
+        Service: "Invoices",
+        Description: []string{
+            "SubscribeSingleInvoice returns a uni-directional stream (server -> client)",
+            "to notify the client of state transitions of the specified invoice.",
+            "Initially the current invoice state is always sent out.",
+        },
+        Req: mkinvoicesrpc_SubscribeSingleInvoiceRequest(),
+        Res: mklnrpc_Invoice(),
+    }
+}
+func Invoices_CancelInvoice() Method {
+    return Method{
+        Name: "CancelInvoice",
+        Service: "Invoices",
+        Description: []string{
+            "CancelInvoice cancels a currently open invoice. If the invoice is already",
+            "canceled, this call will succeed. If the invoice is already settled, it will",
+            "fail.",
+        },
+        Req: mkinvoicesrpc_CancelInvoiceMsg(),
+        Res: mkinvoicesrpc_CancelInvoiceResp(),
+    }
+}
+func Invoices_AddHoldInvoice() Method {
+    return Method{
+        Name: "AddHoldInvoice",
+        Service: "Invoices",
+        Description: []string{
+            "AddHoldInvoice creates a hold invoice. It ties the invoice to the hash",
+            "supplied in the request.",
+        },
+        Req: mkinvoicesrpc_AddHoldInvoiceRequest(),
+        Res: mkinvoicesrpc_AddHoldInvoiceResp(),
+    }
+}
+func Invoices_SettleInvoice() Method {
+    return Method{
+        Name: "SettleInvoice",
+        Service: "Invoices",
+        Description: []string{
+            "SettleInvoice settles an accepted invoice. If the invoice is already",
+            "settled, this call will succeed.",
+        },
+        Req: mkinvoicesrpc_SettleInvoiceMsg(),
+        Res: mkinvoicesrpc_SettleInvoiceResp(),
+    }
+}
+func MetaService_GetInfo2() Method {
+    return Method{
+        Name: "GetInfo2",
+        Service: "MetaService",
+        Req: mklnrpc_GetInfo2Request(),
+        Res: mklnrpc_GetInfo2Response(),
+    }
+}
+func MetaService_ChangePassword() Method {
+    return Method{
+        Name: "ChangePassword",
+        Service: "MetaService",
+        Req: mklnrpc_ChangePasswordRequest(),
+        Res: mklnrpc_ChangePasswordResponse(),
+    }
+}
+func MetaService_CheckPassword() Method {
+    return Method{
+        Name: "CheckPassword",
+        Service: "MetaService",
+        Req: mklnrpc_CheckPasswordRequest(),
+        Res: mklnrpc_CheckPasswordResponse(),
+    }
+}
+func MetaService_ForceCrash() Method {
+    return Method{
+        Name: "ForceCrash",
+        Service: "MetaService",
+        Req: mklnrpc_CrashRequest(),
+        Res: mklnrpc_CrashResponse(),
+    }
+}
+func WalletUnlocker_GenSeed() Method {
+    return Method{
+        Name: "GenSeed",
+        Service: "WalletUnlocker",
+        Category: "Seed",
+        ShortDescription: "Create a secret seed",
+        Description: []string{
+            "GenSeed is the first method that should be used to instantiate a new lnd",
+            "instance. This method allows a caller to generate a new aezeed cipher seed",
+            "given an optional passphrase. If provided, the passphrase will be necessary",
+            "to decrypt the cipherseed to expose the internal wallet seed.",
+            "Once the cipherseed is obtained and verified by the user, the InitWallet",
+            "method should be used to commit the newly generated seed, and create the",
+            "wallet.",
+        },
+        Req: mklnrpc_GenSeedRequest(),
+        Res: mklnrpc_GenSeedResponse(),
+    }
+}
+func WalletUnlocker_InitWallet() Method {
+    return Method{
+        Name: "InitWallet",
+        Service: "WalletUnlocker",
+        Category: "Wallet",
+        ShortDescription: "Initialize a wallet when starting lnd for the first time",
+        Description: []string{
+            "InitWallet is used when lnd is starting up for the first time to fully",
+            "initialize the daemon and its internal wallet. At the very least a wallet",
+            "password must be provided. This will be used to encrypt sensitive material",
+            "on disk.",
+            "In the case of a recovery scenario, the user can also specify their aezeed",
+            "mnemonic and passphrase. If set, then the daemon will use this prior state",
+            "to initialize its internal wallet.",
+            "Alternatively, this can be used along with the GenSeed RPC to obtain a",
+            "seed, then present it to the user. Once it has been verified by the user,",
+            "the seed can be fed into this RPC in order to commit the new wallet.",
+        },
+        Req: mklnrpc_InitWalletRequest(),
+        Res: mklnrpc_InitWalletResponse(),
+    }
+}
+func WalletUnlocker_UnlockWallet() Method {
+    return Method{
+        Name: "UnlockWallet",
+        Service: "WalletUnlocker",
+        Category: "Wallet",
+        ShortDescription: "Unlock an encrypted wallet at startup",
+        Description: []string{
+            "UnlockWallet is used at startup of lnd to provide a password to unlock",
+            "the wallet database.",
+        },
+        Req: mklnrpc_UnlockWalletRequest(),
+        Res: mklnrpc_UnlockWalletResponse(),
     }
 }
