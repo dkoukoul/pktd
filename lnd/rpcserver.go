@@ -7301,34 +7301,6 @@ func (r *rpcServer) DecodeRawTransaction(ctx context.Context, req *lnrpc.DecodeR
 	if err != nil {
 		return nil, er.Native(err)
 	}
-	vinprevoutList := make([]*lnrpc.VinPrevOut, 0, len(vin))
-
-	for _, item := range vin {
-		prevout := &lnrpc.PrevOut{}
-		if item.PrevOut != nil {
-			prevout = &lnrpc.PrevOut{
-				Address:    item.PrevOut.Address,
-				Svalue:     item.PrevOut.Svalue,
-				ValueCoins: item.PrevOut.ValueCoins,
-			}
-		}
-
-		scriptsig := &lnrpc.ScriptSig{
-			Asm: item.ScriptSig.Asm,
-			Hex: item.ScriptSig.Hex,
-		}
-		vinprevout := &lnrpc.VinPrevOut{
-			Coinbase:  item.Coinbase,
-			PrevOut:   prevout,
-			ScriptSig: scriptsig,
-			Sequence:  item.Sequence,
-			Txid:      item.Txid,
-			Vout:      item.Vout,
-			Witness:   item.Witness,
-		}
-
-		vinprevoutList = append(vinprevoutList, vinprevout)
-	}
 
 	sfee := "unknown"
 	if xtra {
@@ -7359,7 +7331,7 @@ func (r *rpcServer) DecodeRawTransaction(ctx context.Context, req *lnrpc.DecodeR
 		Locktime: mtx.LockTime,
 		Size:     int32(mtx.SerializeSize()),
 		Vsize:    int32(mempool.GetTxVirtualSize(btcutil.NewTx(&mtx))),
-		Vin:      vinprevoutList,
+		Vin:      vin,
 		Vout:     createVoutList(&mtx, r.cfg.ActiveNetParams.Params, nil),
 		Sfee:     sfee,
 	}, nil
@@ -7413,7 +7385,7 @@ func createVinListPrevOut(
 	chainParams *chaincfg.Params,
 	vinExtra bool,
 	filterAddrMap map[string]struct{},
-) ([]btcjson.VinPrevOut, er.R) {
+) ([]*lnrpc.VinPrevOut, er.R) {
 	vinFullList := createVinList(mtx, chainParams)
 	if !vinExtra && len(filterAddrMap) == 0 {
 		return vinFullList, nil
@@ -7428,7 +7400,7 @@ func loadPrevOuts(
 	r *rpcServer,
 	mtx *wire.MsgTx,
 	chainParams *chaincfg.Params,
-	list []btcjson.VinPrevOut,
+	list []*lnrpc.VinPrevOut,
 ) er.R {
 	if blockchain.IsCoinBaseTx(mtx) {
 		// By definition, a coinbase tx has only one input which cannot be loaded
@@ -7438,63 +7410,64 @@ func loadPrevOuts(
 	// Lookup all of the referenced transaction outputs needed to populate
 	// the previous output information if requested.
 	//originOutputs, err := fetchInputTxos(s, mtx)
-	var dbtx walletdb.ReadWriteTx
-	wtxmgrNamespaceKey := []byte("wtxmgr")
-	txmgrNs := dbtx.ReadBucket(wtxmgrNamespaceKey)
-
-	for i := 0; i < len(list); i++ {
-		tx, err := r.wallet.TxStore.TxDetails(txmgrNs, &mtx.TxIn[i].PreviousOutPoint.Hash)
-		if err != nil {
-
+	return walletdb.View(r.wallet.Database(), func(dbtx walletdb.ReadTx) er.R {
+		txmgrNs := dbtx.ReadBucket([]byte("wtxmgr"))
+		for i := 0; i < len(list); i++ {
+			tx, err := r.wallet.TxStore.TxDetails(txmgrNs, &mtx.TxIn[i].PreviousOutPoint.Hash)
+			if err != nil {
+				return err
+			}
+			// Update the entry with previous output information if
+			// requested.
+			list[i].PrevOut = &lnrpc.PrevOut{
+				Address:    txscript.PkScriptToAddress(tx.MsgTx.TxOut[i].PkScript, r.cfg.ActiveNetParams.Params).EncodeAddress(),
+				ValueCoins: btcutil.Amount(tx.MsgTx.TxOut[i].Value).ToBTC(),
+				Svalue:     strconv.FormatInt(tx.MsgTx.TxOut[i].Value, 10),
+			}
 		}
-		// Update the entry with previous output information if
-		// requested.
-		list[i].PrevOut = &btcjson.PrevOut{
-			Address:    txscript.PkScriptToAddress(tx.MsgTx.TxOut[i].PkScript, r.cfg.ActiveNetParams.Params).EncodeAddress(),
-			ValueCoins: btcutil.Amount(tx.MsgTx.TxOut[i].Value).ToBTC(),
-			Svalue:     strconv.FormatInt(tx.MsgTx.TxOut[i].Value, 10),
-		}
-	}
-
-	return nil
+		return nil
+	})
 }
 
 // createVinList returns a slice of JSON objects for the inputs of the passed
 // transaction.
-func createVinList(mtx *wire.MsgTx, chainParams *chaincfg.Params) []btcjson.VinPrevOut {
+func createVinList(mtx *wire.MsgTx, chainParams *chaincfg.Params) []*lnrpc.VinPrevOut {
 	// Coinbase transactions only have a single txin by definition.
 	if blockchain.IsCoinBaseTx(mtx) {
 		txIn := mtx.TxIn[0]
-		vinList := make([]btcjson.VinPrevOut, 1)
-		vinList[0].Coinbase = hex.EncodeToString(txIn.SignatureScript)
-		vinList[0].Sequence = txIn.Sequence
-		return vinList
+		return []*lnrpc.VinPrevOut{
+			{
+				Coinbase: hex.EncodeToString(txIn.SignatureScript),
+				Sequence: txIn.Sequence,
+			},
+		}
 	}
 
-	vinList := make([]btcjson.VinPrevOut, 0, len(mtx.TxIn))
+	vinList := make([]*lnrpc.VinPrevOut, 0, len(mtx.TxIn))
 
 	for i, txIn := range mtx.TxIn {
-		// The disassembled string will contain [error] inline
-		// if the script doesn't fully parse, so ignore the
-		// error here.
-		disbuf, _ := txscript.DisasmString(txIn.SignatureScript)
-
 		// Create the basic input entry without the additional optional
 		// previous output details which will be added later if
 		// requested and available.
 		prevOut := &txIn.PreviousOutPoint
-		vinEntry := btcjson.VinPrevOut{
+		vinEntry := lnrpc.VinPrevOut{
 			Txid:     prevOut.Hash.String(),
 			Vout:     prevOut.Index,
 			Sequence: txIn.Sequence,
-			ScriptSig: &btcjson.ScriptSig{
+		}
+		if len(txIn.SignatureScript) > 0 {
+			// The disassembled string will contain [error] inline
+			// if the script doesn't fully parse, so ignore the
+			// error here.
+			disbuf, _ := txscript.DisasmString(txIn.SignatureScript)
+			vinEntry.ScriptSig = &lnrpc.ScriptSig{
 				Asm: disbuf,
 				Hex: hex.EncodeToString(txIn.SignatureScript),
-			},
+			}
 		}
 
 		if len(mtx.Additional) == len(mtx.TxIn) {
-			po := btcjson.PrevOut{}
+			po := lnrpc.PrevOut{}
 			if mtx.Additional[i].Value != nil {
 				v := *mtx.Additional[i].Value
 				po.ValueCoins = btcutil.Amount(v).ToBTC()
@@ -7514,7 +7487,7 @@ func createVinList(mtx *wire.MsgTx, chainParams *chaincfg.Params) []btcjson.VinP
 			vinEntry.Witness = witnessToHex(txIn.Witness)
 		}
 
-		vinList = append(vinList, vinEntry)
+		vinList = append(vinList, &vinEntry)
 	}
 
 	return vinList
@@ -7522,18 +7495,18 @@ func createVinList(mtx *wire.MsgTx, chainParams *chaincfg.Params) []btcjson.VinP
 
 // you must call loadPrevOuts before calling this, otherwise nothing will match.
 func filterVinList(
-	list []btcjson.VinPrevOut,
+	list []*lnrpc.VinPrevOut,
 	filterAddrMap map[string]struct{},
-) []btcjson.VinPrevOut {
+) []*lnrpc.VinPrevOut {
 	if len(filterAddrMap) == 0 {
 		// No filter, return everything
 		return list
 	}
-	if len(list) == 1 && list[0].IsCoinBase() {
+	if len(list) == 1 && len(list[0].Coinbase) > 0 {
 		// Coinbase matches nothing
 		return nil
 	}
-	out := make([]btcjson.VinPrevOut, 0, len(list))
+	out := make([]*lnrpc.VinPrevOut, 0, len(list))
 	for _, elem := range list {
 		if elem.PrevOut == nil {
 			continue
