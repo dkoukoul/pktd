@@ -731,3 +731,34 @@ func PkScriptToAddress(pkScript []byte, chainParams *chaincfg.Params) btcutil.Ad
 	}
 	return addrs[0]
 }
+
+// SigScriptToAddress gets an address from a sigScript / scriptSig IF POSSIBLE
+// If no address can be extracted, it returns nil.
+func SigScriptToAddress(sigScript []byte, chainParams *chaincfg.Params) btcutil.Address {
+	if len(sigScript) == 0 {
+		return nil
+	}
+	poc, err := parsescript.ParseScript(sigScript)
+	// We are expecting a OP_DATA_47(signature) OP_DATA_32(pubkey)
+	if err != nil || len(poc) != 2 || !parsescript.IsPushOnly(poc) {
+		return nil
+	}
+	h := btcutil.Hash160(poc[1].Data)
+	ret, err := btcutil.NewAddressPubKeyHash(h, chainParams)
+	if err != nil {
+		return nil
+	}
+	return ret
+}
+
+func WitnessToAddress(witness wire.TxWitness, chainParams *chaincfg.Params) btcutil.Address {
+	pk, err := computeWitnessPkScript(witness)
+	if err != nil {
+		return nil
+	}
+	a, err := pk.Address(chainParams)
+	if err != nil {
+		return nil
+	}
+	return a
+}

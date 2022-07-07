@@ -1221,3 +1221,62 @@ func TestNullDataScript(t *testing.T) {
 		}
 	}
 }
+
+func TestSigScriptToAddress(t *testing.T) {
+	b, _ := hex.DecodeString(
+		"47304402203c28aed91289480768296fa9b7bbd497a4a72fa74b2a941fc249a2" +
+			"e6e23af7fc022003c3af2743e29c31741769f399151317c173f04f4c6d4688df" +
+			"bbcc7605ecef9e012102196e0f5dc1724b377d0bc2766595a6510b3c56f79092" +
+			"77e72afc735755a61d74")
+	a := SigScriptToAddress(b, &chaincfg.PktMainNetParams)
+	if a == nil || a.String() != "pGsZXFt5d7WZhgWbXTY1VtfdicfCJ9Q3Hs" {
+		t.Fail()
+	}
+}
+
+func testWitnessToAddress(t *testing.T, s []string, addr string) {
+	witness := make([][]byte, len(s))
+	for i, str := range s {
+		b, err := hex.DecodeString(str)
+		if err != nil {
+			t.Fail()
+			return
+		}
+		witness[i] = b
+	}
+
+	a := WitnessToAddress(wire.TxWitness(witness), &chaincfg.PktMainNetParams)
+	if a == nil {
+		t.Errorf("result was nil")
+	} else if a.String() != addr {
+		t.Errorf("expected %v got %v", addr, a.String())
+	}
+}
+func TestWitnessToAddressMultisig(t *testing.T) {
+	testWitnessToAddress(t, []string{
+		"",
+		"3045022100d2f02b39f6884969352f9b67406a7716b5fbbb6c8cc0a6ec5361a4" +
+			"7b6244503102203c6c799e904af205de96866317499e74dae3dcc4672bad7c1e" +
+			"dfb13080d08e1d01",
+		"3045022100b32d2909bb078470d86a8daeaf39e0986df5c28a99610c3e35694f" +
+			"cb6162d76502201777993d8dda27f01f8aef41ea3d68ca36b507ca5f87656cc1" +
+			"7edc7997e8e34001",
+		"3045022100872a93af892bf8814c09cd16f9cd409b615df4f1d0b774baa7f5fc" +
+			"8fb4e721c20220768a5a3d2c20b524b8e272d7b06c1b8c3085eefaf9d2a8cd3c" +
+			"d6a5f2d670117c01",
+		"5321024b98236f69ca9f226ac18b82a50e623419e71ee4ce1c59fa450618817d" +
+			"22b5b02102a96410906c79cd5a25f54442fc779ca7001c0ddd00c9c7901dafdc" +
+			"1eb06d3f382103647f7975d93a5ca9b80feb668f6d45346f5df4011bea9cc8b5" +
+			"845ab621dd4e65210396bb97ab7304be90d435558e847609927a94590dead9f5" +
+			"3cd903b7e63d8354982103c64d0172b20592afd7a3a4436bed032ecca93f291d" +
+			"5f8f7e3ba9d4d07778493c55ae",
+	}, "pkt1q6hqsqhqdgqfd8t3xwgceulu7k9d9w5t2amath0qxyfjlvl3s3u4sjza2g2")
+}
+func TestWitnessToAddressSimple(t *testing.T) {
+	testWitnessToAddress(t, []string{
+		"3045022100c6ad2a133d4dfa8d9dde58b735075d8883280e27fcde9b8b0b524b3ad2" +
+			"3c79e9022055cf22411039506178676604f7d71091dc457b149ae6b8b799405900b9" +
+			"3bfe3f01",
+		"031e33ab5b8f459f902b8e55aee4fc90cbca6aaa5f38a4713d4ff6595dfa060960",
+	}, "pkt1qwuns2e3fu798s0p95tqnps87kvfuegq4lephtu")
+}
