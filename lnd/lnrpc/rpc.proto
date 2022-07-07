@@ -710,7 +710,7 @@ service Lightning {
     $pld.short_description: `Returns a JSON object representing the provided serialized, hex-encoded transaction.`
 
     DecodeRawTransaction returns a JSON object representing the provided serialized, hex-encoded transaction.*/
-    rpc DecodeRawTransaction (DecodeRawTransactionRequest) returns (DecodeRawTransactionResponse);
+    rpc DecodeRawTransaction (DecodeRawTransactionRequest) returns (TransactionInfo);
 }
 
 message RestError {
@@ -4057,51 +4057,145 @@ message SendFromResponse{
     string tx_hash = 1;
 }
 
+// The request to the util/transaction/decode endpoint
 message DecodeRawTransactionRequest{
+    // The transaction in hex format (use this OR bin_tx)
     string hex_tx = 1;
-    bool vin_extra = 2;
-}
-message ScriptSig {
-    string asm = 1;
-    string hex = 2;
+
+    // The transaction in binary format, if using JSON, this will be base64
+    bytes bin_tx = 2;
+
+    // If true then request detailed information regarding every input which was sourced
+    // to fund the transaction.
+    bool include_vin_detail = 3;
 }
 
-message PrevOut{
+message Payer {
+    // The address from which the coins were sourced, if known.
+    // In most cases the address will be known, for details on when it might not be known
+    // see VinDetail.address.
+    // If this is sourcing newly mined coins, this will say "coinbase".
     string address = 1;
-    double value_coins = 2;
-    string svalue = 3;
+
+    // The number of unique inputs with this address which are sourced.
+    uint32 inputs = 2;
+
+    // The decimal amount of whole coins which were sourced from this address, in MOST
+    // cases this is not known and will be NaN. See VinDetail.value_coins for details about
+    // when this can be expected to be known.
+    double value_coins = 3;
+
+    // The decimal amount of whole coins which were sourced from this address, in MOST
+    // cases this is not known and will be the word "unknown". See VinDetail.value_coins
+    // for details about when this can be expected to be known.
+    string svalue = 4;
 }
 
-message VinPrevOut {
-    string coinbase = 1;
+// The transaction *input* which is used to fund the transaction
+message VinDetail {
+    // If THIS transaction is a coinbase, then coinbase data, otherwise empty string.
+    bytes coinbase = 1;
+
+    // If THIS transaction is not a coinbase, then txid is the id of the PREVIOUS transaction
+    // from which funds are being sourced, otherwise emptystring.
     string txid = 2;
+
+    // If THIS transaction is not a coinbase, then number of the output within the previous
+    // transaction from which funds are being sourced, otherwise 0.
+    // This corrisponds to Vout.n.
     uint32 vout = 3;
-    ScriptSig script_sig = 4;
+
+    // In the case that this input is sourcing funds from a payment to a non-segwit address,
+    // this is the cryptographic signature which makes the transaction valid for the purpose
+    // of spending the previous output. In bitcoind this is known as the scriptSig.
+    // If this is a segwit transaction, this will be an empty string
+    bytes script_sig = 4;
+
+    // The nSequence of the transaction, always 4294967295 unless replace-by-fee has been
+    // enabled, used for certain Lightning Network transactions.
+    // https://bitcoin.stackexchange.com/questions/87372/what-does-the-sequence-in-a-transaction-input-mean
     uint32 sequence = 5;
-    repeated string witness = 6;
-    PrevOut prev_out = 7;
+
+    // In the case that this input is sourcing funds from a payment to a segwit address,
+    // this is the witness which is used to prove ownership of the funds. In this case the
+    // script_sig is empty (in the binary form, it is lterally a byte array of length zero).
+    repeated bytes witness = 6;
+
+    // The address which "paid in" to the transaction, IF KNOWN. In the case of a segwit
+    // transaction it will always be known, and in the case of a legacy script_sig transaction
+    // it will usually be known. This will be the word "unknown" if not known.
+    string address = 7;
+
+    // The value in as a decimal form of whole coins, IF KNOWN. In most cases this will not
+    // be known because it can only be determined by accessing the previous transaction.
+    //
+    // For transactions created by this wallet, it should be known because the wallet knows
+    // the transactions from which it sourced funds. For transactions paying this wallet, or
+    // transactions which are unrelated to this wallet, it will probably NOT be known.
+    // NaN if unknown.
+    double value_coins = 8;
+
+    // The value in a stringified base-10 representation of atomic units of coin IF KNOWN.
+    // See the explanation of value_coins for when the value will be known or not.
+    // This will be the word "unknown" if unknown.
+    string svalue = 9;
 }
 
+// A Network Steward vote, which can be placed in a transaction
 message Vote{
+    // The Network Steward address which is being voted *for*
     string for = 1;
+    // The Network Steward address which is being voted *against*
     string against = 2;
 }
 
+// The transaction *output* which pays forward to another address
 message Vout {
+    // The value of the transaction output in decimal units of coin
     double value_coins = 1;
+
+    // The value in terms of atomic units of coin
     string svalue = 2;
+
+    // The number of the output within the transaction
     uint32 n = 3;
+
+    // The address which is paid by the output
     string address = 4;
+
+    // A Network Steward vote, if present
     Vote vote = 5;
 }
 
-message DecodeRawTransactionResponse{
+// The result of the util/transaction/decode request
+message TransactionInfo{
+    // The transaction ID / hash
     string txid = 1;
+
+    // The protocol version of the transaction
     int32 version = 2;
+
+    // The value of nLockTime
     uint32 locktime = 3;
+
+    // The fee, as stringified base-10 atomic units, or "unknown" if not available
+    // See VinDetail.value_coins for details on when it will be known and when it will
+    // not be known.
     string sfee = 4;
+
+    // The size of the transaction, excluding witness data
     int32 size = 5;
+
+    // The virtual size of the transaction, with witness data, for the purpose of block creation
     int32 vsize = 6;
-    repeated VinPrevOut vin = 7;
-    repeated Vout vout = 8;
+
+    // High level data regarding where the funds for this transaction were sourced from.
+    repeated Payer payers = 7;
+
+    // Low level detail of every input from which funds were sourced for this transaction.
+    // This will be empty unless specifically requested (include_vin_detail).
+    repeated VinDetail vin_detail = 8;
+
+    // The output addresses and amounts which were paid by this transaction.
+    repeated Vout vout = 9;
 }
