@@ -565,7 +565,7 @@ type LightningClient interface {
 	//$pld.short_description: `Returns a JSON object representing the provided serialized, hex-encoded transaction.`
 	//
 	//DecodeRawTransaction returns a JSON object representing the provided serialized, hex-encoded transaction.
-	DecodeRawTransaction(ctx context.Context, in *DecodeRawTransactionRequest, opts ...grpc.CallOption) (*DecodeRawTransactionResponse, error)
+	DecodeRawTransaction(ctx context.Context, in *DecodeRawTransactionRequest, opts ...grpc.CallOption) (*TransactionInfo, error)
 }
 
 type lightningClient struct {
@@ -1467,8 +1467,8 @@ func (c *lightningClient) SendFrom(ctx context.Context, in *SendFromRequest, opt
 	return out, nil
 }
 
-func (c *lightningClient) DecodeRawTransaction(ctx context.Context, in *DecodeRawTransactionRequest, opts ...grpc.CallOption) (*DecodeRawTransactionResponse, error) {
-	out := new(DecodeRawTransactionResponse)
+func (c *lightningClient) DecodeRawTransaction(ctx context.Context, in *DecodeRawTransactionRequest, opts ...grpc.CallOption) (*TransactionInfo, error) {
+	out := new(TransactionInfo)
 	err := c.cc.Invoke(ctx, "/lnrpc.Lightning/DecodeRawTransaction", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -2023,7 +2023,7 @@ type LightningServer interface {
 	//$pld.short_description: `Returns a JSON object representing the provided serialized, hex-encoded transaction.`
 	//
 	//DecodeRawTransaction returns a JSON object representing the provided serialized, hex-encoded transaction.
-	DecodeRawTransaction(context.Context, *DecodeRawTransactionRequest) (*DecodeRawTransactionResponse, error)
+	DecodeRawTransaction(context.Context, *DecodeRawTransactionRequest) (*TransactionInfo, error)
 }
 
 // UnimplementedLightningServer should be embedded to have forward compatible implementations.
@@ -2243,7 +2243,7 @@ func (UnimplementedLightningServer) BcastTransaction(context.Context, *BcastTran
 func (UnimplementedLightningServer) SendFrom(context.Context, *SendFromRequest) (*SendFromResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendFrom not implemented")
 }
-func (UnimplementedLightningServer) DecodeRawTransaction(context.Context, *DecodeRawTransactionRequest) (*DecodeRawTransactionResponse, error) {
+func (UnimplementedLightningServer) DecodeRawTransaction(context.Context, *DecodeRawTransactionRequest) (*TransactionInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DecodeRawTransaction not implemented")
 }
 

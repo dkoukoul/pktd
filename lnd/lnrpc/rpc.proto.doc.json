@@ -3595,7 +3595,7 @@
           "name": "DecodeRawTransactionRequest",
           "longName": "DecodeRawTransactionRequest",
           "fullName": "lnrpc.DecodeRawTransactionRequest",
-          "description": "",
+          "description": "The request to the util/transaction/decode endpoint",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,
@@ -3603,7 +3603,7 @@
           "fields": [
             {
               "name": "hex_tx",
-              "description": "",
+              "description": "The transaction in hex format (use this OR bin_tx)",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -3614,120 +3614,24 @@
               "defaultValue": ""
             },
             {
-              "name": "vin_extra",
-              "description": "",
+              "name": "bin_tx",
+              "description": "The transaction in binary format, if using JSON, this will be base64",
+              "label": "",
+              "type": "bytes",
+              "longType": "bytes",
+              "fullType": "bytes",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "include_vin_detail",
+              "description": "If true then request detailed information regarding every input which was sourced\nto fund the transaction.",
               "label": "",
               "type": "bool",
               "longType": "bool",
               "fullType": "bool",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            }
-          ]
-        },
-        {
-          "name": "DecodeRawTransactionResponse",
-          "longName": "DecodeRawTransactionResponse",
-          "fullName": "lnrpc.DecodeRawTransactionResponse",
-          "description": "",
-          "hasExtensions": false,
-          "hasFields": true,
-          "hasOneofs": false,
-          "extensions": [],
-          "fields": [
-            {
-              "name": "txid",
-              "description": "",
-              "label": "",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "version",
-              "description": "",
-              "label": "",
-              "type": "int32",
-              "longType": "int32",
-              "fullType": "int32",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "locktime",
-              "description": "",
-              "label": "",
-              "type": "uint32",
-              "longType": "uint32",
-              "fullType": "uint32",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "sfee",
-              "description": "",
-              "label": "",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "size",
-              "description": "",
-              "label": "",
-              "type": "int32",
-              "longType": "int32",
-              "fullType": "int32",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "vsize",
-              "description": "",
-              "label": "",
-              "type": "int32",
-              "longType": "int32",
-              "fullType": "int32",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "vin",
-              "description": "",
-              "label": "repeated",
-              "type": "VinPrevOut",
-              "longType": "VinPrevOut",
-              "fullType": "lnrpc.VinPrevOut",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "vout",
-              "description": "",
-              "label": "repeated",
-              "type": "Vout",
-              "longType": "Vout",
-              "fullType": "lnrpc.Vout",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -8728,6 +8632,66 @@
           ]
         },
         {
+          "name": "Payer",
+          "longName": "Payer",
+          "fullName": "lnrpc.Payer",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "address",
+              "description": "The address from which the coins were sourced, if known.\nIn most cases the address will be known, for details on when it might not be known\nsee VinDetail.address.\nIf this is sourcing newly mined coins, this will say \"coinbase\".",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "inputs",
+              "description": "The number of unique inputs with this address which are sourced.",
+              "label": "",
+              "type": "uint32",
+              "longType": "uint32",
+              "fullType": "uint32",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value_coins",
+              "description": "The decimal amount of whole coins which were sourced from this address, in MOST\ncases this is not known and will be NaN. See VinDetail.value_coins for details about\nwhen this can be expected to be known.",
+              "label": "",
+              "type": "double",
+              "longType": "double",
+              "fullType": "double",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "svalue",
+              "description": "The decimal amount of whole coins which were sourced from this address, in MOST\ncases this is not known and will be the word \"unknown\". See VinDetail.value_coins\nfor details about when this can be expected to be known.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "Payment",
           "longName": "Payment",
           "fullName": "lnrpc.Payment",
@@ -9997,54 +9961,6 @@
           "fields": []
         },
         {
-          "name": "PrevOut",
-          "longName": "PrevOut",
-          "fullName": "lnrpc.PrevOut",
-          "description": "",
-          "hasExtensions": false,
-          "hasFields": true,
-          "hasOneofs": false,
-          "extensions": [],
-          "fields": [
-            {
-              "name": "address",
-              "description": "",
-              "label": "",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "value_coins",
-              "description": "",
-              "label": "",
-              "type": "double",
-              "longType": "double",
-              "fullType": "double",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "svalue",
-              "description": "",
-              "label": "",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            }
-          ]
-        },
-        {
           "name": "PsbtShim",
           "longName": "PsbtShim",
           "fullName": "lnrpc.PsbtShim",
@@ -10848,42 +10764,6 @@
               "type": "uint32",
               "longType": "uint32",
               "fullType": "uint32",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            }
-          ]
-        },
-        {
-          "name": "ScriptSig",
-          "longName": "ScriptSig",
-          "fullName": "lnrpc.ScriptSig",
-          "description": "",
-          "hasExtensions": false,
-          "hasFields": true,
-          "hasOneofs": false,
-          "extensions": [],
-          "fields": [
-            {
-              "name": "asm",
-              "description": "",
-              "label": "",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "hex",
-              "description": "",
-              "label": "",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -11944,6 +11824,126 @@
           ]
         },
         {
+          "name": "TransactionInfo",
+          "longName": "TransactionInfo",
+          "fullName": "lnrpc.TransactionInfo",
+          "description": "The result of the util/transaction/decode request",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "txid",
+              "description": "The transaction ID / hash",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "version",
+              "description": "The protocol version of the transaction",
+              "label": "",
+              "type": "int32",
+              "longType": "int32",
+              "fullType": "int32",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "locktime",
+              "description": "The value of nLockTime",
+              "label": "",
+              "type": "uint32",
+              "longType": "uint32",
+              "fullType": "uint32",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "sfee",
+              "description": "The fee, as stringified base-10 atomic units, or \"unknown\" if not available\nSee VinDetail.value_coins for details on when it will be known and when it will\nnot be known.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "size",
+              "description": "The size of the transaction, excluding witness data",
+              "label": "",
+              "type": "int32",
+              "longType": "int32",
+              "fullType": "int32",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "vsize",
+              "description": "The virtual size of the transaction, with witness data, for the purpose of block creation",
+              "label": "",
+              "type": "int32",
+              "longType": "int32",
+              "fullType": "int32",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "payers",
+              "description": "High level data regarding where the funds for this transaction were sourced from.",
+              "label": "repeated",
+              "type": "Payer",
+              "longType": "Payer",
+              "fullType": "lnrpc.Payer",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "vin_detail",
+              "description": "Low level detail of every input from which funds were sourced for this transaction.\nThis will be empty unless specifically requested (include_vin_detail).",
+              "label": "repeated",
+              "type": "VinDetail",
+              "longType": "VinDetail",
+              "fullType": "lnrpc.VinDetail",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "vout",
+              "description": "The output addresses and amounts which were paid by this transaction.",
+              "label": "repeated",
+              "type": "Vout",
+              "longType": "Vout",
+              "fullType": "lnrpc.Vout",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "TransactionResult",
           "longName": "TransactionResult",
           "fullName": "lnrpc.TransactionResult",
@@ -12219,10 +12219,10 @@
           "fields": []
         },
         {
-          "name": "VinPrevOut",
-          "longName": "VinPrevOut",
-          "fullName": "lnrpc.VinPrevOut",
-          "description": "",
+          "name": "VinDetail",
+          "longName": "VinDetail",
+          "fullName": "lnrpc.VinDetail",
+          "description": "The transaction *input* which is used to fund the transaction",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,
@@ -12230,11 +12230,11 @@
           "fields": [
             {
               "name": "coinbase",
-              "description": "",
+              "description": "If THIS transaction is a coinbase, then coinbase data, otherwise empty string.",
               "label": "",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
+              "type": "bytes",
+              "longType": "bytes",
+              "fullType": "bytes",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -12242,7 +12242,7 @@
             },
             {
               "name": "txid",
-              "description": "",
+              "description": "If THIS transaction is not a coinbase, then txid is the id of the PREVIOUS transaction\nfrom which funds are being sourced, otherwise emptystring.",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -12254,7 +12254,7 @@
             },
             {
               "name": "vout",
-              "description": "",
+              "description": "If THIS transaction is not a coinbase, then number of the output within the previous\ntransaction from which funds are being sourced, otherwise 0.\nThis corrisponds to Vout.n.",
               "label": "",
               "type": "uint32",
               "longType": "uint32",
@@ -12266,11 +12266,11 @@
             },
             {
               "name": "script_sig",
-              "description": "",
+              "description": "In the case that this input is sourcing funds from a payment to a non-segwit address,\nthis is the cryptographic signature which makes the transaction valid for the purpose\nof spending the previous output. In bitcoind this is known as the scriptSig.\nIf this is a segwit transaction, this will be an empty string",
               "label": "",
-              "type": "ScriptSig",
-              "longType": "ScriptSig",
-              "fullType": "lnrpc.ScriptSig",
+              "type": "bytes",
+              "longType": "bytes",
+              "fullType": "bytes",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -12278,7 +12278,7 @@
             },
             {
               "name": "sequence",
-              "description": "",
+              "description": "The nSequence of the transaction, always 4294967295 unless replace-by-fee has been\nenabled, used for certain Lightning Network transactions.\nhttps://bitcoin.stackexchange.com/questions/87372/what-does-the-sequence-in-a-transaction-input-mean",
               "label": "",
               "type": "uint32",
               "longType": "uint32",
@@ -12290,8 +12290,20 @@
             },
             {
               "name": "witness",
-              "description": "",
+              "description": "In the case that this input is sourcing funds from a payment to a segwit address,\nthis is the witness which is used to prove ownership of the funds. In this case the\nscript_sig is empty (in the binary form, it is lterally a byte array of length zero).",
               "label": "repeated",
+              "type": "bytes",
+              "longType": "bytes",
+              "fullType": "bytes",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "address",
+              "description": "The address which \"paid in\" to the transaction, IF KNOWN. In the case of a segwit\ntransaction it will always be known, and in the case of a legacy script_sig transaction\nit will usually be known. This will be the word \"unknown\" if not known.",
+              "label": "",
               "type": "string",
               "longType": "string",
               "fullType": "string",
@@ -12301,12 +12313,24 @@
               "defaultValue": ""
             },
             {
-              "name": "prev_out",
-              "description": "",
+              "name": "value_coins",
+              "description": "The value in as a decimal form of whole coins, IF KNOWN. In most cases this will not\nbe known because it can only be determined by accessing the previous transaction.\n\nFor transactions created by this wallet, it should be known because the wallet knows\nthe transactions from which it sourced funds. For transactions paying this wallet, or\ntransactions which are unrelated to this wallet, it will probably NOT be known.\nNaN if unknown.",
               "label": "",
-              "type": "PrevOut",
-              "longType": "PrevOut",
-              "fullType": "lnrpc.PrevOut",
+              "type": "double",
+              "longType": "double",
+              "fullType": "double",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "svalue",
+              "description": "The value in a stringified base-10 representation of atomic units of coin IF KNOWN.\nSee the explanation of value_coins for when the value will be known or not.\nThis will be the word \"unknown\" if unknown.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -12318,7 +12342,7 @@
           "name": "Vote",
           "longName": "Vote",
           "fullName": "lnrpc.Vote",
-          "description": "",
+          "description": "A Network Steward vote, which can be placed in a transaction",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,
@@ -12326,7 +12350,7 @@
           "fields": [
             {
               "name": "for",
-              "description": "",
+              "description": "The Network Steward address which is being voted *for*",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -12338,7 +12362,7 @@
             },
             {
               "name": "against",
-              "description": "",
+              "description": "The Network Steward address which is being voted *against*",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -12354,7 +12378,7 @@
           "name": "Vout",
           "longName": "Vout",
           "fullName": "lnrpc.Vout",
-          "description": "",
+          "description": "The transaction *output* which pays forward to another address",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,
@@ -12362,7 +12386,7 @@
           "fields": [
             {
               "name": "value_coins",
-              "description": "",
+              "description": "The value of the transaction output in decimal units of coin",
               "label": "",
               "type": "double",
               "longType": "double",
@@ -12374,7 +12398,7 @@
             },
             {
               "name": "svalue",
-              "description": "",
+              "description": "The value in terms of atomic units of coin",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -12386,7 +12410,7 @@
             },
             {
               "name": "n",
-              "description": "",
+              "description": "The number of the output within the transaction",
               "label": "",
               "type": "uint32",
               "longType": "uint32",
@@ -12398,7 +12422,7 @@
             },
             {
               "name": "address",
-              "description": "",
+              "description": "The address which is paid by the output",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -12410,7 +12434,7 @@
             },
             {
               "name": "vote",
-              "description": "",
+              "description": "A Network Steward vote, if present",
               "label": "",
               "type": "Vote",
               "longType": "Vote",
@@ -13354,9 +13378,9 @@
               "requestLongType": "DecodeRawTransactionRequest",
               "requestFullType": "lnrpc.DecodeRawTransactionRequest",
               "requestStreaming": false,
-              "responseType": "DecodeRawTransactionResponse",
-              "responseLongType": "DecodeRawTransactionResponse",
-              "responseFullType": "lnrpc.DecodeRawTransactionResponse",
+              "responseType": "TransactionInfo",
+              "responseLongType": "TransactionInfo",
+              "responseFullType": "lnrpc.TransactionInfo",
               "responseStreaming": false
             }
           ]

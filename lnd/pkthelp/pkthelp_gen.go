@@ -3648,55 +3648,31 @@ func mklnrpc_DebugLevelResponse() Type {
 func mklnrpc_DecodeRawTransactionRequest() Type {
     return Type{
         Name: "lnrpc_DecodeRawTransactionRequest",
+        Description: []string{
+            "The request to the util/transaction/decode endpoint",
+        },
         Fields: []Field{
             {
                 Name: "hex_tx",
+                Description: []string{
+                    "The transaction in hex format (use this OR bin_tx)",
+                },
                 Type: mkstring(),
             },
             {
-                Name: "vin_extra",
+                Name: "bin_tx",
+                Description: []string{
+                    "The transaction in binary format, if using JSON, this will be base64",
+                },
+                Type: mkbytes(),
+            },
+            {
+                Name: "include_vin_detail",
+                Description: []string{
+                    "If true then request detailed information regarding every input which was sourced",
+                    "to fund the transaction.",
+                },
                 Type: mkbool(),
-            },
-        },
-    }
-}
-func mklnrpc_DecodeRawTransactionResponse() Type {
-    return Type{
-        Name: "lnrpc_DecodeRawTransactionResponse",
-        Fields: []Field{
-            {
-                Name: "txid",
-                Type: mkstring(),
-            },
-            {
-                Name: "version",
-                Type: mkint32(),
-            },
-            {
-                Name: "locktime",
-                Type: mkuint32(),
-            },
-            {
-                Name: "sfee",
-                Type: mkstring(),
-            },
-            {
-                Name: "size",
-                Type: mkint32(),
-            },
-            {
-                Name: "vsize",
-                Type: mkint32(),
-            },
-            {
-                Name: "vin",
-                Repeated: true,
-                Type: mklnrpc_VinPrevOut(),
-            },
-            {
-                Name: "vout",
-                Repeated: true,
-                Type: mklnrpc_Vout(),
             },
         },
     }
@@ -6481,6 +6457,48 @@ func mklnrpc_PayReqString() Type {
         },
     }
 }
+func mklnrpc_Payer() Type {
+    return Type{
+        Name: "lnrpc_Payer",
+        Fields: []Field{
+            {
+                Name: "address",
+                Description: []string{
+                    "The address from which the coins were sourced, if known.",
+                    "In most cases the address will be known, for details on when it might not be known",
+                    "see VinDetail.address.",
+                    "If this is sourcing newly mined coins, this will say \"coinbase\".",
+                },
+                Type: mkstring(),
+            },
+            {
+                Name: "inputs",
+                Description: []string{
+                    "The number of unique inputs with this address which are sourced.",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "value_coins",
+                Description: []string{
+                    "The decimal amount of whole coins which were sourced from this address, in MOST",
+                    "cases this is not known and will be NaN. See VinDetail.value_coins for details about",
+                    "when this can be expected to be known.",
+                },
+                Type: mkdouble(),
+            },
+            {
+                Name: "svalue",
+                Description: []string{
+                    "The decimal amount of whole coins which were sourced from this address, in MOST",
+                    "cases this is not known and will be the word \"unknown\". See VinDetail.value_coins",
+                    "for details about when this can be expected to be known.",
+                },
+                Type: mkstring(),
+            },
+        },
+    }
+}
 func mklnrpc_Payment() Type {
     return Type{
         Name: "lnrpc_Payment",
@@ -7210,25 +7228,6 @@ func mklnrpc_PolicyUpdateResponse() Type {
         Name: "lnrpc_PolicyUpdateResponse",
     }
 }
-func mklnrpc_PrevOut() Type {
-    return Type{
-        Name: "lnrpc_PrevOut",
-        Fields: []Field{
-            {
-                Name: "address",
-                Type: mkstring(),
-            },
-            {
-                Name: "value_coins",
-                Type: mkdouble(),
-            },
-            {
-                Name: "svalue",
-                Type: mkstring(),
-            },
-        },
-    }
-}
 func mklnrpc_PsbtShim() Type {
     return Type{
         Name: "lnrpc_PsbtShim",
@@ -7713,21 +7712,6 @@ func mklnrpc_RoutingPolicy() Type {
             {
                 Name: "last_update",
                 Type: mkuint32(),
-            },
-        },
-    }
-}
-func mklnrpc_ScriptSig() Type {
-    return Type{
-        Name: "lnrpc_ScriptSig",
-        Fields: []Field{
-            {
-                Name: "asm",
-                Type: mkstring(),
-            },
-            {
-                Name: "hex",
-                Type: mkstring(),
             },
         },
     }
@@ -8320,6 +8304,85 @@ func mklnrpc_TransactionDetails() Type {
         },
     }
 }
+func mklnrpc_TransactionInfo() Type {
+    return Type{
+        Name: "lnrpc_TransactionInfo",
+        Description: []string{
+            "The result of the util/transaction/decode request",
+        },
+        Fields: []Field{
+            {
+                Name: "txid",
+                Description: []string{
+                    "The transaction ID / hash",
+                },
+                Type: mkstring(),
+            },
+            {
+                Name: "version",
+                Description: []string{
+                    "The protocol version of the transaction",
+                },
+                Type: mkint32(),
+            },
+            {
+                Name: "locktime",
+                Description: []string{
+                    "The value of nLockTime",
+                },
+                Type: mkuint32(),
+            },
+            {
+                Name: "sfee",
+                Description: []string{
+                    "The fee, as stringified base-10 atomic units, or \"unknown\" if not available",
+                    "See VinDetail.value_coins for details on when it will be known and when it will",
+                    "not be known.",
+                },
+                Type: mkstring(),
+            },
+            {
+                Name: "size",
+                Description: []string{
+                    "The size of the transaction, excluding witness data",
+                },
+                Type: mkint32(),
+            },
+            {
+                Name: "vsize",
+                Description: []string{
+                    "The virtual size of the transaction, with witness data, for the purpose of block creation",
+                },
+                Type: mkint32(),
+            },
+            {
+                Name: "payers",
+                Description: []string{
+                    "High level data regarding where the funds for this transaction were sourced from.",
+                },
+                Repeated: true,
+                Type: mklnrpc_Payer(),
+            },
+            {
+                Name: "vin_detail",
+                Description: []string{
+                    "Low level detail of every input from which funds were sourced for this transaction.",
+                    "This will be empty unless specifically requested (include_vin_detail).",
+                },
+                Repeated: true,
+                Type: mklnrpc_VinDetail(),
+            },
+            {
+                Name: "vout",
+                Description: []string{
+                    "The output addresses and amounts which were paid by this transaction.",
+                },
+                Repeated: true,
+                Type: mklnrpc_Vout(),
+            },
+        },
+    }
+}
 func mklnrpc_TransactionResult() Type {
     return Type{
         Name: "lnrpc_TransactionResult",
@@ -8439,38 +8502,96 @@ func mklnrpc_VerifyChanBackupResponse() Type {
         Name: "lnrpc_VerifyChanBackupResponse",
     }
 }
-func mklnrpc_VinPrevOut() Type {
+func mklnrpc_VinDetail() Type {
     return Type{
-        Name: "lnrpc_VinPrevOut",
+        Name: "lnrpc_VinDetail",
+        Description: []string{
+            "The transaction *input* which is used to fund the transaction",
+        },
         Fields: []Field{
             {
                 Name: "coinbase",
-                Type: mkstring(),
+                Description: []string{
+                    "If THIS transaction is a coinbase, then coinbase data, otherwise empty string.",
+                },
+                Type: mkbytes(),
             },
             {
                 Name: "txid",
+                Description: []string{
+                    "If THIS transaction is not a coinbase, then txid is the id of the PREVIOUS transaction",
+                    "from which funds are being sourced, otherwise emptystring.",
+                },
                 Type: mkstring(),
             },
             {
                 Name: "vout",
+                Description: []string{
+                    "If THIS transaction is not a coinbase, then number of the output within the previous",
+                    "transaction from which funds are being sourced, otherwise 0.",
+                    "This corrisponds to Vout.n.",
+                },
                 Type: mkuint32(),
             },
             {
                 Name: "script_sig",
-                Type: mklnrpc_ScriptSig(),
+                Description: []string{
+                    "In the case that this input is sourcing funds from a payment to a non-segwit address,",
+                    "this is the cryptographic signature which makes the transaction valid for the purpose",
+                    "of spending the previous output. In bitcoind this is known as the scriptSig.",
+                    "If this is a segwit transaction, this will be an empty string",
+                },
+                Type: mkbytes(),
             },
             {
                 Name: "sequence",
+                Description: []string{
+                    "The nSequence of the transaction, always 4294967295 unless replace-by-fee has been",
+                    "enabled, used for certain Lightning Network transactions.",
+                    "https://bitcoin.stackexchange.com/questions/87372/what-does-the-sequence-in-a-transaction-input-mean",
+                },
                 Type: mkuint32(),
             },
             {
                 Name: "witness",
+                Description: []string{
+                    "In the case that this input is sourcing funds from a payment to a segwit address,",
+                    "this is the witness which is used to prove ownership of the funds. In this case the",
+                    "script_sig is empty (in the binary form, it is lterally a byte array of length zero).",
+                },
                 Repeated: true,
+                Type: mkbytes(),
+            },
+            {
+                Name: "address",
+                Description: []string{
+                    "The address which \"paid in\" to the transaction, IF KNOWN. In the case of a segwit",
+                    "transaction it will always be known, and in the case of a legacy script_sig transaction",
+                    "it will usually be known. This will be the word \"unknown\" if not known.",
+                },
                 Type: mkstring(),
             },
             {
-                Name: "prev_out",
-                Type: mklnrpc_PrevOut(),
+                Name: "value_coins",
+                Description: []string{
+                    "The value in as a decimal form of whole coins, IF KNOWN. In most cases this will not",
+                    "be known because it can only be determined by accessing the previous transaction.",
+                    "",
+                    "For transactions created by this wallet, it should be known because the wallet knows",
+                    "the transactions from which it sourced funds. For transactions paying this wallet, or",
+                    "transactions which are unrelated to this wallet, it will probably NOT be known.",
+                    "NaN if unknown.",
+                },
+                Type: mkdouble(),
+            },
+            {
+                Name: "svalue",
+                Description: []string{
+                    "The value in a stringified base-10 representation of atomic units of coin IF KNOWN.",
+                    "See the explanation of value_coins for when the value will be known or not.",
+                    "This will be the word \"unknown\" if unknown.",
+                },
+                Type: mkstring(),
             },
         },
     }
@@ -8478,13 +8599,22 @@ func mklnrpc_VinPrevOut() Type {
 func mklnrpc_Vote() Type {
     return Type{
         Name: "lnrpc_Vote",
+        Description: []string{
+            "A Network Steward vote, which can be placed in a transaction",
+        },
         Fields: []Field{
             {
                 Name: "for",
+                Description: []string{
+                    "The Network Steward address which is being voted *for*",
+                },
                 Type: mkstring(),
             },
             {
                 Name: "against",
+                Description: []string{
+                    "The Network Steward address which is being voted *against*",
+                },
                 Type: mkstring(),
             },
         },
@@ -8493,25 +8623,43 @@ func mklnrpc_Vote() Type {
 func mklnrpc_Vout() Type {
     return Type{
         Name: "lnrpc_Vout",
+        Description: []string{
+            "The transaction *output* which pays forward to another address",
+        },
         Fields: []Field{
             {
                 Name: "value_coins",
+                Description: []string{
+                    "The value of the transaction output in decimal units of coin",
+                },
                 Type: mkdouble(),
             },
             {
                 Name: "svalue",
+                Description: []string{
+                    "The value in terms of atomic units of coin",
+                },
                 Type: mkstring(),
             },
             {
                 Name: "n",
+                Description: []string{
+                    "The number of the output within the transaction",
+                },
                 Type: mkuint32(),
             },
             {
                 Name: "address",
+                Description: []string{
+                    "The address which is paid by the output",
+                },
                 Type: mkstring(),
             },
             {
                 Name: "vote",
+                Description: []string{
+                    "A Network Steward vote, if present",
+                },
                 Type: mklnrpc_Vote(),
             },
         },
@@ -12624,7 +12772,7 @@ func Lightning_DecodeRawTransaction() Method {
             "DecodeRawTransaction returns a JSON object representing the provided serialized, hex-encoded transaction.",
         },
         Req: mklnrpc_DecodeRawTransactionRequest(),
-        Res: mklnrpc_DecodeRawTransactionResponse(),
+        Res: mklnrpc_TransactionInfo(),
     }
 }
 func Signer_SignOutputRaw() Method {
