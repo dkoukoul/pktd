@@ -1980,6 +1980,7 @@ func (w *Wallet) ImportPrivateKey(scope waddrmgr.KeyScope, wif *btcutil.WIF,
 			stopHeight: -1,
 			watch:      &watch,
 		}
+		w.rescanBegan(w.rescanJ)
 	}
 	w.watch.WatchAddr(addr)
 
@@ -2641,13 +2642,7 @@ func (w *Wallet) StopResync() (string, er.R) {
 		return "", er.Errorf("No stoppable resync currently in progress")
 	}
 	w.rescanJ = nil
-
-	w.UpdateStats(func(ws *btcjson.WalletStats) {
-		ws.MaintenanceInProgress = false
-		ws.MaintenanceName = ""
-		ws.MaintenanceCycles = 0
-		ws.MaintenanceLastBlockVisited = 0
-	})
+	w.rescanEnded()
 	log.Info("Resync job stopped !")
 
 	return gj.name, nil
@@ -2718,6 +2713,7 @@ func (w *Wallet) ResyncChain(fromHeight, toHeight int32, addresses []string, dro
 		watch:      watch,
 		dropDb:     dropDb,
 	}
+	w.rescanBegan(w.rescanJ)
 	return nil
 }
 
@@ -3148,31 +3144,61 @@ func (w *Wallet) block(bm dbstructs.Block) er.R {
 	// Remember to re-check the stamp because it might have been rolled back
 	st = w.Manager.SyncedTo()
 
-	// Don't do more than 100 blocks in a cycle
-	top := bm.Height + 1
-	if top > st.Height+100 {
-		top = st.Height + 100
-	}
-	if err := w.rescan2(st.Height+1, top, false); err != nil {
-		return err
+	// Limit to 2 seconds per cycle
+	deadline := time.Now().Add(time.Second * 2)
+	begin := st.Height + 1
+	for time.Now().Before(deadline) {
+		top := bm.Height + 1
+		if top > st.Height+100 {
+			top = st.Height + 100
+		}
+		if top == begin {
+			break
+		}
+		if err := w.rescan2(begin, top, false); err != nil {
+			return err
+		} else {
+			begin = top
+		}
 	}
 	return nil
 }
 
-func (w *Wallet) rescan() {
+func (w *Wallet) rescanEnded() {
+	w.UpdateStats(func(ws *btcjson.WalletStats) {
+		ws.MaintenanceInProgress = false
+		ws.MaintenanceName = ""
+		ws.MaintenanceCycles = 0
+		ws.MaintenanceLastBlockVisited = 0
+	})
+}
+
+func (w *Wallet) rescanBegan(rj *rescanJob) {
+	w.UpdateStats(func(ws *btcjson.WalletStats) {
+		if !ws.MaintenanceInProgress {
+			ws.MaintenanceInProgress = true
+			ws.TimeOfLastMaintenance = time.Now()
+			ws.MaintenanceCycles = 0
+			ws.MaintenanceName = rj.name
+		}
+	})
+}
+
+func (w *Wallet) rescan() bool {
 	w.rescanJLock.Lock()
 	defer w.rescanJLock.Unlock()
 	rj := w.rescanJ
 	w.rescanJ = nil
 	if rj == nil {
-		return
+		return false
 	}
 
 	// Process dropdb requests
 	if !rj.dropDb {
 	} else if bs, err := getBlockStamp(w.chainClient, rj.height); err != nil {
 		log.Warnf("Error dropping db [%s]", err.String())
-		return
+		w.rescanEnded()
+		return false
 	} else if err := walletdb.Update(w.db, func(tx walletdb.ReadWriteTx) er.R {
 		txNs := tx.ReadWriteBucket(wtxmgrNamespaceKey)
 		log.Infof("Dropping transaction db")
@@ -3185,9 +3211,11 @@ func (w *Wallet) rescan() {
 		return nil
 	}); err != nil {
 		log.Warnf("Error dropping transaction db [%s]", err)
-		return
+		w.rescanEnded()
+		return false
 	} else {
-		return
+		w.rescanEnded()
+		return true
 	}
 
 	sta := w.Manager.SyncedTo()
@@ -3197,42 +3225,39 @@ func (w *Wallet) rescan() {
 	}
 	if rj.height >= limit {
 		log.Info("Resync job reached the chain tip! 👍")
+		w.rescanEnded()
+		return false
+	}
 
-		w.UpdateStats(func(ws *btcjson.WalletStats) {
-			ws.MaintenanceInProgress = false
-			ws.MaintenanceName = ""
-			ws.MaintenanceCycles = 0
-			ws.MaintenanceLastBlockVisited = 0
-		})
-		return
-	}
-	top := rj.height + 100
-	if limit < top {
-		top = limit
-	}
-	if err := w.rescan2(rj.height, top, true); err != nil {
-		log.Warnf("Error while running resync [%s] resync stopped", err.String())
-		return
-	}
-	rj.height = top
-	w.rescanJ = rj
-	w.UpdateStats(func(ws *btcjson.WalletStats) {
-		if !ws.MaintenanceInProgress {
-			ws.MaintenanceInProgress = true
-			ws.TimeOfLastMaintenance = time.Now()
-			ws.MaintenanceCycles = 0
+	// limit to 2 seconds per cycle
+	deadline := time.Now().Add(time.Second * 2)
+	top := int32(0)
+	for time.Now().Before(deadline) {
+		top = rj.height + 100
+		if limit < top {
+			top = limit
 		}
-		ws.MaintenanceCycles++
-		ws.MaintenanceLastBlockVisited = int(top)
-		ws.MaintenanceName = rj.name
-	})
+		if err := w.rescan2(rj.height, top, true); err != nil {
+			log.Warnf("Error while running resync [%s] resync stopped", err.String())
+			w.rescanEnded()
+			return false
+		}
+		rj.height = top
+		w.UpdateStats(func(ws *btcjson.WalletStats) {
+			ws.MaintenanceCycles++
+			ws.MaintenanceLastBlockVisited = int(top)
+			ws.MaintenanceName = rj.name
+		})
+	}
+	w.rescanJ = rj
+	return true
 }
 
-func (w *Wallet) checkBlock() {
+func (w *Wallet) checkBlock() bool {
 	cc := w.chainClient
 	if cc == nil {
 		/// shutting down
-		return
+		return false
 	}
 	bestH, bestHeight, err := cc.GetBestBlock()
 	if err != nil {
@@ -3245,12 +3270,14 @@ func (w *Wallet) checkBlock() {
 			log.Infof("Wallet frontend synced to tip [%s] 💪", log.Height(st.Height))
 			w.SetChainSynced(true)
 		}
+		return false
 	} else if err := w.block(dbstructs.Block{
 		Hash:   *bestH,
 		Height: bestHeight,
 	}); err != nil {
 		log.Warnf("Error registering block [%s]", err.String())
 	}
+	return true
 }
 
 func (w *Wallet) walletInit() {
@@ -3283,12 +3310,16 @@ func (w *Wallet) goMainLoop() {
 	}
 	w.walletInit()
 	for {
-		w.rescan()
-		w.checkBlock()
+		rapidCycle := w.rescan()
+		rapidCycle = w.checkBlock() || rapidCycle
 		if w.ShuttingDown() {
 			break
 		}
-		time.Sleep(time.Duration(500) * time.Millisecond)
+		sleepTime := time.Duration(50) * time.Millisecond
+		if !rapidCycle {
+			sleepTime *= 10
+		}
+		time.Sleep(sleepTime)
 	}
 	w.wg.Done()
 }
