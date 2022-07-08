@@ -601,7 +601,15 @@ func (s *ChainService) queryAllPeers(
 	// held in a single thread. This is the only part of the query
 	// framework that requires access to peerState, so it's done once per
 	// query.
-	peers := s.Peers()
+	var peers []*ServerPeer
+	for {
+		peers = s.Peers()
+		if len(peers) > 0 {
+			break
+		}
+		log.Debug("Pausing query until there are peers")
+		time.Sleep(time.Second * 5)
+	}
 
 	// This will be shared state between the per-peer goroutines.
 	queryQuit := make(chan struct{})
