@@ -6617,7 +6617,13 @@ func (r *rpcServer) FundingStateStep0(ctx context.Context,
 // Resync
 func (r *rpcServer) ReSync(ctx context.Context, req *lnrpc.ReSyncChainRequest) (*lnrpc.ReSyncChainResponse, error) {
 	fh := req.FromHeight
+	if req.FromHeight == 0 {
+		fh = -1
+	}
 	th := req.ToHeight
+	if req.ToHeight == 0 {
+		th = -1
+	}
 	var a []string
 	if req.Addresses != nil {
 		a = req.Addresses
