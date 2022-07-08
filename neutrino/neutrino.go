@@ -639,6 +639,7 @@ func NewChainService(cfg Config) (*ChainService, er.R) {
 		dialer = cfg.Dialer
 	} else {
 		dialer = func(addr net.Addr) (net.Conn, er.R) {
+			log.Infof("Attempting connection to [%v]", log.IpAddr(addr.String()))
 			conn, errr := net.Dial(addr.Network(), addr.String())
 			return conn, er.E(errr)
 		}
