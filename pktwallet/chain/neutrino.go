@@ -176,7 +176,7 @@ func (s *NeutrinoClient) FilterBlocks(
 
 		log.Tracef("Fetching block height=%d hash=%v", blk.Height, blk.Hash)
 
-		block, err := s.CS.GetBlock(blk.Hash, neutrino.Encoding(wire.BaseEncoding))
+		block, err := s.CS.GetBlock(blk.Hash)
 		if err != nil {
 			return nil, err
 		}

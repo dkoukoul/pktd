@@ -2929,6 +2929,10 @@ func rescanStep(
 					shouldReload = true
 				} else if spendsUndebitedAddress(tx, detail, filterReq.WatchedOutPoints) {
 					shouldReload = true
+				} else if tx.WitnessHash() != detail.MsgTx.WitnessHash() {
+					// Old version of the wallet requested transactions without segwit details
+					log.Debugf("Reload [%s] because we're missing the tx witness", tx.TxHash())
+					shouldReload = true
 				}
 				if shouldReload {
 					newTransactions = append(newTransactions, tx)
