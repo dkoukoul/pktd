@@ -7287,8 +7287,9 @@ func (r *rpcServer) transactionGetter() func(txns map[string]*wire.MsgTx) er.R {
 					// TxDetails only returns an error if something actually went wrong
 					// not found == nil, nil
 					return err
+				} else if tx != nil {
+					txns[k] = &tx.MsgTx
 				}
-				txns[k] = &tx.MsgTx
 			}
 			return nil
 		})
