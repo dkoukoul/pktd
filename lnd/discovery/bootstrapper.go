@@ -45,6 +45,8 @@ type NetworkPeerBootstrapper interface {
 	Name() string
 }
 
+var ErrNoAddressesFound = er.GenericErrorType.Code("ErrNoAddressesFound")
+
 // MultiSourceBootstrap attempts to utilize a set of NetworkPeerBootstrapper
 // passed in to return the target (numAddrs) number of peer addresses that can
 // be used to bootstrap a peer just joining the Lightning Network. Each
@@ -88,7 +90,7 @@ func MultiSourceBootstrap(ignore map[autopilot.NodeID]struct{}, numAddrs uint32,
 	}
 
 	if len(addrs) == 0 {
-		return nil, er.New("no addresses found")
+		return nil, ErrNoAddressesFound.Default()
 	}
 
 	log.Infof("Obtained %v addrs to bootstrap network with", len(addrs))

@@ -2142,8 +2142,12 @@ func (s *server) initialPeerBootstrap(ignore map[autopilot.NodeID]struct{},
 			ignore, peersNeeded, bootstrappers...,
 		)
 		if err != nil {
-			log.Errorf("Unable to retrieve initial bootstrap "+
-				"peers: %v", err)
+			if discovery.ErrNoAddressesFound.Is(err) {
+				log.Debugf("Lightning bootstrapper, no addresses found")
+			} else {
+				log.Errorf("Unable to retrieve initial bootstrap "+
+					"peers: %v", err)
+			}
 			continue
 		}
 
