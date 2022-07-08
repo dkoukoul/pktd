@@ -14,7 +14,7 @@ import (
 const (
 	// DefaultConnTimeout is the maximum amount of time a dial will wait for
 	// a connect to complete.
-	DefaultConnTimeout time.Duration = time.Second * 120
+	DefaultConnTimeout time.Duration = time.Second * 10
 )
 
 // DialFunc is a type defines the signature of a dialer used by our Net
