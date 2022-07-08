@@ -717,7 +717,15 @@ func queryChainServicePeers(
 
 	// We get an initial view of our peers, to be updated each time a peer
 	// query times out.
-	queryPeer := s.blockManager.SyncPeer()
+	var queryPeer *ServerPeer
+	for {
+		queryPeer = s.blockManager.SyncPeer()
+		if queryPeer != nil {
+			break
+		}
+		log.Debugf("Cannot proceed with query, no sync peer")
+		time.Sleep(time.Second * 10)
+	}
 	peerTries := make(map[string]uint8)
 
 	// This will be state used by the peer query goroutine.
