@@ -1877,7 +1877,7 @@ var rpcFunctions []RpcFunc = []RpcFunc{
 	{
 		command: help.CommandDecodeRawTransaction,
 		req:     (*lnrpc.DecodeRawTransactionRequest)(nil),
-		res:     (*lnrpc.DecodeRawTransactionResponse)(nil),
+		res:     (*lnrpc.TransactionInfo)(nil),
 		f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
 
 			//	get the request payload
@@ -1889,7 +1889,7 @@ var rpcFunctions []RpcFunc = []RpcFunc{
 			//	generate a new seed
 			cc, errr := c.withRpcServer()
 			if cc != nil {
-				var decodeResp *lnrpc.DecodeRawTransactionResponse
+				var decodeResp *lnrpc.TransactionInfo
 
 				decodeResp, err := cc.DecodeRawTransaction(context.TODO(), decodeReq)
 				if err != nil {

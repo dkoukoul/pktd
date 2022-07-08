@@ -12,7 +12,6 @@ import (
 	"os"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -38,6 +37,7 @@ import (
 	"github.com/pkt-cash/pktd/lnd/channeldb/kvdb"
 	"github.com/pkt-cash/pktd/lnd/channelnotifier"
 	"github.com/pkt-cash/pktd/lnd/contractcourt"
+	"github.com/pkt-cash/pktd/lnd/describetxn"
 	"github.com/pkt-cash/pktd/lnd/discovery"
 	"github.com/pkt-cash/pktd/lnd/feature"
 	"github.com/pkt-cash/pktd/lnd/htlcswitch"
@@ -68,7 +68,6 @@ import (
 	"github.com/pkt-cash/pktd/lnd/sweep"
 	"github.com/pkt-cash/pktd/lnd/watchtower"
 	"github.com/pkt-cash/pktd/lnd/zpay32"
-	"github.com/pkt-cash/pktd/mempool"
 	"github.com/pkt-cash/pktd/pktconfig/version"
 	"github.com/pkt-cash/pktd/pktlog/log"
 	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
@@ -7278,260 +7277,55 @@ func (r *rpcServer) SendFrom(ctx context.Context, req *lnrpc.SendFromRequest) (*
 	}, nil
 }
 
-//DecodeRawTransaction
-func (r *rpcServer) DecodeRawTransaction(ctx context.Context, req *lnrpc.DecodeRawTransactionRequest) (*lnrpc.DecodeRawTransactionResponse, error) {
+func (r *rpcServer) transactionGetter() func(txns map[string]*wire.MsgTx) er.R {
+	return func(txns map[string]*wire.MsgTx) er.R {
+		return walletdb.View(r.wallet.Database(), func(dbtx walletdb.ReadTx) er.R {
+			txmgrNs := dbtx.ReadBucket([]byte("wtxmgr"))
+			for k := range txns {
+				tx, err := r.wallet.TxStore.TxDetails(txmgrNs, chainhash.MustNewHashFromStr(k))
+				if err != nil {
+					// TxDetails only returns an error if something actually went wrong
+					// not found == nil, nil
+					return err
+				}
+				txns[k] = &tx.MsgTx
+			}
+			return nil
+		})
+	}
+}
+
+func (r *rpcServer) DecodeRawTransaction(ctx context.Context, req *lnrpc.DecodeRawTransactionRequest) (*lnrpc.TransactionInfo, error) {
 	// Deserialize the transaction.
-	hexStr := req.HexTx
-	if len(hexStr)%2 != 0 {
-		hexStr = "0" + hexStr
+	var serializedTx []byte
+	if len(req.BinTx) > 0 {
+		serializedTx = req.BinTx
+	} else {
+		hexStr := req.HexTx
+		if len(hexStr)%2 != 0 {
+			hexStr = "0" + hexStr
+		}
+		stx, err := util.DecodeHex(hexStr)
+		if err != nil {
+			return nil, err.Native()
+		}
+		serializedTx = stx
 	}
-	serializedTx, errr := hex.DecodeString(hexStr)
-	if errr != nil {
-		return nil, errr
-	}
+
 	var mtx wire.MsgTx
 	err := mtx.Deserialize(bytes.NewReader(serializedTx))
 	if err != nil {
 		return nil, er.Native(err)
 	}
 
-	xtra := req.VinExtra
-
-	vin, err := createVinListPrevOut(r, &mtx, r.cfg.ActiveNetParams.Params, xtra, nil)
+	txi, err := describetxn.Describe(
+		r.transactionGetter(),
+		mtx,
+		r.cfg.ActiveNetParams.Params,
+		req.IncludeVinDetail,
+	)
 	if err != nil {
-		return nil, er.Native(err)
+		return nil, err.Native()
 	}
-
-	sfee := "unknown"
-	if xtra {
-		failed := false
-		fee := int64(0)
-		for _, input := range vin {
-			if input.PrevOut == nil {
-				failed = true
-				break
-			}
-			n, errr := strconv.ParseInt(input.PrevOut.Svalue, 10, 64)
-			if errr != nil {
-				return nil, errr
-			}
-			fee += n
-		}
-		for _, out := range mtx.TxOut {
-			fee -= out.Value
-		}
-		if !failed {
-			sfee = strconv.FormatInt(fee, 10)
-		}
-	}
-
-	return &lnrpc.DecodeRawTransactionResponse{
-		Txid:     mtx.TxHash().String(),
-		Version:  mtx.Version,
-		Locktime: mtx.LockTime,
-		Size:     int32(mtx.SerializeSize()),
-		Vsize:    int32(mempool.GetTxVirtualSize(btcutil.NewTx(&mtx))),
-		Vin:      vin,
-		Vout:     createVoutList(&mtx, r.cfg.ActiveNetParams.Params, nil),
-		Sfee:     sfee,
-	}, nil
-}
-
-func vote(voteOut **lnrpc.Vote, script []byte, params *chaincfg.Params) {
-	voteFor, voteAgainst := txscript.ElectionGetVotesForAgainst(script)
-	if voteFor == nil && voteAgainst == nil {
-		return
-	}
-	v := lnrpc.Vote{}
-	if voteFor != nil {
-		v.For = txscript.PkScriptToAddress(voteFor, params).EncodeAddress()
-	}
-	if voteAgainst != nil {
-		v.Against = txscript.PkScriptToAddress(voteAgainst, params).EncodeAddress()
-	}
-	*voteOut = &v
-}
-
-// createVoutList returns a slice of JSON objects for the outputs of the passed
-// transaction.
-func createVoutList(mtx *wire.MsgTx, chainParams *chaincfg.Params, filterAddrMap map[string]struct{}) []*lnrpc.Vout {
-	voutList := make([]*lnrpc.Vout, 0, len(mtx.TxOut))
-	for i, v := range mtx.TxOut {
-		encodedAddr := txscript.PkScriptToAddress(v.PkScript, chainParams).EncodeAddress()
-		if len(filterAddrMap) == 0 {
-		} else if _, exists := filterAddrMap[encodedAddr]; !exists {
-			continue
-		}
-
-		vout := &lnrpc.Vout{
-			N:          uint32(i),
-			ValueCoins: btcutil.Amount(v.Value).ToBTC(),
-			Svalue:     strconv.FormatInt(v.Value, 10),
-			Address:    encodedAddr,
-		}
-
-		vote(&vout.Vote, v.PkScript, chainParams)
-		voutList = append(voutList, vout)
-	}
-
-	return voutList
-}
-
-// createVinListPrevOut returns a slice of JSON objects for the inputs of the
-// passed transaction.
-func createVinListPrevOut(
-	r *rpcServer,
-	mtx *wire.MsgTx,
-	chainParams *chaincfg.Params,
-	vinExtra bool,
-	filterAddrMap map[string]struct{},
-) ([]*lnrpc.VinPrevOut, er.R) {
-	vinFullList := createVinList(mtx, chainParams)
-	if !vinExtra && len(filterAddrMap) == 0 {
-		return vinFullList, nil
-	}
-	if err := loadPrevOuts(r, mtx, chainParams, vinFullList); err != nil {
-		return nil, err
-	}
-	return filterVinList(vinFullList, filterAddrMap), nil
-}
-
-func loadPrevOuts(
-	r *rpcServer,
-	mtx *wire.MsgTx,
-	chainParams *chaincfg.Params,
-	list []*lnrpc.VinPrevOut,
-) er.R {
-	if blockchain.IsCoinBaseTx(mtx) {
-		// By definition, a coinbase tx has only one input which cannot be loaded
-		return nil
-	}
-
-	// Lookup all of the referenced transaction outputs needed to populate
-	// the previous output information if requested.
-	//originOutputs, err := fetchInputTxos(s, mtx)
-	return walletdb.View(r.wallet.Database(), func(dbtx walletdb.ReadTx) er.R {
-		txmgrNs := dbtx.ReadBucket([]byte("wtxmgr"))
-		for i := 0; i < len(list); i++ {
-			tx, err := r.wallet.TxStore.TxDetails(txmgrNs, &mtx.TxIn[i].PreviousOutPoint.Hash)
-			if err != nil {
-				return err
-			}
-			// Update the entry with previous output information if
-			// requested.
-			list[i].PrevOut = &lnrpc.PrevOut{
-				Address:    txscript.PkScriptToAddress(tx.MsgTx.TxOut[i].PkScript, r.cfg.ActiveNetParams.Params).EncodeAddress(),
-				ValueCoins: btcutil.Amount(tx.MsgTx.TxOut[i].Value).ToBTC(),
-				Svalue:     strconv.FormatInt(tx.MsgTx.TxOut[i].Value, 10),
-			}
-		}
-		return nil
-	})
-}
-
-// createVinList returns a slice of JSON objects for the inputs of the passed
-// transaction.
-func createVinList(mtx *wire.MsgTx, chainParams *chaincfg.Params) []*lnrpc.VinPrevOut {
-	// Coinbase transactions only have a single txin by definition.
-	if blockchain.IsCoinBaseTx(mtx) {
-		txIn := mtx.TxIn[0]
-		return []*lnrpc.VinPrevOut{
-			{
-				Coinbase: hex.EncodeToString(txIn.SignatureScript),
-				Sequence: txIn.Sequence,
-			},
-		}
-	}
-
-	vinList := make([]*lnrpc.VinPrevOut, 0, len(mtx.TxIn))
-
-	for i, txIn := range mtx.TxIn {
-		// Create the basic input entry without the additional optional
-		// previous output details which will be added later if
-		// requested and available.
-		prevOut := &txIn.PreviousOutPoint
-		vinEntry := lnrpc.VinPrevOut{
-			Txid:     prevOut.Hash.String(),
-			Vout:     prevOut.Index,
-			Sequence: txIn.Sequence,
-		}
-		if len(txIn.SignatureScript) > 0 {
-			// The disassembled string will contain [error] inline
-			// if the script doesn't fully parse, so ignore the
-			// error here.
-			disbuf, _ := txscript.DisasmString(txIn.SignatureScript)
-			vinEntry.ScriptSig = &lnrpc.ScriptSig{
-				Asm: disbuf,
-				Hex: hex.EncodeToString(txIn.SignatureScript),
-			}
-		}
-
-		if len(mtx.Additional) == len(mtx.TxIn) {
-			po := lnrpc.PrevOut{}
-			if mtx.Additional[i].Value != nil {
-				v := *mtx.Additional[i].Value
-				po.ValueCoins = btcutil.Amount(v).ToBTC()
-				po.Svalue = strconv.FormatInt(v, 10)
-			}
-			if len(mtx.Additional[i].PkScript) > 0 {
-				s := mtx.Additional[i].PkScript
-				a := txscript.PkScriptToAddress(s, chainParams).EncodeAddress()
-				po.Address = a
-			}
-			if po.Address != "" || po.Svalue != "" {
-				vinEntry.PrevOut = &po
-			}
-		}
-
-		if len(txIn.Witness) != 0 {
-			vinEntry.Witness = witnessToHex(txIn.Witness)
-		}
-
-		vinList = append(vinList, &vinEntry)
-	}
-
-	return vinList
-}
-
-// you must call loadPrevOuts before calling this, otherwise nothing will match.
-func filterVinList(
-	list []*lnrpc.VinPrevOut,
-	filterAddrMap map[string]struct{},
-) []*lnrpc.VinPrevOut {
-	if len(filterAddrMap) == 0 {
-		// No filter, return everything
-		return list
-	}
-	if len(list) == 1 && len(list[0].Coinbase) > 0 {
-		// Coinbase matches nothing
-		return nil
-	}
-	out := make([]*lnrpc.VinPrevOut, 0, len(list))
-	for _, elem := range list {
-		if elem.PrevOut == nil {
-			continue
-		}
-		if _, ok := filterAddrMap[elem.PrevOut.Address]; ok {
-			out = append(out, elem)
-			break
-		}
-	}
-	return out
-}
-
-// witnessToHex formats the passed witness stack as a slice of hex-encoded
-// strings to be used in a JSON response.
-func witnessToHex(witness wire.TxWitness) []string {
-	// Ensure nil is returned when there are no entries versus an empty
-	// slice so it can properly be omitted as necessary.
-	if len(witness) == 0 {
-		return nil
-	}
-
-	result := make([]string, 0, len(witness))
-	for _, wit := range witness {
-		result = append(result, hex.EncodeToString(wit))
-	}
-
-	return result
+	return txi, nil
 }
