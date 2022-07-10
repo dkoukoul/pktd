@@ -1374,7 +1374,6 @@ func initNeutrinoBackend(cfg *Config, chainDir string) (*neutrino.ChainService,
 		AddPeers:     cfg.NeutrinoMode.AddPeers,
 		ConnectPeers: cfg.NeutrinoMode.ConnectPeers,
 		Dialer: func(addr net.Addr) (net.Conn, er.R) {
-			log.Infof("Attempting connection to [%v]", log.IpAddr(addr.String()))
 			return cfg.net.Dial(
 				addr.Network(), addr.String(),
 				cfg.ConnectionTimeout,
@@ -1402,7 +1401,9 @@ func initNeutrinoBackend(cfg *Config, chainDir string) (*neutrino.ChainService,
 		CheckConectivity:   cfg.NeutrinoMode.CheckConectivity,
 	}
 
-	neutrino.MaxPeers = 8
+	// neutrino.MaxPeers = 8
+	neutrino.TargetOutbound = 8
+
 	neutrino.BanDuration = time.Hour * 48
 	neutrino.UserAgentName = cfg.NeutrinoMode.UserAgentName
 	neutrino.UserAgentVersion = cfg.NeutrinoMode.UserAgentVersion

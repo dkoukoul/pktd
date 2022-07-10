@@ -626,27 +626,9 @@ type pendingFiltersReq struct {
 // NewChainService returns a new chain service configured to connect to the
 // network specified by chainParams. Use start to begin syncing with peers.
 func NewChainService(cfg Config) (*ChainService, er.R) {
-	// First, we'll sort out the methods that we'll use to established
-	// outbound TCP connections, as well as perform any DNS queries.
-	//
-	// If the dialler was specified, then we'll use that in place of the
-	// default net.Dial function.
-	var (
-		nameResolver func(string) ([]net.IP, er.R)
-		dialer       func(net.Addr) (net.Conn, er.R)
-	)
-	if cfg.Dialer != nil {
-		dialer = cfg.Dialer
-	} else {
-		dialer = func(addr net.Addr) (net.Conn, er.R) {
-			log.Infof("Attempting connection to [%v]", log.IpAddr(addr.String()))
-			conn, errr := net.Dial(addr.Network(), addr.String())
-			return conn, er.E(errr)
-		}
-	}
-
-	// Similarly, if the user specified as function to use for name
+	// If the user specified as function to use for name
 	// resolution, then we'll use that everywhere as well.
+	var nameResolver func(string) ([]net.IP, er.R)
 	if cfg.NameResolver != nil {
 		nameResolver = cfg.NameResolver
 	} else {
@@ -679,11 +661,28 @@ func NewChainService(cfg Config) (*ChainService, er.R) {
 		userAgentName:     UserAgentName,
 		userAgentVersion:  UserAgentVersion,
 		nameResolver:      nameResolver,
-		dialer:            dialer,
+		dialer:            nil,
 		pendingFilters:    make(map[*pendingFiltersReq]struct{}),
 		queries:           make(map[uint32]*Query),
 		invListeners:      make(map[chainhash.Hash][]chan *ServerPeer),
 		banMgr:            *banmgr.New(&bmConfig),
+	}
+
+	s.dialer = func(na net.Addr) (net.Conn, er.R) {
+		log.Infof("Attempting connection to [%v]", log.IpAddr(na.String()))
+		addr, err := s.addrManager.DeserializeNetAddress(na.String(), 0)
+		if err != nil {
+			return nil, er.Errorf("Unable to parse address [%v]", log.IpAddr(na.String()))
+		}
+		s.addrManager.Attempt(addr)
+		if cfg.Dialer != nil {
+			// If the dialler was specified, then we'll use that in place of the
+			// default net.Dial function.
+			return cfg.Dialer(na)
+		} else {
+			conn, errr := net.Dial(na.Network(), na.String())
+			return conn, er.E(errr)
+		}
 	}
 
 	// We do the same for queryBatch.
@@ -808,7 +807,7 @@ func NewChainService(cfg Config) (*ChainService, er.R) {
 		RetryDuration:  ConnectionRetryInterval,
 		TargetOutbound: uint32(TargetOutbound),
 		OnConnection:   s.outboundPeerConnected,
-		Dial:           dialer,
+		Dial:           s.dialer,
 	}
 	if len(cfg.ConnectPeers) == 0 {
 		cmgrCfg.GetNewAddress = newAddressFunc
@@ -1405,7 +1404,6 @@ func (s *ChainService) outboundPeerConnected(c *connmgr.ConnReq, conn net.Conn) 
 	sp.connReq = c
 	sp.AssociateConnection(conn)
 	go s.peerDoneHandler(sp)
-	s.addrManager.Attempt(sp.NA())
 }
 
 // peerDoneHandler handles peer disconnects by notifiying the server that it's
