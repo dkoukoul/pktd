@@ -731,6 +731,8 @@ func NewChainService(cfg Config) (*ChainService, er.R) {
 	// peers in order to prevent it from becoming a public test network.
 	var newAddressFunc func() (net.Addr, er.R)
 	if s.chainParams.Net != chaincfg.SimNetParams.Net {
+		var recentAddressLock sync.Mutex
+		recentAddresses := make(map[string]time.Time)
 		newAddressFunc = func() (net.Addr, er.R) {
 
 			// Gather our set of currently connected peers to avoid
@@ -784,15 +786,20 @@ func NewChainService(cfg Config) (*ChainService, er.R) {
 					continue
 				}
 
-				// only allow recent nodes (10mins) after we failed 30
-				// times
-				if tries < 30 && time.Since(addr.LastAttempt()) < 10*time.Minute {
-					continue
-				}
-
 				// allow nondefault ports after 50 failed tries.
 				if tries < 50 && fmt.Sprintf("%d", addr.NetAddress().Port) !=
 					s.chainParams.DefaultPort {
+					continue
+				}
+
+				// only allow recent nodes (10mins) after we failed 30
+				// times
+				recentAddressLock.Lock()
+				t := recentAddresses[addrString]
+				recentAddresses[addrString] = time.Now()
+				recentAddressLock.Unlock()
+
+				if tries < 30 && time.Since(t) < 10*time.Minute {
 					continue
 				}
 
