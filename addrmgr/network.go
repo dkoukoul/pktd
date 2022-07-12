@@ -42,6 +42,8 @@ var (
 	// cjdnsNet is half of rfc4193Net which is often routable for PKT nodes
 	cjdnsNet = ipNet("FC00::", 8, 128)
 
+	yggdrasilNet = ipNet("200::", 7, 128)
+
 	// rfc4380Net specifies the IPv6 teredo tunneling over UDP address block
 	// as defined by RFC4380 (2001::/32).
 	rfc4380Net = ipNet("2001::", 32, 128)
@@ -144,6 +146,10 @@ func IsCjdns(na *wire.NetAddress) bool {
 	return cjdnsNet.Contains(na.IP)
 }
 
+func IsYggdrasil(na *wire.NetAddress) bool {
+	return yggdrasilNet.Contains(na.IP)
+}
+
 // IsRFC4380 returns whether or not the passed address is part of the IPv6
 // teredo tunneling over UDP range as defined by RFC4380 (2001::/32).
 func IsRFC4380(na *wire.NetAddress) bool {
@@ -216,7 +222,7 @@ func IsRoutable(na *wire.NetAddress) bool {
 
 // GroupKey returns a string representing the network group an address is part
 // of.  This is the /16 for IPv4, the /32 (/36 for he.net) for IPv6, the string
-// "local" for a local address, and the string "unroutable" for an 
+// "local" for a local address, and the string "unroutable" for an
 // unroutable address.
 func GroupKey(na *wire.NetAddress) string {
 	if IsLocal(na) {

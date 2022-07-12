@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pkt-cash/pktd/addrmgr/localaddrs"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/connmgr/banmgr"
 	"github.com/pkt-cash/pktd/pktlog/log"
@@ -724,6 +725,14 @@ func NewChainService(cfg Config) (*ChainService, er.R) {
 	s.blockManager = bm
 	s.blockSubscriptionMgr = blockntfns.NewSubscriptionManager(s.blockManager)
 
+	localAddrs := localaddrs.New()
+	go func() {
+		for {
+			localAddrs.Referesh()
+			time.Sleep(time.Second * 30)
+		}
+	}()
+
 	// Only setup a function to return new addresses to connect to when not
 	// running in connect-only mode.  The simulation network is always in
 	// connect-only mode since it is only intended to connect to specified
@@ -783,6 +792,11 @@ func NewChainService(cfg Config) (*ChainService, er.R) {
 				// others.
 				key := addrmgr.GroupKey(addr.NetAddress())
 				if s.OutboundGroupCount(key) != 0 {
+					continue
+				}
+
+				if !localAddrs.Reachable(addr.NetAddress()) {
+					// Unreachable address
 					continue
 				}
 

@@ -1020,7 +1020,34 @@ func (a *AddrManager) AddLocalAddress(na *wire.NetAddress, priority AddressPrior
 	return nil
 }
 
-// getReachabilityFrom returns the relative reachability of the provided local
+// cjd: This is a better reachability metric, getReachabilityFrom()
+// does some silly things like assume ip6 addresses are reachable from ip4.
+func Reachable(localAddr, remoteAddr *wire.NetAddress) bool {
+	// For our purposes, loopback addresses should be assumed unreachable
+	// we're PROBABLY not trying to connect to ourselves
+	if IsLocal(localAddr) || IsLocal(remoteAddr) {
+		return false
+	}
+
+	if IsIPv4(localAddr) != IsIPv4(remoteAddr) {
+		return false
+	}
+	if IsIPv4(remoteAddr) {
+		// We consider all NAT local IPv4 to be inaccessible
+		// because otherwise we risk trying to connect to 10.0.0.0/8
+		// addresses which were gossipped to us by far away nodes.
+		return IsRoutable(remoteAddr)
+	}
+	if IsCjdns(localAddr) != IsCjdns(remoteAddr) {
+		return false
+	}
+	if IsYggdrasil(localAddr) != IsYggdrasil(remoteAddr) {
+		return false
+	}
+	return IsRoutable(localAddr) && IsRoutable(remoteAddr)
+}
+
+// GetReachabilityFrom returns the relative reachability of the provided local
 // address to the provided remote address.
 func getReachabilityFrom(localAddr, remoteAddr *wire.NetAddress) int {
 	const (
