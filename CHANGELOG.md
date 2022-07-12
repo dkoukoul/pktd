@@ -1,3 +1,80 @@
+# Release version pktd-v1.7.0
+TODO Not yet released
+
+## Major changes
+
+### New RPC util/transaction/decode
+This RPC provides a way to decode hex or binary format of a transaction and print
+everything that the wallet knows about it, including source addresses and amounts/fees
+if possible.
+
+### Compute the sender address for incoming transactions
+As surprising as it may sound, it can be very difficult to figure out who sent you money!
+The way the PKT, and BTC blockchains work is that each transaction sources funds from
+certain "inputs" (references to previous transactions) and then sends those funds to certain
+"outputs" (public signing keys). The "inputs" contain cryptographic signatures in order to
+prove validity of the spending of the funds, but they do not make it easy to determine the
+address from which coins are being spent, and the amount of coins is missing entirely.
+
+The block explorer and pktd are able to easily work around this problem because they have
+the entire blockchain on disk so they can simply access the previous transaction and read
+the output from it. But for the wallet, accessing the previous transaction is impossible
+without changing the p2p protocol or adding a web service.
+
+In this release, we added code to compute the address from the signature, so we now are
+able to see what address(es) contributed to a transaction which paid you. We still can't
+always know the *amount* of a transaction input (we only know it if we are the PAYER, thus
+we have the previous transaction in our db already), but we can reliably know the address.
+
+Old payments will still be missing the input address but this can be fixed with a resync.
+
+### Better peer selection
+PLD and pktwallet both have had significant peer selection issues. They would eventually
+connect but it would take time before they did so. This was the fault of a number of
+different bugs. Normally the peer connection logic should cycle through IP addresses which
+may contain pktd nodes and attempt to connect to them, keeping track of which ones work and
+which ones don't, and preferring nodes which have worked in the past, and fresh IP addresses
+which were never tried before.
+
+1. Addresses which were tested but were down or unreachable were not being accounted as
+having been tested.
+2. When trying to connect to a node, the wallet would pause for 120 seconds waiting for a
+reply, seriously slowing down the process of finding good nodes.
+3. The number of nodes to connect to was set to 8, which is also the maximum number of
+allowable connections, causing the wallet code to churn connection and disconnection cycles.
+4. The wallet treated all nodes as equal, whether IPv4, IPv6, cjdns, or Yggdrasil based,
+now it tests to see what types of nodes it can actually connect to.
+
+The newly reworked code is able to find 5 peers within 4 seconds of FIRST startup, with no
+known peers. In a subsequent restart, it's connected within 2 seconds.
+
+### Improve performance of UTXO scan
+Scanning over Unspent Transaction Outputs is necessary in order to make a payment or
+compute the balance of an address. Prior to this release, the scan took a fair amount of time
+because the data was stored in multiple places - so multiple disk accesses were required for
+each unspent transaction output. This improvement changes how the data is represented in the
+wallet.db file, improving the speed of getaddressbalances by 10x, and the speed of sending
+a transaction by as much as 40x.
+
+## Minor changes
+1. Fix startup log to indicate how to properly unlock the wallet
+59c46476f99b08662fcf8293fef5756eeb2ae913
+2. Pause queryAllPeers until there are peers (reduce "query failed" errors)
+81bfdfa8d207211f0997b315c50b5b78f2402e6c
+3. Don't try to query when we have no sync peer, so we don't get failed queries (reduce
+"query failed" errors) 36ff908d3df09ebe294cfadb119cb4ff2e41c1ad
+4. Improve performance and logging for rescans
+36225b2a8fafaa8da53f7acbf876471b6a4cd906
+
+## Stats
+TODO
+
+## Future Goals
+TODO
+
+## Thanks!
+TODO
+
 # Release version pktd-v1.6.0
 July 5, 2022
 
