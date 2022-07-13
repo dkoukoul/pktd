@@ -1,3 +1,4 @@
+//go:build autopilotrpc
 // +build autopilotrpc
 
 package autopilotrpc
@@ -7,8 +8,8 @@ import (
 	"encoding/hex"
 	"sync/atomic"
 
-	"github.com/pkt-cash/pktd/btcec"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/pkt-cash/pktd/btcec"
 	"github.com/pkt-cash/pktd/lnd/autopilot"
 	"github.com/pkt-cash/pktd/lnd/lnrpc"
 	"google.golang.org/grpc"
@@ -72,7 +73,7 @@ var _ AutopilotServer = (*Server)(nil)
 // this method. If the macaroons we need aren't found in the filepath, then
 // we'll create them on start up. If we're unable to locate, or create the
 // macaroons we need, then we'll return with an error.
-func New(cfg *Config) (*Server, lnrpc.MacaroonPerms, er.R) {
+func New(cfg *Config) (*Server, er.R) {
 	// We don't create any new macaroons for this subserver, instead reuse
 	// existing onchain/offchain permissions.
 	server := &Server{

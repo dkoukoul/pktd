@@ -40,22 +40,19 @@ import (
 )
 
 const (
-	defaultDataDirname        = "data"
-	defaultChainSubDirname    = "chain"
-	defaultGraphSubDirname    = "graph"
-	defaultTowerSubDirname    = "watchtower"
-	defaultTLSCertFilename    = "tls.cert"
-	defaultTLSKeyFilename     = "tls.key"
-	defaultAdminMacFilename   = "admin.macaroon"
-	defaultReadMacFilename    = "readonly.macaroon"
-	defaultInvoiceMacFilename = "invoice.macaroon"
-	defaultLogLevel           = "info"
-	defaultLogDirname         = "logs"
-	defaultLogFilename        = "lnd.log"
-	defaultRPCPort            = 10009
-	defaultRESTPort           = 8080
-	defaultPeerPort           = 9735
-	defaultRPCHost            = "localhost"
+	defaultDataDirname     = "data"
+	defaultChainSubDirname = "chain"
+	defaultGraphSubDirname = "graph"
+	defaultTowerSubDirname = "watchtower"
+	defaultTLSCertFilename = "tls.cert"
+	defaultTLSKeyFilename  = "tls.key"
+	defaultLogLevel        = "info"
+	defaultLogDirname      = "logs"
+	defaultLogFilename     = "lnd.log"
+	defaultRPCPort         = 10009
+	defaultRESTPort        = 8080
+	defaultPeerPort        = 9735
+	defaultRPCHost         = "localhost"
 
 	defaultNoSeedBackup                  = false
 	defaultPaymentsExpirationGracePeriod = time.Duration(0)
@@ -148,8 +145,6 @@ var (
 
 	defaultTowerDir = filepath.Join(defaultDataDir, defaultTowerSubDirname)
 
-	defaultTLSCertPath    = filepath.Join(DefaultLndDir, defaultTLSCertFilename)
-	defaultTLSKeyPath     = filepath.Join(DefaultLndDir, defaultTLSKeyFilename)
 	defaultLetsEncryptDir = filepath.Join(DefaultLndDir, defaultLetsEncryptDirname)
 
 	defaultBtcdDir         = btcutil.AppDataDir("btcd", false)
@@ -186,13 +181,6 @@ type Config struct {
 	DataDir      string `short:"b" long:"datadir" description:"The directory to store pld's data within"`
 	WalletFile   string `long:"wallet" description:"Wallet file name or path, if a simple word such as 'personal' then pktwallet will look for wallet_personal.db, if prefixed with a / then pktwallet will consider it an absolute path. (default: wallet.db)"`
 	SyncFreelist bool   `long:"sync-freelist" description:"Whether the databases used within pld should sync their freelist to disk. This is disabled by default resulting in improved memory performance during operation, but with an increase in startup time."`
-
-	//	we want to disable the use of macaroons just for the users so,
-	//	no more CLI options, config ini options or help for the following Config fields
-	NoMacaroons    bool
-	AdminMacPath   string
-	ReadMacPath    string
-	InvoiceMacPath string
 
 	LogDir          string        `long:"logdir" description:"Directory to log output."`
 	MaxLogFiles     int           `long:"maxlogfiles" description:"Maximum logfiles to keep (0 for no rotation)"`
@@ -617,9 +605,6 @@ func ValidateConfig(cfg Config, usageMessage string) (*Config, er.R) {
 	cfg.DataDir = CleanAndExpandPath(cfg.DataDir)
 	cfg.PktDir = CleanAndExpandPath(cfg.PktDir)
 	cfg.LetsEncryptDir = CleanAndExpandPath(cfg.LetsEncryptDir)
-	cfg.AdminMacPath = CleanAndExpandPath(cfg.AdminMacPath)
-	cfg.ReadMacPath = CleanAndExpandPath(cfg.ReadMacPath)
-	cfg.InvoiceMacPath = CleanAndExpandPath(cfg.InvoiceMacPath)
 	cfg.LogDir = CleanAndExpandPath(cfg.LogDir)
 	cfg.BtcdMode.Dir = CleanAndExpandPath(cfg.BtcdMode.Dir)
 	cfg.LtcdMode.Dir = CleanAndExpandPath(cfg.LtcdMode.Dir)
@@ -636,8 +621,6 @@ func ValidateConfig(cfg Config, usageMessage string) (*Config, er.R) {
 		lndDir, cfg.DataDir,
 		cfg.PktDir,
 		cfg.LetsEncryptDir, cfg.Watchtower.TowerDir,
-		filepath.Dir(cfg.AdminMacPath), filepath.Dir(cfg.ReadMacPath),
-		filepath.Dir(cfg.InvoiceMacPath),
 		filepath.Dir(cfg.Tor.PrivateKeyPath),
 		filepath.Dir(cfg.Tor.WatchtowerKeyPath),
 	}
@@ -1099,25 +1082,6 @@ func ValidateConfig(cfg Config, usageMessage string) (*Config, er.R) {
 		lncfg.NormalizeNetwork(cfg.ActiveNetParams.Name),
 	)
 
-	// If a custom macaroon directory wasn't specified and the data
-	// directory has changed from the default path, then we'll also update
-	// the path for the macaroons to be generated.
-	if cfg.AdminMacPath == "" {
-		cfg.AdminMacPath = filepath.Join(
-			cfg.networkDir, defaultAdminMacFilename,
-		)
-	}
-	if cfg.ReadMacPath == "" {
-		cfg.ReadMacPath = filepath.Join(
-			cfg.networkDir, defaultReadMacFilename,
-		)
-	}
-	if cfg.InvoiceMacPath == "" {
-		cfg.InvoiceMacPath = filepath.Join(
-			cfg.networkDir, defaultInvoiceMacFilename,
-		)
-	}
-
 	// Similarly, if a custom back up file path wasn't specified, then
 	// we'll update the file location to match our set network directory.
 	if cfg.BackupFilePath == "" {
@@ -1185,30 +1149,6 @@ func ValidateConfig(cfg Config, usageMessage string) (*Config, er.R) {
 	)
 	if err != nil {
 		return nil, err
-	}
-
-	// For each of the RPC listeners (REST+gRPC), we'll ensure that users
-	// have specified a safe combo for authentication. If not, we'll bail
-	// out with an error. Since we don't allow disabling TLS for gRPC
-	// connections we pass in tlsActive=true.
-	// pktwallet: we disable tls so tlsActive=false
-	err = lncfg.EnforceSafeAuthentication(
-		cfg.RPCListeners, !cfg.NoMacaroons, false,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if cfg.DisableRest {
-		log.Infof("REST API is disabled!")
-		cfg.RESTListeners = nil
-	} else {
-		err = lncfg.EnforceSafeAuthentication(
-			cfg.RESTListeners, !cfg.NoMacaroons, false,
-		)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	// Remove the listening addresses specified if listening is disabled.

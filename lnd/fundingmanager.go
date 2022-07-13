@@ -1359,7 +1359,7 @@ func (f *fundingManager) handleFundingOpen(peer lnpeer.Peer,
 	// address if our node is configured to set shutdown addresses by default.
 	// We use the upfront shutdown script provided by our channel acceptor
 	// (if any) in lieu of user input.
-	shutdown, errr := getUpfrontShutdownScript(
+	shutdown, err := getUpfrontShutdownScript(
 		f.cfg.EnableUpfrontShutdown, peer, acceptorResp.UpfrontShutdown,
 		func() (lnwire.DeliveryAddress, er.R) {
 			addr, errr := f.cfg.Wallet.NewAddress(lnwallet.WitnessPubKey, false)

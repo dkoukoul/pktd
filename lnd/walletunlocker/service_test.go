@@ -31,7 +31,6 @@ const (
 var (
 	testPassword = []byte("test-password")
 	testSeed     = []byte("test-seed-123456789")
-	testMac      = []byte("fakemacaroon")
 
 	testNetParams = &chaincfg.MainNetParams
 
@@ -114,7 +113,7 @@ func TestGenSeed(t *testing.T) {
 		_ = os.RemoveAll(testDir)
 	}()
 
-	service := walletunlocker.New(testDir, testNetParams, true, nil, "", testWalletFilename)
+	service := walletunlocker.New(testDir, testNetParams, true, "", testWalletFilename)
 
 	// Now that the service has been created, we'll ask it to generate a
 	// new seed for us given a test passphrase.
@@ -185,7 +184,7 @@ func TestGenSeedInvalidEntropy(t *testing.T) {
 	defer func() {
 		_ = os.RemoveAll(testDir)
 	}()
-	service := walletunlocker.New(testDir, testNetParams, true, nil, "", testWalletFilename)
+	service := walletunlocker.New(testDir, testNetParams, true, "", testWalletFilename)
 
 	// Now that the service has been created, we'll ask it to generate a
 	// new seed for us given a test passphrase. However, we'll be using an
@@ -217,7 +216,7 @@ func TestInitWallet(t *testing.T) {
 	}()
 
 	// Create new UnlockerService.
-	service := walletunlocker.New(testDir, testNetParams, true, nil, "", testWalletFilename)
+	service := walletunlocker.New(testDir, testNetParams, true, "", testWalletFilename)
 
 	// Once we have the unlocker service created, we'll now instantiate a
 	// new cipher seed and its mnemonic.
@@ -263,10 +262,6 @@ func TestInitWallet(t *testing.T) {
 		require.Equal(t, cipherSeed.Birthday(), msgSeed.Birthday())
 		require.Equal(t, testRecoveryWindow, msg.RecoveryWindow)
 
-		// Send a fake macaroon that should finish the async code above.
-		log.Debugf(">>> TestInitWallet [3] fake macaroon sent back")
-		service.MacResponseChan <- testMac
-
 	case <-time.After(defaultTestTimeout):
 		t.Fatalf("password not received")
 	}
@@ -301,7 +296,7 @@ func TestCreateWalletInvalidEntropy(t *testing.T) {
 	}()
 
 	// Create new UnlockerService.
-	service := walletunlocker.New(testDir, testNetParams, true, nil, "", testWalletFilename)
+	service := walletunlocker.New(testDir, testNetParams, true, "", testWalletFilename)
 
 	// We'll attempt to init the wallet with an invalid cipher seed and
 	// passphrase.
@@ -332,7 +327,7 @@ func TestUnlockWallet(t *testing.T) {
 	}()
 
 	// Create new UnlockerService.
-	service := walletunlocker.New(testDir, testNetParams, true, nil, "", testWalletFilename)
+	service := walletunlocker.New(testDir, testNetParams, true, "", testWalletFilename)
 
 	ctx := context.Background()
 	req := &lnrpc.UnlockWalletRequest{
@@ -373,11 +368,6 @@ func TestUnlockWallet(t *testing.T) {
 	case unlockMsg := <-service.UnlockMsgs:
 		require.Equal(t, testPassword, unlockMsg.Passphrase)
 		require.Equal(t, testRecoveryWindow, unlockMsg.RecoveryWindow)
-		require.Equal(t, true, unlockMsg.StatelessInit)
-
-		// Send a fake macaroon that should be returned in the response
-		// in the async code above.
-		service.MacResponseChan <- testMac
 
 	case <-time.After(defaultTestTimeout):
 		t.Fatalf("password not received")

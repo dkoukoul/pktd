@@ -1,5 +1,3 @@
-// +build walletrpc
-
 package walletrpc
 
 import (
@@ -7,7 +5,6 @@ import (
 	"github.com/pkt-cash/pktd/lnd/keychain"
 	"github.com/pkt-cash/pktd/lnd/lnwallet"
 	"github.com/pkt-cash/pktd/lnd/lnwallet/chainfee"
-	"github.com/pkt-cash/pktd/lnd/macaroons"
 	"github.com/pkt-cash/pktd/lnd/sweep"
 )
 
@@ -17,18 +14,9 @@ import (
 // configuration options, while if able to be populated, the latter fields MUST
 // also be specified.
 type Config struct {
-	// WalletKitMacPath is the path for the signer macaroon. If unspecified
-	// then we assume that the macaroon will be found under the network
-	// directory, named DefaultWalletKitMacFilename.
-	WalletKitMacPath string `long:"walletkitmacaroonpath" description:"Path to the wallet kit macaroon"`
-
 	// NetworkDir is the main network directory wherein the signer rpc
 	// server will find the macaroon named DefaultWalletKitMacFilename.
 	NetworkDir string
-
-	// MacService is the main macaroon service that we'll use to handle
-	// authentication for the signer rpc server.
-	MacService *macaroons.Service
 
 	// FeeEstimator is an instance of the primary fee estimator instance
 	// the WalletKit will use to respond to fee estimation requests.

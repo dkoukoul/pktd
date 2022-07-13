@@ -1,10 +1,7 @@
-// +build chainrpc
-
 package chainrpc
 
 import (
 	"github.com/pkt-cash/pktd/lnd/chainntnfs"
-	"github.com/pkt-cash/pktd/lnd/macaroons"
 )
 
 // Config is the primary configuration struct for the chain notifier RPC server.
@@ -22,10 +19,6 @@ type Config struct {
 	// RPC server will find the macaroon named
 	// DefaultChainNotifierMacFilename.
 	NetworkDir string
-
-	// MacService is the main macaroon service that we'll use to handle
-	// authentication for the chain notifier RPC server.
-	MacService *macaroons.Service
 
 	// ChainNotifier is the chain notifier instance that backs the chain
 	// notifier RPC server. The job of the chain notifier RPC server is

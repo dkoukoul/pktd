@@ -57,11 +57,6 @@ type WalletInitMsg struct {
 	// after the wallet has been initialized.
 	ChanBackups ChannelsToRecover
 
-	// StatelessInit signals that the user requested the daemon to be
-	// initialized stateless, which means no unencrypted macaroons should be
-	// written to disk.
-	StatelessInit bool
-
 	WalletName string
 }
 
@@ -94,11 +89,6 @@ type WalletUnlockMsg struct {
 	// UnloadWallet is a function for unloading the wallet, which should
 	// be called on shutdown.
 	UnloadWallet func() er.R
-
-	// StatelessInit signals that the user requested the daemon to be
-	// initialized stateless, which means no unencrypted macaroons should be
-	// written to disk.
-	StatelessInit bool
 }
 
 // UnlockerService implements the WalletUnlocker service used to provide lnd
@@ -114,18 +104,9 @@ type UnlockerService struct {
 	// sent.
 	UnlockMsgs chan *WalletUnlockMsg
 
-	// MacResponseChan is the channel for sending back the admin macaroon to
-	// the WalletUnlocker service.
-	MacResponseChan chan []byte
-
 	chainDir       string
 	noFreelistSync bool
 	netParams      *chaincfg.Params
-
-	// macaroonFiles is the path to the three generated macaroons with
-	// different access permissions. These might not exist in a stateless
-	// initialization of lnd.
-	macaroonFiles []string
 
 	walletFile string
 	walletPath string
@@ -135,21 +116,17 @@ var _ lnrpc.WalletUnlockerServer = (*UnlockerService)(nil)
 
 // New creates and returns a new UnlockerService.
 func New(chainDir string, params *chaincfg.Params, noFreelistSync bool,
-	macaroonFiles []string, walletPath string, walletFilename string) *UnlockerService {
+	walletPath string, walletFilename string) *UnlockerService {
 
 	return &UnlockerService{
 		InitMsgs:   make(chan *WalletInitMsg, 1),
 		UnlockMsgs: make(chan *WalletUnlockMsg, 1),
 
-		// Make sure we buffer the channel is buffered so the main lnd
-		// goroutine isn't blocking on writing to it.
-		MacResponseChan: make(chan []byte, 1),
-		chainDir:        chainDir,
-		noFreelistSync:  noFreelistSync,
-		netParams:       params,
-		macaroonFiles:   macaroonFiles,
-		walletFile:      walletFilename,
-		walletPath:      walletPath,
+		chainDir:       chainDir,
+		noFreelistSync: noFreelistSync,
+		netParams:      params,
+		walletFile:     walletFilename,
+		walletPath:     walletPath,
 	}
 }
 
@@ -336,7 +313,6 @@ func (u *UnlockerService) InitWallet0(ctx context.Context,
 		Passphrase:     walletPassphrase,
 		Seed:           seed,
 		RecoveryWindow: uint32(recoveryWindow),
-		StatelessInit:  true,
 		WalletName:     walletFile,
 	}
 
@@ -350,9 +326,6 @@ func (u *UnlockerService) InitWallet0(ctx context.Context,
 	// Deliver the initialization message back to the main daemon.
 	select {
 	case u.InitMsgs <- initMsg:
-		// We need to read from the channel to let the daemon continue
-		// its work and to get the admin macaroon. Once the response
-		// arrives, we directly forward it to the client.
 		select {
 		case <-u.MacResponseChan:
 			return &lnrpc.InitWalletResponse{}, nil
@@ -435,7 +408,6 @@ func (u *UnlockerService) UnlockWallet0(ctx context.Context,
 		RecoveryWindow: recoveryWindow,
 		Wallet:         unlockedWallet,
 		UnloadWallet:   loader.UnloadWallet,
-		StatelessInit:  true,
 	}
 
 	// Before we return the unlock payload, we'll check if we can extract

@@ -1,12 +1,8 @@
-// +build chainrpc
-
 package chainrpc
 
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"sync"
 
@@ -15,7 +11,7 @@ import (
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
 	"github.com/pkt-cash/pktd/lnd/chainntnfs"
 	"github.com/pkt-cash/pktd/lnd/lnrpc"
-	"github.com/pkt-cash/pktd/lnd/macaroons"
+	"github.com/pkt-cash/pktd/pktlog/log"
 	"github.com/pkt-cash/pktd/wire"
 	"google.golang.org/grpc"
 	"gopkg.in/macaroon-bakery.v2/bakery"
@@ -28,6 +24,8 @@ const (
 	// config file that we need.
 	subServerName = "ChainRPC"
 )
+
+var Err = er.NewErrorType("chainrpc")
 
 var (
 	// macaroonOps are the set of capabilities that our minted macaroon (if
@@ -91,7 +89,7 @@ type Server struct {
 // this method. If the macaroons we need aren't found in the filepath, then
 // we'll create them on start up. If we're unable to locate, or create the
 // macaroons we need, then we'll return with an error.
-func New(cfg *Config) (*Server, lnrpc.MacaroonPerms, er.R) {
+func New(cfg *Config) (*Server, er.R) {
 	// If the path of the chain notifier macaroon wasn't generated, then
 	// we'll assume that it's found at the default network directory.
 	if cfg.ChainNotifierMacPath == "" {
@@ -100,41 +98,10 @@ func New(cfg *Config) (*Server, lnrpc.MacaroonPerms, er.R) {
 		)
 	}
 
-	// Now that we know the full path of the chain notifier macaroon, we can
-	// check to see if we need to create it or not. If stateless_init is set
-	// then we don't write the macaroons.
-	macFilePath := cfg.ChainNotifierMacPath
-	if cfg.MacService != nil && !cfg.MacService.StatelessInit &&
-		!lnrpc.FileExists(macFilePath) {
-
-		log.Infof("Baking macaroons for ChainNotifier RPC Server at: %v",
-			macFilePath)
-
-		// At this point, we know that the chain notifier macaroon
-		// doesn't yet, exist, so we need to create it with the help of
-		// the main macaroon service.
-		chainNotifierMac, err := cfg.MacService.NewMacaroon(
-			context.Background(), macaroons.DefaultRootKeyID,
-			macaroonOps...,
-		)
-		if err != nil {
-			return nil, nil, err
-		}
-		chainNotifierMacBytes, err := chainNotifierMac.M().MarshalBinary()
-		if err != nil {
-			return nil, nil, err
-		}
-		err = ioutil.WriteFile(macFilePath, chainNotifierMacBytes, 0644)
-		if err != nil {
-			_ = os.Remove(macFilePath)
-			return nil, nil, err
-		}
-	}
-
 	return &Server{
 		cfg:  *cfg,
 		quit: make(chan struct{}),
-	}, macPermissions, nil
+	}, nil
 }
 
 // Compile-time checks to ensure that Server fully implements the
@@ -198,7 +165,7 @@ func (s *Server) RegisterWithRestServer(ctx context.Context,
 	if err != nil {
 		log.Errorf("Could not register ChainNotifier REST server "+
 			"with root REST server: %v", err)
-		return err
+		return er.E(err)
 	}
 
 	log.Debugf("ChainNotifier REST server successfully registered with " +
@@ -215,7 +182,13 @@ func (s *Server) RegisterWithRestServer(ctx context.Context,
 // zero hash.
 //
 // NOTE: This is part of the chainrpc.ChainNotifierService interface.
-func (s *Server) RegisterConfirmationsNtfn(in *ConfRequest,
+func (s *Server) RegisterConfirmationsNtfn(
+	in *ConfRequest,
+	confStream ChainNotifier_RegisterConfirmationsNtfnServer,
+) error {
+	return er.Native(s.RegisterConfirmationsNtfn0(in, confStream))
+}
+func (s *Server) RegisterConfirmationsNtfn0(in *ConfRequest,
 	confStream ChainNotifier_RegisterConfirmationsNtfnServer) er.R {
 
 	if !s.cfg.ChainNotifier.Started() {
@@ -267,7 +240,7 @@ func (s *Server) RegisterConfirmationsNtfn(in *ConfRequest,
 				},
 			}
 			if err := confStream.Send(conf); err != nil {
-				return err
+				return er.E(err)
 			}
 
 		// The transaction satisfying the request has been reorged out
@@ -281,7 +254,7 @@ func (s *Server) RegisterConfirmationsNtfn(in *ConfRequest,
 				Event: &ConfEvent_Reorg{Reorg: &Reorg{}},
 			}
 			if err := confStream.Send(reorg); err != nil {
-				return err
+				return er.E(err)
 			}
 
 		// The transaction satisfying the request has confirmed and is
@@ -298,7 +271,7 @@ func (s *Server) RegisterConfirmationsNtfn(in *ConfRequest,
 		// closed. We'll return the error indicated by the context
 		// itself to the caller.
 		case <-confStream.Context().Done():
-			return confStream.Context().Err()
+			return er.E(confStream.Context().Err())
 
 		// The server has been requested to shut down.
 		case <-s.quit:
@@ -315,7 +288,13 @@ func (s *Server) RegisterConfirmationsNtfn(in *ConfRequest,
 // outpoint  or for an output script by specifying a zero outpoint.
 //
 // NOTE: This is part of the chainrpc.ChainNotifierService interface.
-func (s *Server) RegisterSpendNtfn(in *SpendRequest,
+func (s *Server) RegisterSpendNtfn(
+	in *SpendRequest,
+	spendStream ChainNotifier_RegisterSpendNtfnServer,
+) error {
+	return er.Native(s.RegisterSpendNtfn0(in, spendStream))
+}
+func (s *Server) RegisterSpendNtfn0(in *SpendRequest,
 	spendStream ChainNotifier_RegisterSpendNtfnServer) er.R {
 
 	if !s.cfg.ChainNotifier.Started() {
@@ -375,7 +354,7 @@ func (s *Server) RegisterSpendNtfn(in *SpendRequest,
 				},
 			}
 			if err := spendStream.Send(spend); err != nil {
-				return err
+				return er.E(err)
 			}
 
 		// The spending transaction of the request has been reorged of
@@ -389,7 +368,7 @@ func (s *Server) RegisterSpendNtfn(in *SpendRequest,
 				Event: &SpendEvent_Reorg{Reorg: &Reorg{}},
 			}
 			if err := spendStream.Send(reorg); err != nil {
-				return err
+				return er.E(err)
 			}
 
 		// The spending transaction of the requests has confirmed
@@ -406,7 +385,7 @@ func (s *Server) RegisterSpendNtfn(in *SpendRequest,
 		// closed. We'll return the error indicated by the context
 		// itself to the caller.
 		case <-spendStream.Context().Done():
-			return spendStream.Context().Err()
+			return er.E(spendStream.Context().Err())
 
 		// The server has been requested to shut down.
 		case <-s.quit:
@@ -426,7 +405,13 @@ func (s *Server) RegisterSpendNtfn(in *SpendRequest,
 // missing processing a single block within the chain.
 //
 // NOTE: This is part of the chainrpc.ChainNotifierService interface.
-func (s *Server) RegisterBlockEpochNtfn(in *BlockEpoch,
+func (s *Server) RegisterBlockEpochNtfn(
+	in *BlockEpoch,
+	epochStream ChainNotifier_RegisterBlockEpochNtfnServer,
+) error {
+	return er.Native(s.RegisterBlockEpochNtfn0(in, epochStream))
+}
+func (s *Server) RegisterBlockEpochNtfn0(in *BlockEpoch,
 	epochStream ChainNotifier_RegisterBlockEpochNtfnServer) er.R {
 
 	if !s.cfg.ChainNotifier.Started() {
@@ -470,14 +455,14 @@ func (s *Server) RegisterBlockEpochNtfn(in *BlockEpoch,
 				Height: uint32(blockEpoch.Height),
 			}
 			if err := epochStream.Send(epoch); err != nil {
-				return err
+				return er.E(err)
 			}
 
 		// The response stream's context for whatever reason has been
 		// closed. We'll return the error indicated by the context
 		// itself to the caller.
 		case <-epochStream.Context().Done():
-			return epochStream.Context().Err()
+			return er.E(epochStream.Context().Err())
 
 		// The server has been requested to shut down.
 		case <-s.quit:

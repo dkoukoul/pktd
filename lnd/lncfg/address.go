@@ -47,40 +47,6 @@ func NormalizeAddresses(addrs []string, defaultPort string,
 	return result, nil
 }
 
-// EnforceSafeAuthentication enforces "safe" authentication taking into account
-// the interfaces that the RPC servers are listening on, and if macaroons and
-// TLS is activated or not. To protect users from using dangerous config
-// combinations, we'll prevent disabling authentication if the server is
-// listening on a public interface.
-func EnforceSafeAuthentication(addrs []net.Addr, macaroonsActive,
-	tlsActive bool) er.R {
-
-	// We'll now examine all addresses that this RPC server is listening
-	// on. If it's a localhost address or a private address, we'll skip it,
-	// otherwise, we'll return an error if macaroons are inactive.
-	for _, addr := range addrs {
-		if IsLoopback(addr.String()) || IsUnix(addr) || IsPrivate(addr) {
-			continue
-		}
-
-		if !macaroonsActive {
-			return er.Errorf("detected RPC server listening on "+
-				"publicly reachable interface %v with "+
-				"authentication disabled! Refusing to start "+
-				"with --no-macaroons specified", addr)
-		}
-
-		if !tlsActive {
-			return er.Errorf("detected RPC server listening on "+
-				"publicly reachable interface %v with "+
-				"encryption disabled! Refusing to start "+
-				"with --notls specified", addr)
-		}
-	}
-
-	return nil
-}
-
 // parseNetwork parses the network type of the given address.
 func parseNetwork(addr net.Addr) string {
 	switch addr := addr.(type) {

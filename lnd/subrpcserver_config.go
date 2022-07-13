@@ -20,7 +20,6 @@ import (
 	"github.com/pkt-cash/pktd/lnd/lnrpc/watchtowerrpc"
 	"github.com/pkt-cash/pktd/lnd/lnrpc/wtclientrpc"
 	"github.com/pkt-cash/pktd/lnd/lnwire"
-	"github.com/pkt-cash/pktd/lnd/macaroons"
 	"github.com/pkt-cash/pktd/lnd/netann"
 	"github.com/pkt-cash/pktd/lnd/routing"
 	"github.com/pkt-cash/pktd/lnd/sweep"
@@ -86,7 +85,7 @@ type subRPCServerConfigs struct {
 // FetchConfig method.
 func (s *subRPCServerConfigs) PopulateDependencies(cfg *Config,
 	cc *chainreg.ChainControl,
-	networkDir string, macService *macaroons.Service,
+	networkDir string,
 	atpl *autopilot.Manager,
 	invoiceRegistry *invoices.InvoiceRegistry,
 	htlcSwitch *htlcswitch.Switch,
@@ -128,9 +127,6 @@ func (s *subRPCServerConfigs) PopulateDependencies(cfg *Config,
 		case *signrpc.Config:
 			subCfgValue := extractReflectValue(subCfg)
 
-			subCfgValue.FieldByName("MacService").Set(
-				reflect.ValueOf(macService),
-			)
 			subCfgValue.FieldByName("NetworkDir").Set(
 				reflect.ValueOf(networkDir),
 			)
@@ -146,9 +142,6 @@ func (s *subRPCServerConfigs) PopulateDependencies(cfg *Config,
 
 			subCfgValue.FieldByName("NetworkDir").Set(
 				reflect.ValueOf(networkDir),
-			)
-			subCfgValue.FieldByName("MacService").Set(
-				reflect.ValueOf(macService),
 			)
 			subCfgValue.FieldByName("FeeEstimator").Set(
 				reflect.ValueOf(cc.FeeEstimator),
@@ -185,9 +178,6 @@ func (s *subRPCServerConfigs) PopulateDependencies(cfg *Config,
 			subCfgValue.FieldByName("NetworkDir").Set(
 				reflect.ValueOf(networkDir),
 			)
-			subCfgValue.FieldByName("MacService").Set(
-				reflect.ValueOf(macService),
-			)
 			subCfgValue.FieldByName("ChainNotifier").Set(
 				reflect.ValueOf(cc.ChainNotifier),
 			)
@@ -197,9 +187,6 @@ func (s *subRPCServerConfigs) PopulateDependencies(cfg *Config,
 
 			subCfgValue.FieldByName("NetworkDir").Set(
 				reflect.ValueOf(networkDir),
-			)
-			subCfgValue.FieldByName("MacService").Set(
-				reflect.ValueOf(macService),
 			)
 			subCfgValue.FieldByName("InvoiceRegistry").Set(
 				reflect.ValueOf(invoiceRegistry),
@@ -264,7 +251,6 @@ func (s *subRPCServerConfigs) PopulateDependencies(cfg *Config,
 
 	// Populate routerrpc dependencies.
 	s.RouterRPC.NetworkDir = networkDir
-	s.RouterRPC.MacService = macService
 	s.RouterRPC.Router = chanRouter
 	s.RouterRPC.RouterBackend = routerBackend
 

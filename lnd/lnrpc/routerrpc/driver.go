@@ -12,7 +12,7 @@ import (
 // config that is meant for us in the config dispatcher, then we'll exit with
 // an error.
 func createNewSubServer(configRegistry lnrpc.SubServerConfigDispatcher) (
-	lnrpc.SubServer, lnrpc.MacaroonPerms, er.R) {
+	lnrpc.SubServer, er.R) {
 
 	// We'll attempt to look up the config that we expect, according to our
 	// subServerName name. If we can't find this, then we'll exit with an
@@ -20,7 +20,7 @@ func createNewSubServer(configRegistry lnrpc.SubServerConfigDispatcher) (
 	// config.
 	routeServerConf, ok := configRegistry.FetchConfig(subServerName)
 	if !ok {
-		return nil, nil, er.Errorf("unable to find config for "+
+		return nil, er.Errorf("unable to find config for "+
 			"subserver type %s", subServerName)
 	}
 
@@ -28,7 +28,7 @@ func createNewSubServer(configRegistry lnrpc.SubServerConfigDispatcher) (
 	// ensure that it's the type we need.
 	config, ok := routeServerConf.(*Config)
 	if !ok {
-		return nil, nil, er.Errorf("wrong type of config for "+
+		return nil, er.Errorf("wrong type of config for "+
 			"subserver %s, expected %T got %T", subServerName,
 			&Config{}, routeServerConf)
 	}
@@ -37,7 +37,7 @@ func createNewSubServer(configRegistry lnrpc.SubServerConfigDispatcher) (
 	// some sanity checks on the arguments to ensure that they're useable.
 	switch {
 	case config.Router == nil:
-		return nil, nil, er.Errorf("Router must be set to create " +
+		return nil, er.Errorf("Router must be set to create " +
 			"Routerpc")
 	}
 
@@ -47,7 +47,7 @@ func createNewSubServer(configRegistry lnrpc.SubServerConfigDispatcher) (
 func init() {
 	subServer := &lnrpc.SubServerDriver{
 		SubServerName: subServerName,
-		New: func(c lnrpc.SubServerConfigDispatcher) (lnrpc.SubServer, lnrpc.MacaroonPerms, er.R) {
+		New: func(c lnrpc.SubServerConfigDispatcher) (lnrpc.SubServer, er.R) {
 			return createNewSubServer(c)
 		},
 	}

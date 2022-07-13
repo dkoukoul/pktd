@@ -1,10 +1,9 @@
-// +build invoicesrpc
-
 package invoicesrpc
 
 import (
 	"fmt"
 
+	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/lnd/lnrpc"
 )
 
@@ -13,7 +12,7 @@ import (
 // that is meant for us in the config dispatcher, then we'll exit with an
 // error.
 func createNewSubServer(configRegistry lnrpc.SubServerConfigDispatcher) (
-	lnrpc.SubServer, lnrpc.MacaroonPerms, er.R) {
+	lnrpc.SubServer, er.R) {
 
 	// We'll attempt to look up the config that we expect, according to our
 	// subServerName name. If we can't find this, then we'll exit with an
@@ -21,7 +20,7 @@ func createNewSubServer(configRegistry lnrpc.SubServerConfigDispatcher) (
 	// config.
 	subServerConf, ok := configRegistry.FetchConfig(subServerName)
 	if !ok {
-		return nil, nil, er.Errorf("unable to find config for "+
+		return nil, er.Errorf("unable to find config for "+
 			"subserver type %s", subServerName)
 	}
 
@@ -29,7 +28,7 @@ func createNewSubServer(configRegistry lnrpc.SubServerConfigDispatcher) (
 	// ensure that it's the type we need.
 	config, ok := subServerConf.(*Config)
 	if !ok {
-		return nil, nil, er.Errorf("wrong type of config for "+
+		return nil, er.Errorf("wrong type of config for "+
 			"subserver %s, expected %T got %T", subServerName,
 			&Config{}, subServerConf)
 	}
@@ -40,8 +39,7 @@ func createNewSubServer(configRegistry lnrpc.SubServerConfigDispatcher) (
 func init() {
 	subServer := &lnrpc.SubServerDriver{
 		SubServerName: subServerName,
-		New: func(c lnrpc.SubServerConfigDispatcher) (lnrpc.SubServer,
-			lnrpc.MacaroonPerms, er.R) {
+		New: func(c lnrpc.SubServerConfigDispatcher) (lnrpc.SubServer, er.R) {
 			return createNewSubServer(c)
 		},
 	}

@@ -7,18 +7,15 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
-	"net"
 	"net/http"
 	"os"
 	"runtime"
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/pkt-cash/pktd/blockchain"
 	"github.com/pkt-cash/pktd/btcec"
 	"github.com/pkt-cash/pktd/btcjson"
@@ -57,9 +54,6 @@ import (
 	"github.com/pkt-cash/pktd/lnd/lnwallet/chancloser"
 	"github.com/pkt-cash/pktd/lnd/lnwallet/chanfunding"
 	"github.com/pkt-cash/pktd/lnd/lnwire"
-	"github.com/pkt-cash/pktd/lnd/macaroons"
-	"github.com/pkt-cash/pktd/lnd/metaservice"
-	"github.com/pkt-cash/pktd/lnd/monitoring"
 	"github.com/pkt-cash/pktd/lnd/peer"
 	"github.com/pkt-cash/pktd/lnd/peernotifier"
 	"github.com/pkt-cash/pktd/lnd/record"
@@ -79,525 +73,12 @@ import (
 	"github.com/pkt-cash/pktd/txscript"
 	"github.com/pkt-cash/pktd/wire"
 	"github.com/pkt-cash/pktd/wire/ruleerror"
-	"google.golang.org/grpc"
-	"gopkg.in/macaroon-bakery.v2/bakery"
 )
 
-var (
-	// readPermissions is a slice of all entities that allow read
-	// permissions for authorization purposes, all lowercase.
-	readPermissions = []bakery.Op{
-		{
-			Entity: "onchain",
-			Action: "read",
-		},
-		{
-			Entity: "offchain",
-			Action: "read",
-		},
-		{
-			Entity: "address",
-			Action: "read",
-		},
-		{
-			Entity: "message",
-			Action: "read",
-		},
-		{
-			Entity: "peers",
-			Action: "read",
-		},
-		{
-			Entity: "info",
-			Action: "read",
-		},
-		{
-			Entity: "invoices",
-			Action: "read",
-		},
-		{
-			Entity: "signer",
-			Action: "read",
-		},
-		{
-			Entity: "macaroon",
-			Action: "read",
-		},
-	}
-
-	// writePermissions is a slice of all entities that allow write
-	// permissions for authorization purposes, all lowercase.
-	writePermissions = []bakery.Op{
-		{
-			Entity: "onchain",
-			Action: "write",
-		},
-		{
-			Entity: "offchain",
-			Action: "write",
-		},
-		{
-			Entity: "address",
-			Action: "write",
-		},
-		{
-			Entity: "message",
-			Action: "write",
-		},
-		{
-			Entity: "peers",
-			Action: "write",
-		},
-		{
-			Entity: "info",
-			Action: "write",
-		},
-		{
-			Entity: "invoices",
-			Action: "write",
-		},
-		{
-			Entity: "signer",
-			Action: "generate",
-		},
-		{
-			Entity: "macaroon",
-			Action: "generate",
-		},
-		{
-			Entity: "macaroon",
-			Action: "write",
-		},
-	}
-
-	// invoicePermissions is a slice of all the entities that allows a user
-	// to only access calls that are related to invoices, so: streaming
-	// RPCs, generating, and listening invoices.
-	invoicePermissions = []bakery.Op{
-		{
-			Entity: "invoices",
-			Action: "read",
-		},
-		{
-			Entity: "invoices",
-			Action: "write",
-		},
-		{
-			Entity: "address",
-			Action: "read",
-		},
-		{
-			Entity: "address",
-			Action: "write",
-		},
-		{
-			Entity: "onchain",
-			Action: "read",
-		},
-	}
-
-	// TODO(guggero): Refactor into constants that are used for all
-	// permissions in this file. Also expose the list of possible
-	// permissions in an RPC when per RPC permissions are
-	// implemented.
-	validActions  = []string{"read", "write", "generate"}
-	validEntities = []string{
-		"onchain", "offchain", "address", "message",
-		"peers", "info", "invoices", "signer", "macaroon",
-		macaroons.PermissionEntityCustomURI,
-	}
-
-	// If the --no-macaroons flag is used to start lnd, the macaroon service
-	// is not initialized. errMacaroonDisabled is then returned when
-	// macaroon related services are used.
-	errMacaroonDisabled = Err.CodeWithDetail("errMacaroonDisabled", "macaroon authentication disabled, "+
-		"remove --no-macaroons flag to enable")
-)
-
-// stringInSlice returns true if a string is contained in the given slice.
-func stringInSlice(a string, slice []string) bool {
-	for _, b := range slice {
-		if b == a {
-			return true
-		}
-	}
-	return false
-}
-
-// MainRPCServerPermissions returns a mapping of the main RPC server calls to
-// the permissions they require.
-func MainRPCServerPermissions() map[string][]bakery.Op {
-	return map[string][]bakery.Op{
-		"/lnrpc.Lightning/SendCoins": {{
-			Entity: "onchain",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/ListUnspent": {{
-			Entity: "onchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/SendMany": {{
-			Entity: "onchain",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/NewAddress": {{
-			Entity: "address",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/SignMessage": {{
-			Entity: "message",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/ConnectPeer": {{
-			Entity: "peers",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/DisconnectPeer": {{
-			Entity: "peers",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/OpenChannel": {{
-			Entity: "onchain",
-			Action: "write",
-		}, {
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/OpenChannelSync": {{
-			Entity: "onchain",
-			Action: "write",
-		}, {
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/CloseChannel": {{
-			Entity: "onchain",
-			Action: "write",
-		}, {
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/AbandonChannel": {{
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/GetInfo": {{
-			Entity: "info",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/GetRecoveryInfo": {{
-			Entity: "info",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/ListPeers": {{
-			Entity: "peers",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/WalletBalance": {{
-			Entity: "onchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/EstimateFee": {{
-			Entity: "onchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/ChannelBalance": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/PendingChannels": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/ListChannels": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/SubscribeChannelEvents": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/ClosedChannels": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/SendPayment": {{
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/SendPaymentSync": {{
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/SendToRoute": {{
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/SendToRouteSync": {{
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/AddInvoice": {{
-			Entity: "invoices",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/LookupInvoice": {{
-			Entity: "invoices",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/ListInvoices": {{
-			Entity: "invoices",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/SubscribeInvoices": {{
-			Entity: "invoices",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/SubscribeTransactions": {{
-			Entity: "onchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/GetTransactions": {{
-			Entity: "onchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/DescribeGraph": {{
-			Entity: "info",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/GetNodeMetrics": {{
-			Entity: "info",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/GetChanInfo": {{
-			Entity: "info",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/GetNodeInfo": {{
-			Entity: "info",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/QueryRoutes": {{
-			Entity: "info",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/GetNetworkInfo": {{
-			Entity: "info",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/StopDaemon": {{
-			Entity: "info",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/SubscribeChannelGraph": {{
-			Entity: "info",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/ListPayments": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/DeleteAllPayments": {{
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/DebugLevel": {{
-			Entity: "info",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/DecodePayReq": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/FeeReport": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/UpdateChannelPolicy": {{
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/ForwardingHistory": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/RestoreChannelBackups": {{
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/ExportChannelBackup": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/VerifyChanBackup": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/ExportAllChannelBackups": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/SubscribeChannelBackups": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/ChannelAcceptor": {{
-			Entity: "onchain",
-			Action: "write",
-		}, {
-			Entity: "offchain",
-			Action: "write",
-		}},
-		/*
-			"/lnrpc.Lightning/BakeMacaroon": {{
-				Entity: "macaroon",
-				Action: "generate",
-			}},
-			"/lnrpc.Lightning/ListMacaroonIDs": {{
-				Entity: "macaroon",
-				Action: "read",
-			}},
-			"/lnrpc.Lightning/DeleteMacaroonID": {{
-				Entity: "macaroon",
-				Action: "write",
-			}},
-			"/lnrpc.Lightning/ListPermissions": {{
-				Entity: "info",
-				Action: "read",
-			}},
-		*/
-		"/lnrpc.Lightning/SubscribePeerEvents": {{
-			Entity: "peers",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/FundingStateStep": {{
-			Entity: "onchain",
-			Action: "write",
-		}, {
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/GetAddressBalances": {{
-			Entity: "wallet",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/ReSync": {{
-			Entity: "onchain",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/StopReSync": {{
-			Entity: "onchain",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/GetWalletSeed": {{
-			Entity: "wallet",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/GetSecret": {{
-			Entity: "wallet",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/ImportPrivKey": {{
-			Entity: "wallet",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/ListLockUnspent": {{
-			Entity: "wallet",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/LockUnspent": {{
-			Entity: "wallet",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/CreateTransaction": {{
-			Entity: "wallet",
-			Action: "read",
-		}, {
-			Entity: "wallet",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/DumpPrivKey": {{
-			Entity: "wallet",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/GetNewAddress": {{
-			Entity: "wallet",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/GetTransaction": {{
-			Entity: "wallet",
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/GetNetworkStewardVote": {{
-			Entity: "onchain", //onchain
-			Action: "read",
-		}},
-		"/lnrpc.Lightning/SetNetworkStewardVote": {{
-			Entity: "onchain", //onchain
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/BcastTransaction": {{
-			Entity: "onchain", //onchain
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/SendFrom": {{
-			Entity: "onchain",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/CreateWallet": {{
-			Entity: "wallet",
-			Action: "write",
-		}},
-		"/lnrpc.Lightning/DecodeRawTransaction": {{
-			Entity: "onchain",
-			Action: "write",
-		}},
-	}
-}
-
-// rpcServer is a gRPC, RPC front end to the lnd daemon.
-// TODO(roasbeef): pagination support for the list-style calls
 type rpcServer struct {
-	started  int32 // To be used atomically.
-	shutdown int32 // To be used atomically.
-
 	server *server
 
 	cfg *Config
-
-	// subServers are a set of sub-RPC servers that use the same gRPC and
-	// listening sockets as the main RPC server, but which maintain their
-	// own independent service. This allows us to expose a set of
-	// micro-service like abstractions to the outside world for users to
-	// consume.
-	subServers []lnrpc.SubServer
-
-	// grpcServer is the main gRPC server that this RPC server, and all the
-	// sub-servers will use to register themselves and accept client
-	// requests from.
-	grpcServer *grpc.Server
-
-	// listeners is a list of listeners to use when starting the grpc
-	// server. We make it configurable such that the grpc server can listen
-	// on custom interfaces.
-	listeners []*ListenerWithSignal
-
-	// listenerCleanUp are a set of closures functions that will allow this
-	// main RPC server to clean up all the listening socket created for the
-	// server.
-	listenerCleanUp []func()
-
-	// restDialOpts are a set of gRPC dial options that the REST server
-	// proxy will use to connect to the main gRPC server.
-	restDialOpts []grpc.DialOption
-
-	// restProxyDest is the address to forward REST requests to.
-	restProxyDest string
-
-	// restListen is a function closure that allows the REST server proxy to
-	// connect to the main gRPC server to proxy all incoming requests,
-	// applying the current TLS configuration, if any.
-	restListen func(net.Addr) (net.Listener, er.R)
 
 	// routerBackend contains the backend implementation of the router
 	// rpc sub server.
@@ -609,16 +90,8 @@ type rpcServer struct {
 
 	quit chan struct{}
 
-	// macService is the macaroon service that we need to mint new
-	// macaroons.
-	macService *macaroons.Service
-
 	// selfNode is our own pubkey.
 	selfNode route.Vertex
-
-	// allPermissions is a map of all registered gRPC URIs (including
-	// internal and external subservers) to the permissions they require.
-	allPermissions map[string][]bakery.Op
 
 	wallet *wallet.Wallet
 }
@@ -632,14 +105,15 @@ var _ lnrpc.LightningServer = (*rpcServer)(nil)
 // of the sub-servers that it maintains. The set of serverOpts should be the
 // base level options passed to the grPC server. This typically includes things
 // like requiring TLS, etc.
-func newRPCServer(cfg *Config, s *server, macService *macaroons.Service,
-	subServerCgs *subRPCServerConfigs, serverOpts []grpc.ServerOption,
-	restDialOpts []grpc.DialOption, restProxyDest string,
-	atpl *autopilot.Manager, invoiceRegistry *invoices.InvoiceRegistry,
+func newRPCServer(
+	cfg *Config,
+	s *server,
+	atpl *autopilot.Manager,
+	invoiceRegistry *invoices.InvoiceRegistry,
 	tower *watchtower.Standalone,
-	restListen func(net.Addr) (net.Listener, er.R),
-	getListeners rpcListeners,
-	chanPredicate *chanacceptor.ChainedAcceptor, metaService *metaservice.MetaService) (*rpcServer, er.R) {
+	chanPredicate *chanacceptor.ChainedAcceptor,
+	metaService *lnrpc.MetaService,
+) (*rpcServer, er.R) {
 
 	// Set up router rpc backend.
 	channelGraph := s.localChanDB.ChannelGraph()
@@ -688,18 +162,13 @@ func newRPCServer(cfg *Config, s *server, macService *macaroons.Service,
 		return s.featureMgr.Get(feature.SetInvoice)
 	}
 
-	var (
-		subServers     []lnrpc.SubServer
-		subServerPerms []lnrpc.MacaroonPerms
-	)
-
 	// Before we create any of the sub-servers, we need to ensure that all
 	// the dependencies they need are properly populated within each sub
 	// server configuration struct.
 	//
 	// TODO(roasbeef): extend sub-sever config to have both (local vs remote) DB
-	err = subServerCgs.PopulateDependencies(
-		cfg, s.cc, cfg.networkDir, macService, atpl, invoiceRegistry,
+	err = cfg.SubRPCServers.PopulateDependencies(
+		cfg, s.cc, cfg.networkDir, atpl, invoiceRegistry,
 		s.htlcSwitch, cfg.ActiveNetParams.Params, s.chanRouter,
 		routerBackend, s.nodeSigner, s.remoteChanDB, s.sweeper, tower,
 		s.towerClient, cfg.net.ResolveTCPAddr, genInvoiceFeatures,
@@ -708,258 +177,26 @@ func newRPCServer(cfg *Config, s *server, macService *macaroons.Service,
 		return nil, err
 	}
 
-	// Now that the sub-servers have all their dependencies in place, we
-	// can create each sub-server!
-	registeredSubServers := lnrpc.RegisteredSubServers()
-	for _, subServer := range registeredSubServers {
-		subServerInstance, macPerms, err := subServer.New(subServerCgs)
-		if err != nil {
-			return nil, err
-		}
-
-		// We'll collect the sub-server, and also the set of
-		// permissions it needs for macaroons so we can apply the
-		// interceptors below.
-		subServers = append(subServers, subServerInstance)
-		subServerPerms = append(subServerPerms, macPerms)
-	}
-
-	// Next, we need to merge the set of sub server macaroon permissions
-	// with the main RPC server permissions so we can unite them under a
-	// single set of interceptors.
-	permissions := MainRPCServerPermissions()
-	for _, subServerPerm := range subServerPerms {
-		for method, ops := range subServerPerm {
-			// For each new method:ops combo, we also ensure that
-			// non of the sub-servers try to override each other.
-			if _, ok := permissions[method]; ok {
-				return nil, er.Errorf("detected duplicate "+
-					"macaroon constraints for path: %v",
-					method)
-			}
-
-			permissions[method] = ops
-		}
-	}
-
-	// Get the listeners and server options to use for this rpc server.
-	listeners, cleanup, err := getListeners()
-	if err != nil {
-		return nil, err
-	}
-
-	// External subserver possibly need to register their own permissions
-	// and macaroon validator.
-	for _, lis := range listeners {
-		extSubserver := lis.ExternalRPCSubserverCfg
-		if extSubserver != nil {
-			macValidator := extSubserver.MacaroonValidator
-			for method, ops := range extSubserver.Permissions {
-				// For each new method:ops combo, we also ensure
-				// that non of the sub-servers try to override
-				// each other.
-				if _, ok := permissions[method]; ok {
-					return nil, er.Errorf("detected "+
-						"duplicate macaroon "+
-						"constraints for path: %v",
-						method)
-				}
-
-				permissions[method] = ops
-
-				// Give the external subservers the possibility
-				// to also use their own validator to check any
-				// macaroons attached to calls to this method.
-				// This allows them to have their own root key
-				// ID database and permission entities.
-				if macValidator != nil {
-					err := macService.RegisterExternalValidator(
-						method, macValidator,
-					)
-					if err != nil {
-						return nil, er.Errorf("could "+
-							"not register "+
-							"external macaroon "+
-							"validator: %v", err)
-					}
-				}
-			}
-		}
-	}
-
-	// If macaroons aren't disabled (a non-nil service), then we'll set up
-	// our set of interceptors which will allow us to handle the macaroon
-	// authentication in a single location.
-	macUnaryInterceptors := []grpc.UnaryServerInterceptor{}
-	macStrmInterceptors := []grpc.StreamServerInterceptor{}
-	if macService != nil {
-		unaryInterceptor := macService.UnaryServerInterceptor(permissions)
-		macUnaryInterceptors = append(macUnaryInterceptors, unaryInterceptor)
-
-		strmInterceptor := macService.StreamServerInterceptor(permissions)
-		macStrmInterceptors = append(macStrmInterceptors, strmInterceptor)
-	}
-
-	// Get interceptors for Prometheus to gather gRPC performance metrics.
-	// If monitoring is disabled, GetPromInterceptors() will return empty
-	// slices.
-	promUnaryInterceptors, promStrmInterceptors := monitoring.GetPromInterceptors()
-
-	// Concatenate the slices of unary and stream interceptors respectively.
-	unaryInterceptors := append(macUnaryInterceptors, promUnaryInterceptors...)
-	strmInterceptors := append(macStrmInterceptors, promStrmInterceptors...)
-
-	// We'll also add our logging interceptors as well, so we can
-	// automatically log all errors that happen during RPC calls.
-	unaryInterceptors = append(
-		unaryInterceptors, errorLogUnaryServerInterceptor(),
-	)
-	strmInterceptors = append(
-		strmInterceptors, errorLogStreamServerInterceptor(),
-	)
-
-	// If any interceptors have been set up, add them to the server options.
-	if len(unaryInterceptors) != 0 && len(strmInterceptors) != 0 {
-		chainedUnary := grpc_middleware.WithUnaryServerChain(
-			unaryInterceptors...,
-		)
-		chainedStream := grpc_middleware.WithStreamServerChain(
-			strmInterceptors...,
-		)
-		serverOpts = append(serverOpts, chainedUnary, chainedStream)
-	}
-
-	// Finally, with all the pre-set up complete,  we can create the main
-	// gRPC server, and register the main lnrpc server along side.
-	grpcServer := grpc.NewServer(serverOpts...)
 	rootRPCServer := &rpcServer{
-		cfg:             cfg,
-		restDialOpts:    restDialOpts,
-		listeners:       listeners,
-		listenerCleanUp: []func(){cleanup},
-		restProxyDest:   restProxyDest,
-		subServers:      subServers,
-		restListen:      restListen,
-		grpcServer:      grpcServer,
-		server:          s,
-		routerBackend:   routerBackend,
-		chanPredicate:   chanPredicate,
-		quit:            make(chan struct{}, 1),
-		macService:      macService,
-		selfNode:        selfNode.PubKeyBytes,
-		allPermissions:  permissions,
-		wallet:          metaService.Wallet,
+		cfg:           cfg,
+		server:        s,
+		routerBackend: routerBackend,
+		chanPredicate: chanPredicate,
+		quit:          make(chan struct{}, 1),
+		selfNode:      selfNode.PubKeyBytes,
+		wallet:        metaService.Wallet,
 	}
-	lnrpc.RegisterLightningServer(grpcServer, rootRPCServer)
-	lnrpc.RegisterMetaServiceServer(grpcServer, metaService)
-
-	// Now the main RPC server has been registered, we'll iterate through
-	// all the sub-RPC servers and register them to ensure that requests
-	// are properly routed towards them.
-	for _, subServer := range subServers {
-		err := subServer.RegisterWithRootServer(grpcServer)
-		if err != nil {
-			return nil, er.Errorf("unable to register "+
-				"sub-server %v with root: %v",
-				subServer.Name(), err)
-		}
-	}
-
 	return rootRPCServer, nil
 }
 
 // Start launches any helper goroutines required for the rpcServer to function.
 func (r *rpcServer) Start() er.R {
-	if atomic.AddInt32(&r.started, 1) != 1 {
-		return nil
-	}
-
-	// First, we'll start all the sub-servers to ensure that they're ready
-	// to take new requests in.
-	//
-	// TODO(roasbeef): some may require that the entire daemon be started
-	// at that point
-	for _, subServer := range r.subServers {
-		log.Debugf("Starting sub RPC server: %v", subServer.Name())
-
-		if err := subServer.Start(); err != nil {
-			return err
-		}
-	}
-
-	// With all the sub-servers started, we'll spin up the listeners for
-	// the main RPC server itself.
-	for _, lis := range r.listeners {
-		go func(lis *ListenerWithSignal) {
-			log.Infof("RPC server listening on %s", lis.Addr())
-
-			// Before actually listening on the gRPC listener, give
-			// external subservers the chance to register to our
-			// gRPC server. Those external subservers (think GrUB)
-			// are responsible for starting/stopping on their own,
-			// we just let them register their services to the same
-			// server instance so all of them can be exposed on the
-			// same port/listener.
-			extSubCfg := lis.ExternalRPCSubserverCfg
-			if extSubCfg != nil && extSubCfg.Registrar != nil {
-				registerer := extSubCfg.Registrar
-				err := registerer.RegisterGrpcSubserver(
-					r.grpcServer,
-				)
-				if err != nil {
-					log.Errorf("error registering "+
-						"external gRPC subserver: %v",
-						err)
-				}
-			}
-
-			// Close the ready chan to indicate we are listening.
-			close(lis.Ready)
-			_ = r.grpcServer.Serve(lis)
-		}(lis)
-	}
-
-	// If Prometheus monitoring is enabled, start the Prometheus exporter.
-	if r.cfg.Prometheus.Enabled() {
-		err := monitoring.ExportPrometheusMetrics(
-			r.grpcServer, r.cfg.Prometheus,
-		)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
 // Stop signals any active goroutines for a graceful closure.
 func (r *rpcServer) Stop() er.R {
-	if atomic.AddInt32(&r.shutdown, 1) != 1 {
-		return nil
-	}
-
-	log.Infof("Stopping RPC Server")
-
 	close(r.quit)
-
-	// After we've signalled all of our active goroutines to exit, we'll
-	// then do the same to signal a graceful shutdown of all the sub
-	// servers.
-	for _, subServer := range r.subServers {
-		log.Infof("Stopping %v Sub-RPC Server",
-			subServer.Name())
-
-		if err := subServer.Stop(); err != nil {
-			log.Errorf("unable to stop sub-server %v: %v",
-				subServer.Name(), err)
-			continue
-		}
-	}
-
-	// Finally, we can clean up all the listening sockets to ensure that we
-	// give the file descriptors back to the OS.
-	for _, cleanUp := range r.listenerCleanUp {
-		cleanUp()
-	}
 
 	return nil
 }

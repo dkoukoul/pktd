@@ -1,5 +1,3 @@
-// +build watchtowerrpc
-
 package watchtowerrpc
 
 import (
@@ -8,9 +6,8 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/pkt-cash/pktd/btcutil/er"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
+	"github.com/pkt-cash/pktd/pktlog/log"
 	"google.golang.org/grpc"
-	"gopkg.in/macaroon-bakery.v2/bakery"
 )
 
 const (
@@ -22,14 +19,6 @@ const (
 )
 
 var (
-	// macPermissions maps RPC calls to the permissions they require.
-	macPermissions = map[string][]bakery.Op{
-		"/watchtowerrpc.Watchtower/GetInfo": {{
-			Entity: "info",
-			Action: "read",
-		}},
-	}
-
 	// ErrTowerNotActive signals that RPC calls cannot be processed because
 	// the watchtower is not active.
 	ErrTowerNotActive = er.GenericErrorType.CodeWithDetail("ErrTowerNotActive", "watchtower not active")
@@ -50,8 +39,8 @@ var _ WatchtowerServer = (*Handler)(nil)
 // If the macaroons we need aren't found in the filepath, then we'll create them
 // on start up. If we're unable to locate, or create the macaroons we need, then
 // we'll return with an error.
-func New(cfg *Config) (*Handler, lnrpc.MacaroonPerms, er.R) {
-	return &Handler{*cfg}, macPermissions, nil
+func New(cfg *Config) (*Handler, er.R) {
+	return &Handler{*cfg}, nil
 }
 
 // Start launches any helper goroutines required for the Handler to function.
@@ -106,7 +95,7 @@ func (c *Handler) RegisterWithRestServer(ctx context.Context,
 	if err != nil {
 		log.Errorf("Could not register Watchtower REST server "+
 			"with root REST server: %v", err)
-		return err
+		return er.E(err)
 	}
 
 	log.Debugf("Watchtower REST server successfully registered with " +
@@ -119,6 +108,11 @@ func (c *Handler) RegisterWithRestServer(ctx context.Context,
 // included will be considered when dialing it for session negotiations and
 // backups.
 func (c *Handler) GetInfo(ctx context.Context,
+	req *GetInfoRequest) (*GetInfoResponse, error) {
+	out, err := c.GetInfo0(ctx, req)
+	return out, er.Native(err)
+}
+func (c *Handler) GetInfo0(ctx context.Context,
 	req *GetInfoRequest) (*GetInfoResponse, er.R) {
 
 	if err := c.isActive(); err != nil {

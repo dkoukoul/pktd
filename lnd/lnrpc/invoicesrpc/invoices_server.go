@@ -1,21 +1,16 @@
-// +build invoicesrpc
-
 package invoicesrpc
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 
 	"google.golang.org/grpc"
-	"gopkg.in/macaroon-bakery.v2/bakery"
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/lnd/channeldb"
 	"github.com/pkt-cash/pktd/lnd/lnrpc"
 	"github.com/pkt-cash/pktd/lnd/lntypes"
-	"github.com/pkt-cash/pktd/lnd/macaroons"
+	"github.com/pkt-cash/pktd/pktlog/log"
 )
 
 const (
@@ -26,45 +21,10 @@ const (
 	subServerName = "InvoicesRPC"
 )
 
-var (
-	// macaroonOps are the set of capabilities that our minted macaroon (if
-	// it doesn't already exist) will have.
-	macaroonOps = []bakery.Op{
-		{
-			Entity: "invoices",
-			Action: "write",
-		},
-		{
-			Entity: "invoices",
-			Action: "read",
-		},
-	}
-
-	// macPermissions maps RPC calls to the permissions they require.
-	macPermissions = map[string][]bakery.Op{
-		"/invoicesrpc.Invoices/SubscribeSingleInvoice": {{
-			Entity: "invoices",
-			Action: "read",
-		}},
-		"/invoicesrpc.Invoices/SettleInvoice": {{
-			Entity: "invoices",
-			Action: "write",
-		}},
-		"/invoicesrpc.Invoices/CancelInvoice": {{
-			Entity: "invoices",
-			Action: "write",
-		}},
-		"/invoicesrpc.Invoices/AddHoldInvoice": {{
-			Entity: "invoices",
-			Action: "write",
-		}},
-	}
-
-	// DefaultInvoicesMacFilename is the default name of the invoices
-	// macaroon that we expect to find via a file handle within the main
-	// configuration file in this package.
-	DefaultInvoicesMacFilename = "invoices.macaroon"
-)
+// DefaultInvoicesMacFilename is the default name of the invoices
+// macaroon that we expect to find via a file handle within the main
+// configuration file in this package.
+var DefaultInvoicesMacFilename = "invoices.macaroon"
 
 // Server is a sub-server of the main RPC server: the invoices RPC. This sub
 // RPC server allows external callers to access the status of the invoices
@@ -84,49 +44,12 @@ var _ InvoicesServer = (*Server)(nil)
 // this method. If the macaroons we need aren't found in the filepath, then
 // we'll create them on start up. If we're unable to locate, or create the
 // macaroons we need, then we'll return with an error.
-func New(cfg *Config) (*Server, lnrpc.MacaroonPerms, er.R) {
-	// If the path of the invoices macaroon wasn't specified, then we'll
-	// assume that it's found at the default network directory.
-	macFilePath := filepath.Join(
-		cfg.NetworkDir, DefaultInvoicesMacFilename,
-	)
-
-	// Now that we know the full path of the invoices macaroon, we can
-	// check to see if we need to create it or not. If stateless_init is set
-	// then we don't write the macaroons.
-	if cfg.MacService != nil && !cfg.MacService.StatelessInit &&
-		!lnrpc.FileExists(macFilePath) {
-
-		log.Infof("Baking macaroons for invoices RPC Server at: %v",
-			macFilePath)
-
-		// At this point, we know that the invoices macaroon doesn't
-		// yet, exist, so we need to create it with the help of the
-		// main macaroon service.
-		invoicesMac, err := cfg.MacService.NewMacaroon(
-			context.Background(), macaroons.DefaultRootKeyID,
-			macaroonOps...,
-		)
-		if err != nil {
-			return nil, nil, err
-		}
-		invoicesMacBytes, err := invoicesMac.M().MarshalBinary()
-		if err != nil {
-			return nil, nil, err
-		}
-		err = ioutil.WriteFile(macFilePath, invoicesMacBytes, 0644)
-		if err != nil {
-			_ = os.Remove(macFilePath)
-			return nil, nil, err
-		}
-	}
-
+func New(cfg *Config) (*Server, er.R) {
 	server := &Server{
 		cfg:  cfg,
 		quit: make(chan struct{}, 1),
 	}
-
-	return server, macPermissions, nil
+	return server, nil
 }
 
 // Start launches any helper goroutines required for the Server to function.
@@ -183,7 +106,7 @@ func (s *Server) RegisterWithRestServer(ctx context.Context,
 	if err != nil {
 		log.Errorf("Could not register Invoices REST server "+
 			"with root REST server: %v", err)
-		return err
+		return er.E(err)
 	}
 
 	log.Debugf("Invoices REST server successfully registered with " +
@@ -193,7 +116,13 @@ func (s *Server) RegisterWithRestServer(ctx context.Context,
 
 // SubscribeSingleInvoice returns a uni-directional stream (server -> client)
 // for notifying the client of state changes for a specified invoice.
-func (s *Server) SubscribeSingleInvoice(req *SubscribeSingleInvoiceRequest,
+func (s *Server) SubscribeSingleInvoice(
+	in *SubscribeSingleInvoiceRequest,
+	updateStream Invoices_SubscribeSingleInvoiceServer,
+) error {
+	return er.Native(s.SubscribeSingleInvoice0(in, updateStream))
+}
+func (s *Server) SubscribeSingleInvoice0(req *SubscribeSingleInvoiceRequest,
 	updateStream Invoices_SubscribeSingleInvoiceServer) er.R {
 
 	hash, err := lntypes.MakeHash(req.RHash)
@@ -218,7 +147,7 @@ func (s *Server) SubscribeSingleInvoice(req *SubscribeSingleInvoiceRequest,
 			}
 
 			if err := updateStream.Send(rpcInvoice); err != nil {
-				return err
+				return er.E(err)
 			}
 
 		case <-s.quit:
@@ -229,7 +158,14 @@ func (s *Server) SubscribeSingleInvoice(req *SubscribeSingleInvoiceRequest,
 
 // SettleInvoice settles an accepted invoice. If the invoice is already settled,
 // this call will succeed.
-func (s *Server) SettleInvoice(ctx context.Context,
+func (s *Server) SettleInvoice(
+	ctx context.Context,
+	in *SettleInvoiceMsg,
+) (*SettleInvoiceResp, error) {
+	out, err := s.SettleInvoice0(ctx, in)
+	return out, er.Native(err)
+}
+func (s *Server) SettleInvoice0(ctx context.Context,
 	in *SettleInvoiceMsg) (*SettleInvoiceResp, er.R) {
 
 	preimage, err := lntypes.MakePreimage(in.Preimage)
@@ -238,7 +174,7 @@ func (s *Server) SettleInvoice(ctx context.Context,
 	}
 
 	err = s.cfg.InvoiceRegistry.SettleHodlInvoice(preimage)
-	if err != nil && err != channeldb.ErrInvoiceAlreadySettled {
+	if err != nil && !channeldb.ErrInvoiceAlreadySettled.Is(err) {
 		return nil, err
 	}
 
@@ -248,7 +184,14 @@ func (s *Server) SettleInvoice(ctx context.Context,
 // CancelInvoice cancels a currently open invoice. If the invoice is already
 // canceled, this call will succeed. If the invoice is already settled, it will
 // fail.
-func (s *Server) CancelInvoice(ctx context.Context,
+func (s *Server) CancelInvoice(
+	ctx context.Context,
+	in *CancelInvoiceMsg,
+) (*CancelInvoiceResp, error) {
+	out, err := s.CancelInvoice0(ctx, in)
+	return out, er.Native(err)
+}
+func (s *Server) CancelInvoice0(ctx context.Context,
 	in *CancelInvoiceMsg) (*CancelInvoiceResp, er.R) {
 
 	paymentHash, err := lntypes.MakeHash(in.PaymentHash)
@@ -269,8 +212,17 @@ func (s *Server) CancelInvoice(ctx context.Context,
 // AddHoldInvoice attempts to add a new hold invoice to the invoice database.
 // Any duplicated invoices are rejected, therefore all invoices *must* have a
 // unique payment hash.
-func (s *Server) AddHoldInvoice(ctx context.Context,
-	invoice *AddHoldInvoiceRequest) (*AddHoldInvoiceResp, er.R) {
+func (s *Server) AddHoldInvoice(
+	ctx context.Context,
+	invoice *AddHoldInvoiceRequest,
+) (*AddHoldInvoiceResp, error) {
+	out, err := s.AddHoldInvoice0(ctx, invoice)
+	return out, er.Native(err)
+}
+func (s *Server) AddHoldInvoice0(
+	ctx context.Context,
+	invoice *AddHoldInvoiceRequest,
+) (*AddHoldInvoiceResp, er.R) {
 
 	addInvoiceCfg := &AddInvoiceConfig{
 		AddInvoice:         s.cfg.InvoiceRegistry.AddInvoice,

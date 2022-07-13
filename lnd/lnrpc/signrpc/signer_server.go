@@ -1,23 +1,18 @@
-// +build signrpc
-
 package signrpc
 
 import (
 	"bytes"
 	"context"
-	"fmt"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/pkt-cash/pktd/btcec"
+	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
 	"github.com/pkt-cash/pktd/lnd/input"
 	"github.com/pkt-cash/pktd/lnd/keychain"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
 	"github.com/pkt-cash/pktd/lnd/lnwire"
-	"github.com/pkt-cash/pktd/lnd/macaroons"
+	"github.com/pkt-cash/pktd/pktlog/log"
 	"github.com/pkt-cash/pktd/txscript"
 	"github.com/pkt-cash/pktd/txscript/params"
 	"github.com/pkt-cash/pktd/wire"
@@ -94,7 +89,7 @@ var _ SignerServer = (*Server)(nil)
 // method. If the macaroons we need aren't found in the filepath, then we'll
 // create them on start up. If we're unable to locate, or create the macaroons
 // we need, then we'll return with an error.
-func New(cfg *Config) (*Server, lnrpc.MacaroonPerms, er.R) {
+func New(cfg *Config) (*Server, er.R) {
 	// If the path of the signer macaroon wasn't generated, then we'll
 	// assume that it's found at the default network directory.
 	if cfg.SignerMacPath == "" {
@@ -103,42 +98,11 @@ func New(cfg *Config) (*Server, lnrpc.MacaroonPerms, er.R) {
 		)
 	}
 
-	// Now that we know the full path of the signer macaroon, we can check
-	// to see if we need to create it or not. If stateless_init is set
-	// then we don't write the macaroons.
-	macFilePath := cfg.SignerMacPath
-	if cfg.MacService != nil && !cfg.MacService.StatelessInit &&
-		!lnrpc.FileExists(macFilePath) {
-
-		log.Infof("Making macaroons for Signer RPC Server at: %v",
-			macFilePath)
-
-		// At this point, we know that the signer macaroon doesn't yet,
-		// exist, so we need to create it with the help of the main
-		// macaroon service.
-		signerMac, err := cfg.MacService.NewMacaroon(
-			context.Background(), macaroons.DefaultRootKeyID,
-			macaroonOps...,
-		)
-		if err != nil {
-			return nil, nil, err
-		}
-		signerMacBytes, err := signerMac.M().MarshalBinary()
-		if err != nil {
-			return nil, nil, err
-		}
-		err = ioutil.WriteFile(macFilePath, signerMacBytes, 0644)
-		if err != nil {
-			_ = os.Remove(macFilePath)
-			return nil, nil, err
-		}
-	}
-
 	signerServer := &Server{
 		cfg: cfg,
 	}
 
-	return signerServer, macPermissions, nil
+	return signerServer, nil
 }
 
 // Start launches any helper goroutines required for the rpcServer to function.
@@ -194,7 +158,7 @@ func (s *Server) RegisterWithRestServer(ctx context.Context,
 	if err != nil {
 		log.Errorf("Could not register Signer REST server "+
 			"with root REST server: %v", err)
-		return err
+		return er.E(err)
 	}
 
 	log.Debugf("Signer REST server successfully registered with " +
@@ -209,7 +173,11 @@ func (s *Server) RegisterWithRestServer(ctx context.Context,
 // provides an invalid transaction, then we'll return with an error.
 //
 // NOTE: The resulting signature should be void of a sighash byte.
-func (s *Server) SignOutputRaw(ctx context.Context, in *SignReq) (*SignResp, er.R) {
+func (s *Server) SignOutputRaw(c context.Context, in *SignReq) (*SignResp, error) {
+	out, err := s.SignOutputRaw0(c, in)
+	return out, er.Native(err)
+}
+func (s *Server) SignOutputRaw0(ctx context.Context, in *SignReq) (*SignResp, er.R) {
 
 	switch {
 	// If the client doesn't specify a transaction, then there's nothing to
@@ -229,7 +197,7 @@ func (s *Server) SignOutputRaw(ctx context.Context, in *SignReq) (*SignResp, er.
 	// deserialize it into something that we can properly utilize.
 	var (
 		txToSign wire.MsgTx
-		err      error
+		err      er.R
 	)
 	txReader := bytes.NewReader(in.RawTxBytes)
 	if err := txToSign.Deserialize(txReader); err != nil {
@@ -347,7 +315,11 @@ func (s *Server) SignOutputRaw(ctx context.Context, in *SignReq) (*SignResp, er.
 // Note that when using this method to sign inputs belonging to the wallet, the
 // only items of the SignDescriptor that need to be populated are pkScript in
 // the TxOut field, the value in that same field, and finally the input index.
-func (s *Server) ComputeInputScript(ctx context.Context,
+func (s *Server) ComputeInputScript(c context.Context, in *SignReq) (*InputScriptResp, error) {
+	out, err := s.ComputeInputScript0(c, in)
+	return out, er.Native(err)
+}
+func (s *Server) ComputeInputScript0(ctx context.Context,
 	in *SignReq) (*InputScriptResp, er.R) {
 
 	switch {
@@ -417,7 +389,11 @@ func (s *Server) ComputeInputScript(ctx context.Context,
 
 // SignMessage signs a message with the key specified in the key locator. The
 // returned signature is fixed-size LN wire format encoded.
-func (s *Server) SignMessage(ctx context.Context,
+func (s *Server) SignMessage(c context.Context, in *SignMessageReq) (*SignMessageResp, error) {
+	out, err := s.SignMessage0(c, in)
+	return out, er.Native(err)
+}
+func (s *Server) SignMessage0(ctx context.Context,
 	in *SignMessageReq) (*SignMessageResp, er.R) {
 
 	if in.Msg == nil {
@@ -456,7 +432,11 @@ func (s *Server) SignMessage(ctx context.Context,
 
 // VerifyMessage verifies a signature over a message using the public key
 // provided. The signature must be fixed-size LN wire format encoded.
-func (s *Server) VerifyMessage(ctx context.Context,
+func (s *Server) VerifyMessage(c context.Context, in *VerifyMessageReq) (*VerifyMessageResp, error) {
+	out, err := s.VerifyMessage0(c, in)
+	return out, er.Native(err)
+}
+func (s *Server) VerifyMessage0(ctx context.Context,
 	in *VerifyMessageReq) (*VerifyMessageResp, er.R) {
 
 	if in.Msg == nil {
@@ -501,7 +481,11 @@ func (s *Server) VerifyMessage(ctx context.Context,
 // shouldn't be used anymore.
 // The resulting shared public key is serialized in the compressed format and
 // hashed with sha256, resulting in the final key length of 256bit.
-func (s *Server) DeriveSharedKey(_ context.Context, in *SharedKeyRequest) (
+func (s *Server) DeriveSharedKey(c context.Context, in *SharedKeyRequest) (*SharedKeyResponse, error) {
+	out, err := s.DeriveSharedKey0(c, in)
+	return out, er.Native(err)
+}
+func (s *Server) DeriveSharedKey0(_ context.Context, in *SharedKeyRequest) (
 	*SharedKeyResponse, er.R) {
 
 	// Check that EphemeralPubkey is valid.

@@ -1,3 +1,4 @@
+//go:build autopilotrpc
 // +build autopilotrpc
 
 package autopilotrpc
@@ -13,7 +14,7 @@ import (
 // that is meant for us in the config dispatcher, then we'll exit with an
 // error.
 func createNewSubServer(configRegistry lnrpc.SubServerConfigDispatcher) (
-	lnrpc.SubServer, lnrpc.MacaroonPerms, er.R) {
+	lnrpc.SubServer, er.R) {
 
 	// We'll attempt to look up the config that we expect, according to our
 	// subServerName name. If we can't find this, then we'll exit with an

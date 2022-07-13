@@ -7,7 +7,6 @@ package lnd
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	_ "net/http/pprof" // Blank import to set up profiling HTTP handlers.
@@ -16,23 +15,11 @@ import (
 	"runtime/pprof"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
-	proxy "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
-	"github.com/pkt-cash/pktd/neutrino"
-	"github.com/pkt-cash/pktd/neutrino/headerfs"
-	"github.com/pkt-cash/pktd/pktconfig/version"
-	"github.com/pkt-cash/pktd/pktlog/log"
-	"github.com/pkt-cash/pktd/pktwallet/wallet"
-	"github.com/pkt-cash/pktd/pktwallet/walletdb"
-	"google.golang.org/grpc"
-	"gopkg.in/macaroon-bakery.v2/bakery"
-	"gopkg.in/macaroon.v2"
-
 	"github.com/pkt-cash/pktd/lnd/autopilot"
 	"github.com/pkt-cash/pktd/lnd/chainreg"
 	"github.com/pkt-cash/pktd/lnd/chanacceptor"
@@ -43,149 +30,24 @@ import (
 	"github.com/pkt-cash/pktd/lnd/lnrpc/restrpc"
 	"github.com/pkt-cash/pktd/lnd/lnrpc/verrpc"
 	"github.com/pkt-cash/pktd/lnd/lnwallet"
-	"github.com/pkt-cash/pktd/lnd/macaroons"
-	"github.com/pkt-cash/pktd/lnd/metaservice"
 	"github.com/pkt-cash/pktd/lnd/signal"
 	"github.com/pkt-cash/pktd/lnd/tor"
 	"github.com/pkt-cash/pktd/lnd/walletunlocker"
 	"github.com/pkt-cash/pktd/lnd/watchtower"
 	"github.com/pkt-cash/pktd/lnd/watchtower/wtdb"
+	"github.com/pkt-cash/pktd/neutrino"
+	"github.com/pkt-cash/pktd/neutrino/headerfs"
+	"github.com/pkt-cash/pktd/pktconfig/version"
+	"github.com/pkt-cash/pktd/pktlog/log"
+	"github.com/pkt-cash/pktd/pktwallet/wallet"
+	"github.com/pkt-cash/pktd/pktwallet/walletdb"
 )
-
-// WalletUnlockerAuthOptions returns a list of DialOptions that can be used to
-// authenticate with the wallet unlocker service.
-//
-// NOTE: This should only be called after the WalletUnlocker listener has
-// signaled it is ready.
-func WalletUnlockerAuthOptions(cfg *Config) ([]grpc.DialOption, er.R) {
-	opts := []grpc.DialOption{
-		grpc.WithInsecure(),
-	}
-
-	return opts, nil
-}
-
-// AdminAuthOptions returns a list of DialOptions that can be used to
-// authenticate with the RPC server with admin capabilities.
-//
-// NOTE: This should only be called after the RPCListener has signaled it is
-// ready.
-func AdminAuthOptions(cfg *Config) ([]grpc.DialOption, er.R) {
-
-	// Create a dial options array.
-	opts := []grpc.DialOption{
-		grpc.WithInsecure(),
-	}
-
-	// Get the admin macaroon if macaroons are active.
-	if !cfg.NoMacaroons {
-		// Load the adming macaroon file.
-		macBytes, err := ioutil.ReadFile(cfg.AdminMacPath)
-		if err != nil {
-			return nil, er.Errorf("unable to read macaroon "+
-				"path (check the network setting!): %v", err)
-		}
-
-		mac := &macaroon.Macaroon{}
-		if err = mac.UnmarshalBinary(macBytes); err != nil {
-			return nil, er.Errorf("unable to decode macaroon: %v",
-				err)
-		}
-
-		// Now we append the macaroon credentials to the dial options.
-		cred := macaroons.NewMacaroonCredential(mac)
-		opts = append(opts, grpc.WithPerRPCCredentials(cred))
-	}
-
-	return opts, nil
-}
-
-// GrpcRegistrar is an interface that must be satisfied by an external subserver
-// that wants to be able to register its own gRPC server onto lnd's main
-// grpc.Server instance.
-type GrpcRegistrar interface {
-	// RegisterGrpcSubserver is called for each net.Listener on which lnd
-	// creates a grpc.Server instance. External subservers implementing this
-	// method can then register their own gRPC server structs to the main
-	// server instance.
-	RegisterGrpcSubserver(*grpc.Server) er.R
-}
-
-// RestRegistrar is an interface that must be satisfied by an external subserver
-// that wants to be able to register its own REST mux onto lnd's main
-// proxy.ServeMux instance.
-type RestRegistrar interface {
-	// RegisterRestSubserver is called after lnd creates the main
-	// proxy.ServeMux instance. External subservers implementing this method
-	// can then register their own REST proxy stubs to the main server
-	// instance.
-	RegisterRestSubserver(context.Context, *proxy.ServeMux, string,
-		[]grpc.DialOption) er.R
-}
-
-// RPCSubserverConfig is a struct that can be used to register an external
-// subserver with the custom permissions that map to the gRPC server that is
-// going to be registered with the GrpcRegistrar.
-type RPCSubserverConfig struct {
-	// Registrar is a callback that is invoked for each net.Listener on
-	// which lnd creates a grpc.Server instance.
-	Registrar GrpcRegistrar
-
-	// Permissions is the permissions required for the external subserver.
-	// It is a map between the full HTTP URI of each RPC and its required
-	// macaroon permissions. If multiple action/entity tuples are specified
-	// per URI, they are all required. See rpcserver.go for a list of valid
-	// action and entity values.
-	Permissions map[string][]bakery.Op
-
-	// MacaroonValidator is a custom macaroon validator that should be used
-	// instead of the default lnd validator. If specified, the custom
-	// validator is used for all URIs specified in the above Permissions
-	// map.
-	MacaroonValidator macaroons.MacaroonValidator
-}
-
-// ListenerWithSignal is a net.Listener that has an additional Ready channel that
-// will be closed when a server starts listening.
-type ListenerWithSignal struct {
-	net.Listener
-
-	// Ready will be closed by the server listening on Listener.
-	Ready chan struct{}
-
-	// ExternalRPCSubserverCfg is optional and specifies the registration
-	// callback and permissions to register external gRPC subservers.
-	ExternalRPCSubserverCfg *RPCSubserverConfig
-
-	// ExternalRestRegistrar is optional and specifies the registration
-	// callback to register external REST subservers.
-	ExternalRestRegistrar RestRegistrar
-}
-
-// ListenerCfg is a wrapper around custom listeners that can be passed to lnd
-// when calling its main method.
-type ListenerCfg struct {
-	// WalletUnlocker can be set to the listener to use for the wallet
-	// unlocker. If nil a regular network listener will be created.
-	WalletUnlocker *ListenerWithSignal
-
-	// RPCListener can be set to the listener to use for the RPC server. If
-	// nil a regular network listener will be created.
-	RPCListener *ListenerWithSignal
-}
-
-// rpcListeners is a function type used for closures that fetches a set of RPC
-// listeners for the current configuration. If no custom listeners are present,
-// this should return normal listeners from the RPC endpoints defined in the
-// config. The second return value us a closure that will close the fetched
-// listeners.
-type rpcListeners func() ([]*ListenerWithSignal, func(), er.R)
 
 // Main is the true entry point for lnd. It accepts a fully populated and
 // validated main configuration struct and an optional listener config struct.
 // This function starts all main system components then blocks until a signal
 // is received on the shutdownChan at which point everything is shut down again.
-func Main(cfg *Config, lisCfg ListenerCfg, shutdownChan <-chan struct{}) er.R {
+func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 	// Show version at startup.
 	log.Infof("Version: %s debuglevel=%s",
 		version.Version(), cfg.DebugLevel)
@@ -271,25 +133,6 @@ func Main(cfg *Config, lisCfg ListenerCfg, shutdownChan <-chan struct{}) er.R {
 
 	defer cleanUp()
 
-	// get gRPC and REST Options (without TLS)
-	serverOpts, restDialOpts, restListen := getRpcRestConfig(cfg)
-
-	// We use the first RPC listener as the destination for our REST proxy.
-	// If the listener is set to listen on all interfaces, we replace it
-	// with localhost, as we cannot dial it directly.
-	restProxyDest := cfg.RPCListeners[0].String()
-	switch {
-	case strings.Contains(restProxyDest, "0.0.0.0"):
-		restProxyDest = strings.Replace(
-			restProxyDest, "0.0.0.0", "127.0.0.1", 1,
-		)
-
-	case strings.Contains(restProxyDest, "[::]"):
-		restProxyDest = strings.Replace(
-			restProxyDest, "[::]", "[::1]", 1,
-		)
-	}
-
 	// Before starting the wallet, we'll create and start our Neutrino
 	// light client instance, if enabled, in order to allow it to sync
 	// while the rest of the daemon continues startup.
@@ -328,56 +171,10 @@ func Main(cfg *Config, lisCfg ListenerCfg, shutdownChan <-chan struct{}) er.R {
 	// this information.
 	walletInitParams.Birthday = time.Now()
 
-	// getListeners is a closure that creates listeners from the
-	// RPCListeners defined in the config. It also returns a cleanup
-	// closure and the server options to use for the GRPC server.
-	getListeners := func() ([]*ListenerWithSignal, func(), er.R) {
-		var grpcListeners []*ListenerWithSignal
-		for _, grpcEndpoint := range cfg.RPCListeners {
-			// Start a gRPC server listening for HTTP/2
-			// connections.
-			lis, err := lncfg.ListenOnAddress(grpcEndpoint)
-			if err != nil {
-				log.Errorf("unable to listen on %s",
-					grpcEndpoint)
-				return nil, nil, err
-			}
-			grpcListeners = append(
-				grpcListeners, &ListenerWithSignal{
-					Listener: lis,
-					Ready:    make(chan struct{}),
-				})
-		}
-
-		cleanup := func() {
-			for _, lis := range grpcListeners {
-				lis.Close()
-			}
-		}
-		return grpcListeners, cleanup, nil
-	}
-
-	// walletUnlockerListeners is a closure we'll hand to the wallet
-	// unlocker, that will be called when it needs listeners for its GPRC
-	// server.
-	walletUnlockerListeners := func() ([]*ListenerWithSignal, func(),
-		er.R) {
-
-		// If we have chosen to start with a dedicated listener for the
-		// wallet unlocker, we return it directly.
-		if lisCfg.WalletUnlocker != nil {
-			return []*ListenerWithSignal{lisCfg.WalletUnlocker},
-				func() {}, nil
-		}
-
-		// Otherwise we'll return the regular listeners.
-		return getListeners()
-	}
-
 	// Set up meta Service pass neutrino for getinfo and changepassword
 	// call init later to pass arguments needed for changepassword
-	metaService := metaservice.NewMetaService(neutrinoCS)
-	macaroonFiles := []string{}
+	metaService := lnrpc.NewMetaService(neutrinoCS)
+
 	//Parse filename from --wallet or default
 	walletPath, walletFilename := WalletFilename(cfg.WalletFile)
 	//Get default pkt dir ~/.pktwallet/pkt
@@ -388,8 +185,7 @@ func Main(cfg *Config, lisCfg ListenerCfg, shutdownChan <-chan struct{}) er.R {
 		walletPath = cfg.PktDir
 	}
 	//Initialize the metaservice with params needed for change password
-	metaService.Init(walletInitParams.MacResponseChan, cfg.Pkt.ChainDir,
-		!cfg.SyncFreelist, cfg.ActiveNetParams.Params, macaroonFiles, walletFilename, walletPath)
+	metaService.Init(!cfg.SyncFreelist, cfg.ActiveNetParams.Params, walletFilename, walletPath)
 
 	restContext.MaybeMetaService = metaService
 	// We wait until the user provides a password over RPC. In case lnd is
@@ -397,11 +193,7 @@ func Main(cfg *Config, lisCfg ListenerCfg, shutdownChan <-chan struct{}) er.R {
 	// for wallet encryption.
 
 	if !cfg.NoSeedBackup {
-		params, shutdown, err := waitForWalletPassword(
-			cfg, cfg.RESTListeners, serverOpts, restDialOpts,
-			restProxyDest, restListen, walletUnlockerListeners, metaService,
-			&restContext,
-		)
+		params, shutdown, err := waitForWalletPassword(cfg, &restContext)
 		if err != nil {
 			err := er.Errorf("unable to set up wallet password "+
 				"listeners: %v", err)
@@ -426,97 +218,6 @@ func Main(cfg *Config, lisCfg ListenerCfg, shutdownChan <-chan struct{}) er.R {
 			log.Infof("Wallet recovery mode enabled with "+
 				"address lookahead of %d addresses",
 				walletInitParams.RecoveryWindow)
-		}
-	}
-
-	var macaroonService *macaroons.Service
-
-	//	just to helps us to make sure that macaroons are turned off
-	log.Infof("No-Macaroons option: %t", cfg.NoMacaroons)
-
-	if !cfg.NoMacaroons {
-		// Create the macaroon authentication/authorization service.
-		macaroonService, err = macaroons.NewService(
-			cfg.networkDir, "lnd", walletInitParams.StatelessInit,
-			macaroons.IPLockChecker,
-		)
-		if err != nil {
-			err := er.Errorf("unable to set up macaroon "+
-				"authentication: %v", err)
-			log.Error(err)
-			return err
-		}
-		defer macaroonService.Close()
-
-		// Try to unlock the macaroon store with the private password.
-		// Ignore ErrAlreadyUnlocked since it could be unlocked by the
-		// wallet unlocker.
-		err = macaroonService.CreateUnlock(&privateWalletPw)
-		if err != nil && !macaroons.ErrAlreadyUnlocked.Is(err) {
-			err := er.Errorf("unable to unlock macaroons: %v", err)
-			log.Error(err)
-			return err
-		}
-
-		// In case we actually needed to unlock the wallet, we now need
-		// to create an instance of the admin macaroon and send it to
-		// the unlocker so it can forward it to the user. In no seed
-		// backup mode, there's nobody listening on the channel and we'd
-		// block here forever.
-		if !cfg.NoSeedBackup {
-			adminMacBytes, err := bakeMacaroon(
-				ctx, macaroonService, adminPermissions(),
-			)
-			if err != nil {
-				return err
-			}
-
-			// The channel is buffered by one element so writing
-			// should not block here.
-			walletInitParams.MacResponseChan <- adminMacBytes
-		}
-
-		// If the user requested a stateless initialization, no macaroon
-		// files should be created.
-		if !walletInitParams.StatelessInit &&
-			!fileExists(cfg.AdminMacPath) &&
-			!fileExists(cfg.ReadMacPath) &&
-			!fileExists(cfg.InvoiceMacPath) {
-
-			// Create macaroon files for lncli to use if they don't
-			// exist.
-			err = genMacaroons(
-				ctx, macaroonService, cfg.AdminMacPath,
-				cfg.ReadMacPath, cfg.InvoiceMacPath,
-			)
-			if err != nil {
-				err := er.Errorf("unable to create macaroons "+
-					"%v", err)
-				log.Error(err)
-				return err
-			}
-		}
-
-		// As a security service to the user, if they requested
-		// stateless initialization and there are macaroon files on disk
-		// we log a warning.
-		if walletInitParams.StatelessInit {
-			msg := "Found %s macaroon on disk (%s) even though " +
-				"--stateless_init was requested. Unencrypted " +
-				"state is accessible by the host system. You " +
-				"should change the password and use " +
-				"--new_mac_root_key with --stateless_init to " +
-				"clean up and invalidate old macaroons."
-
-			if fileExists(cfg.AdminMacPath) {
-				log.Warnf(msg, "admin", cfg.AdminMacPath)
-			}
-			if fileExists(cfg.ReadMacPath) {
-				log.Warnf(msg, "readonly", cfg.ReadMacPath)
-			}
-			if fileExists(cfg.InvoiceMacPath) {
-				log.Warnf(msg, "invoice", cfg.InvoiceMacPath)
-			}
 		}
 	}
 
@@ -740,26 +441,16 @@ func Main(cfg *Config, lisCfg ListenerCfg, shutdownChan <-chan struct{}) er.R {
 	}
 	defer atplManager.Stop()
 
-	// rpcListeners is a closure we'll hand to the rpc server, that will be
-	// called when it needs listeners for its GPRC server.
-	rpcListeners := func() ([]*ListenerWithSignal, func(), er.R) {
-		// If we have chosen to start with a dedicated listener for the
-		// rpc server, we return it directly.
-		if lisCfg.RPCListener != nil {
-			return []*ListenerWithSignal{lisCfg.RPCListener},
-				func() {}, nil
-		}
-
-		// Otherwise we'll return the regular listeners.
-		return getListeners()
-	}
-
 	// Initialize, and register our implementation of the gRPC interface
 	// exported by the rpcServer.
 	rpcServer, err := newRPCServer(
-		cfg, server, macaroonService, cfg.SubRPCServers, serverOpts,
-		restDialOpts, restProxyDest, atplManager, server.invoices,
-		tower, restListen, rpcListeners, chainedAcceptor, metaService,
+		cfg,
+		server,
+		atplManager,
+		server.invoices,
+		tower,
+		chainedAcceptor,
+		metaService,
 	)
 	if err != nil {
 		err := er.Errorf("unable to create RPC server: %v", err)
@@ -863,107 +554,6 @@ func Main(cfg *Config, lisCfg ListenerCfg, shutdownChan <-chan struct{}) er.R {
 	return nil
 }
 
-func getRpcRestConfig(cfg *Config) ([]grpc.ServerOption, []grpc.DialOption, func(net.Addr) (net.Listener, er.R)) {
-
-	// For our REST dial options, we'll still use TLS, but also increase
-	// the max message size that we'll decode to allow clients to hit
-	// endpoints which return more data such as the DescribeGraph call.
-	// We set this to 200MiB atm. Should be the same value as maxMsgRecvSize
-	// in cmd/lncli/main.go.
-	restDialOpts := []grpc.DialOption{
-		grpc.WithInsecure(),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(1 * 1024 * 1024 * 200),
-		),
-	}
-
-	var serverOpts []grpc.ServerOption
-	restListen := func(addr net.Addr) (net.Listener, er.R) {
-		return lncfg.ListenOnAddress(addr)
-	}
-
-	return serverOpts, restDialOpts, restListen
-}
-
-// fileExists reports whether the named file or directory exists.
-// This function is taken from https://github.com/btcsuite/btcd
-func fileExists(name string) bool {
-	if _, err := os.Stat(name); err != nil {
-		if os.IsNotExist(err) {
-			return false
-		}
-	}
-	return true
-}
-
-// bakeMacaroon creates a new macaroon with newest version and the given
-// permissions then returns it binary serialized.
-func bakeMacaroon(ctx context.Context, svc *macaroons.Service,
-	permissions []bakery.Op) ([]byte, er.R) {
-
-	mac, err := svc.NewMacaroon(
-		ctx, macaroons.DefaultRootKeyID, permissions...,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	b, e := mac.M().MarshalBinary()
-	return b, er.E(e)
-}
-
-// genMacaroons generates three macaroon files; one admin-level, one for
-// invoice access and one read-only. These can also be used to generate more
-// granular macaroons.
-func genMacaroons(ctx context.Context, svc *macaroons.Service,
-	admFile, roFile, invoiceFile string) er.R {
-
-	// First, we'll generate a macaroon that only allows the caller to
-	// access invoice related calls. This is useful for merchants and other
-	// services to allow an isolated instance that can only query and
-	// modify invoices.
-	invoiceMacBytes, err := bakeMacaroon(ctx, svc, invoicePermissions)
-	if err != nil {
-		return err
-	}
-	errr := ioutil.WriteFile(invoiceFile, invoiceMacBytes, 0644)
-	if errr != nil {
-		_ = os.Remove(invoiceFile)
-		return er.E(errr)
-	}
-
-	// Generate the read-only macaroon and write it to a file.
-	roBytes, err := bakeMacaroon(ctx, svc, readPermissions)
-	if err != nil {
-		return err
-	}
-	if errr = ioutil.WriteFile(roFile, roBytes, 0644); errr != nil {
-		_ = os.Remove(roFile)
-		return er.E(errr)
-	}
-
-	// Generate the admin macaroon and write it to a file.
-	admBytes, err := bakeMacaroon(ctx, svc, adminPermissions())
-	if err != nil {
-		return err
-	}
-	if errr = ioutil.WriteFile(admFile, admBytes, 0600); errr != nil {
-		_ = os.Remove(admFile)
-		return er.E(errr)
-	}
-
-	return nil
-}
-
-// adminPermissions returns a list of all permissions in a safe way that doesn't
-// modify any of the source lists.
-func adminPermissions() []bakery.Op {
-	admin := make([]bakery.Op, len(readPermissions)+len(writePermissions))
-	copy(admin[:len(readPermissions)], readPermissions)
-	copy(admin[len(readPermissions):], writePermissions)
-	return admin
-}
-
 // WalletUnlockParams holds the variables used to parameterize the unlocking of
 // lnd's wallet after it has already been created.
 type WalletUnlockParams struct {
@@ -992,43 +582,21 @@ type WalletUnlockParams struct {
 	// UnloadWallet is a function for unloading the wallet, which should
 	// be called on shutdown.
 	UnloadWallet func() er.R
-
-	// StatelessInit signals that the user requested the daemon to be
-	// initialized stateless, which means no unencrypted macaroons should be
-	// written to disk.
-	StatelessInit bool
-
-	// MacResponseChan is the channel for sending back the admin macaroon to
-	// the WalletUnlocker service.
-	MacResponseChan chan []byte
 }
 
 // waitForWalletPassword will spin up gRPC and REST endpoints for the
 // WalletUnlocker server, and block until a password is provided by
 // the user to this RPC server.
-func waitForWalletPassword(cfg *Config, restEndpoints []net.Addr,
-	serverOpts []grpc.ServerOption, restDialOpts []grpc.DialOption,
-	restProxyDest string, restListen func(net.Addr) (net.Listener, er.R),
-	getListeners rpcListeners, metaService *metaservice.MetaService,
-	restContext *restrpc.RpcContext) (*WalletUnlockParams, func(), er.R) {
+func waitForWalletPassword(
+	cfg *Config,
+	restContext *restrpc.RpcContext,
+) (*WalletUnlockParams, func(), er.R) {
 
 	chainConfig := cfg.Bitcoin
 	if cfg.registeredChains.PrimaryChain() == chainreg.LitecoinChain {
 		chainConfig = cfg.Litecoin
 	} else if cfg.registeredChains.PrimaryChain() == chainreg.PktChain {
 		chainConfig = cfg.Pkt
-	}
-
-	//Make macaroonFiles an empty slide, only populate it if noMacaroons is not set,
-	//this way we check if macaroonservice needs to start in the unlockerservice or not
-	macaroonFiles := []string{}
-	// The macaroonFiles are passed to the wallet unlocker so they can be
-	// deleted and recreated in case the root macaroon key is also changed
-	// during the change password operation.
-	if !cfg.NoMacaroons {
-		macaroonFiles = []string{
-			cfg.AdminMacPath, cfg.ReadMacPath, cfg.InvoiceMacPath,
-		}
 	}
 
 	//Parse filename from --wallet or default
@@ -1042,82 +610,16 @@ func waitForWalletPassword(cfg *Config, restEndpoints []net.Addr,
 	}
 	pwService := walletunlocker.New(
 		chainConfig.ChainDir, cfg.ActiveNetParams.Params,
-		!cfg.SyncFreelist, macaroonFiles, walletPath, walletFilename,
+		!cfg.SyncFreelist, walletPath, walletFilename,
 	)
 	restContext.MaybeWalletUnlocker = pwService
 
-	// Set up a new PasswordService, which will listen for passwords
-	// provided over RPC.
-	grpcServer := grpc.NewServer(serverOpts...)
-	lnrpc.RegisterWalletUnlockerServer(grpcServer, pwService)
-	// Set up metaservice allowing getinfo to work even when wallet is locked
-	lnrpc.RegisterMetaServiceServer(grpcServer, metaService)
-
 	var shutdownFuncs []func()
 	shutdown := func() {
-		// Make sure nothing blocks on reading on the macaroon channel,
-		// otherwise the GracefulStop below will never return.
-		close(pwService.MacResponseChan)
-
 		for _, shutdownFn := range shutdownFuncs {
 			shutdownFn()
 		}
 	}
-	shutdownFuncs = append(shutdownFuncs, grpcServer.GracefulStop)
-
-	// Start a gRPC server listening for HTTP/2 connections, solely used
-	// for getting the encryption password from the client.
-	listeners, cleanup, err := getListeners()
-	if err != nil {
-		return nil, shutdown, err
-	}
-	shutdownFuncs = append(shutdownFuncs, cleanup)
-
-	// Use a WaitGroup so we can be sure the instructions on how to input the
-	// password is the last thing to be printed to the console.
-	var wg sync.WaitGroup
-
-	for _, lis := range listeners {
-		wg.Add(1)
-		go func(lis *ListenerWithSignal) {
-			log.Infof("Password RPC server listening on %s",
-				lis.Addr())
-
-			// Close the ready chan to indicate we are listening.
-			close(lis.Ready)
-
-			wg.Done()
-			_ = grpcServer.Serve(lis)
-		}(lis)
-	}
-
-	//	since the creation of RESP API the gRPC reverse proxy is not necessary anymore
-
-	/*
-		// Start a REST proxy for our gRPC server above.
-		ctx := context.Background()
-		ctx, cancel := context.WithCancel(ctx)
-		shutdownFuncs = append(shutdownFuncs, cancel)
-
-		mux := proxy.NewServeMux()
-
-			errr := lnrpc.RegisterWalletUnlockerHandlerFromEndpoint(
-				ctx, mux, restProxyDest, restDialOpts,
-			)
-			if errr != nil {
-				return nil, shutdown, er.E(errr)
-			}
-		//Launching REST for MetaService, for getinfo2 and changepassword
-		//on walletunlocker shutdown this is closed so we are relaunching it
-		//in the rpcserver
-		errrr := lnrpc.RegisterMetaServiceHandlerFromEndpoint(ctx, mux, restProxyDest, restDialOpts)
-		if errrr != nil {
-			return nil, shutdown, er.E(errrr)
-		}
-	*/
-
-	// Wait for gRPC and REST servers to be up running.
-	wg.Wait()
 
 	// Wait for user to provide the password.
 	log.Infof("Waiting for wallet (" + walletFilename + ") encryption password. " +
@@ -1168,14 +670,12 @@ func waitForWalletPassword(cfg *Config, restEndpoints []net.Addr,
 		}
 
 		return &WalletUnlockParams{
-			Password:        password,
-			Birthday:        cipherSeed.Birthday(),
-			RecoveryWindow:  recoveryWindow,
-			Wallet:          newWallet,
-			ChansToRestore:  initMsg.ChanBackups,
-			UnloadWallet:    loader.UnloadWallet,
-			StatelessInit:   initMsg.StatelessInit,
-			MacResponseChan: pwService.MacResponseChan,
+			Password:       password,
+			Birthday:       cipherSeed.Birthday(),
+			RecoveryWindow: recoveryWindow,
+			Wallet:         newWallet,
+			ChansToRestore: initMsg.ChanBackups,
+			UnloadWallet:   loader.UnloadWallet,
 		}, shutdown, nil
 
 	// The wallet has already been created in the past, and is simply being
@@ -1204,13 +704,11 @@ func waitForWalletPassword(cfg *Config, restEndpoints []net.Addr,
 		}
 
 		return &WalletUnlockParams{
-			Password:        unlockMsg.Passphrase,
-			RecoveryWindow:  unlockMsg.RecoveryWindow,
-			Wallet:          unlockMsg.Wallet,
-			ChansToRestore:  unlockMsg.ChanBackups,
-			UnloadWallet:    unlockMsg.UnloadWallet,
-			StatelessInit:   unlockMsg.StatelessInit,
-			MacResponseChan: pwService.MacResponseChan,
+			Password:       unlockMsg.Passphrase,
+			RecoveryWindow: unlockMsg.RecoveryWindow,
+			Wallet:         unlockMsg.Wallet,
+			ChansToRestore: unlockMsg.ChanBackups,
+			UnloadWallet:   unlockMsg.UnloadWallet,
 		}, shutdown, nil
 
 	case <-signal.ShutdownChannel():

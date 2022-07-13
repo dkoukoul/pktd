@@ -1,5 +1,3 @@
-// +build invoicesrpc
-
 package invoicesrpc
 
 import (
@@ -7,7 +5,6 @@ import (
 	"github.com/pkt-cash/pktd/lnd/channeldb"
 	"github.com/pkt-cash/pktd/lnd/invoices"
 	"github.com/pkt-cash/pktd/lnd/lnwire"
-	"github.com/pkt-cash/pktd/lnd/macaroons"
 	"github.com/pkt-cash/pktd/lnd/netann"
 )
 
@@ -20,10 +17,6 @@ type Config struct {
 	// NetworkDir is the main network directory wherein the invoices rpc
 	// server will find the macaroon named DefaultInvoicesMacFilename.
 	NetworkDir string
-
-	// MacService is the main macaroon service that we'll use to handle
-	// authentication for the invoices rpc server.
-	MacService *macaroons.Service
 
 	// InvoiceRegistry is a central registry of all the outstanding invoices
 	// created by the daemon.

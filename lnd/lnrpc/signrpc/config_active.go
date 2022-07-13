@@ -1,11 +1,8 @@
-// +build signrpc
-
 package signrpc
 
 import (
 	"github.com/pkt-cash/pktd/lnd/input"
 	"github.com/pkt-cash/pktd/lnd/keychain"
-	"github.com/pkt-cash/pktd/lnd/macaroons"
 )
 
 // Config is the primary configuration struct for the signer RPC server. It
@@ -22,10 +19,6 @@ type Config struct {
 	// NetworkDir is the main network directory wherein the signer rpc
 	// server will find the macaroon named DefaultSignerMacFilename.
 	NetworkDir string
-
-	// MacService is the main macaroon service that we'll use to handle
-	// authentication for the signer rpc server.
-	MacService *macaroons.Service
 
 	// Signer is the signer instance that backs the signer RPC server. The
 	// job of the signer RPC server is simply to proxy valid requests to

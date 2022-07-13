@@ -8,17 +8,9 @@ import (
 	"github.com/pkt-cash/pktd/pktconfig/version"
 	"github.com/pkt-cash/pktd/pktlog/log"
 	"google.golang.org/grpc"
-	"gopkg.in/macaroon-bakery.v2/bakery"
 )
 
 const subServerName = "VersionRPC"
-
-var macPermissions = map[string][]bakery.Op{
-	"/verrpc.Versioner/GetVersion": {{
-		Entity: "info",
-		Action: "read",
-	}},
-}
 
 // Server is an rpc server that supports querying for information about the
 // running binary.

@@ -2,8 +2,6 @@ package routerrpc
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"sync/atomic"
 
@@ -14,7 +12,6 @@ import (
 	"github.com/pkt-cash/pktd/lnd/lnrpc"
 	"github.com/pkt-cash/pktd/lnd/lntypes"
 	"github.com/pkt-cash/pktd/lnd/lnwire"
-	"github.com/pkt-cash/pktd/lnd/macaroons"
 	"github.com/pkt-cash/pktd/lnd/routing"
 	"github.com/pkt-cash/pktd/lnd/routing/route"
 	"github.com/pkt-cash/pktd/pktlog/log"
@@ -22,7 +19,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"gopkg.in/macaroon-bakery.v2/bakery"
 )
 
 const (
@@ -42,75 +38,6 @@ var (
 	ErrInterceptorAlreadyExists = er.GenericErrorType.CodeWithDetail("ErrInterceptorAlreadyExists",
 		"interceptor already exists")
 
-	// macaroonOps are the set of capabilities that our minted macaroon (if
-	// it doesn't already exist) will have.
-	macaroonOps = []bakery.Op{
-		{
-			Entity: "offchain",
-			Action: "read",
-		},
-		{
-			Entity: "offchain",
-			Action: "write",
-		},
-	}
-
-	// macPermissions maps RPC calls to the permissions they require.
-	macPermissions = map[string][]bakery.Op{
-		"/routerrpc.Router/SendPaymentV2": {{
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/routerrpc.Router/SendToRouteV2": {{
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/routerrpc.Router/SendToRoute": {{
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/routerrpc.Router/TrackPaymentV2": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/routerrpc.Router/EstimateRouteFee": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/routerrpc.Router/QueryMissionControl": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/routerrpc.Router/QueryProbability": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/routerrpc.Router/ResetMissionControl": {{
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/routerrpc.Router/BuildRoute": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/routerrpc.Router/SubscribeHtlcEvents": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/routerrpc.Router/SendPayment": {{
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/routerrpc.Router/TrackPayment": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/routerrpc.Router/HtlcInterceptor": {{
-			Entity: "offchain",
-			Action: "write",
-		}},
-	}
-
 	// DefaultRouterMacFilename is the default name of the router macaroon
 	// that we expect to find via a file handle within the main
 	// configuration file in this package.
@@ -120,8 +47,6 @@ var (
 // Server is a stand alone sub RPC server which exposes functionality that
 // allows clients to route arbitrary payment through the Lightning Network.
 type Server struct {
-	started                  int32 // To be used atomically.
-	shutdown                 int32 // To be used atomically.
 	forwardInterceptorActive int32 // To be used atomically.
 
 	cfg *Config
@@ -138,7 +63,7 @@ var _ RouterServer = (*Server)(nil)
 // we're unable to create it, then an error will be returned. We also return
 // the set of permissions that we require as a server. At the time of writing
 // of this documentation, this is the same macaroon as as the admin macaroon.
-func New(cfg *Config) (*Server, lnrpc.MacaroonPerms, er.R) {
+func New(cfg *Config) (*Server, er.R) {
 	// If the path of the router macaroon wasn't generated, then we'll
 	// assume that it's found at the default network directory.
 	if cfg.RouterMacPath == "" {
@@ -147,43 +72,12 @@ func New(cfg *Config) (*Server, lnrpc.MacaroonPerms, er.R) {
 		)
 	}
 
-	// Now that we know the full path of the router macaroon, we can check
-	// to see if we need to create it or not. If stateless_init is set
-	// then we don't write the macaroons.
-	macFilePath := cfg.RouterMacPath
-	if cfg.MacService != nil && !cfg.MacService.StatelessInit &&
-		!lnrpc.FileExists(macFilePath) {
-
-		log.Infof("Making macaroons for Router RPC Server at: %v",
-			macFilePath)
-
-		// At this point, we know that the router macaroon doesn't yet,
-		// exist, so we need to create it with the help of the main
-		// macaroon service.
-		routerMac, err := cfg.MacService.NewMacaroon(
-			context.Background(), macaroons.DefaultRootKeyID,
-			macaroonOps...,
-		)
-		if err != nil {
-			return nil, nil, err
-		}
-		routerMacBytes, errr := routerMac.M().MarshalBinary()
-		if errr != nil {
-			return nil, nil, er.E(errr)
-		}
-		errr = ioutil.WriteFile(macFilePath, routerMacBytes, 0644)
-		if errr != nil {
-			_ = os.Remove(macFilePath)
-			return nil, nil, er.E(errr)
-		}
-	}
-
 	routerServer := &Server{
 		cfg:  cfg,
 		quit: make(chan struct{}),
 	}
 
-	return routerServer, macPermissions, nil
+	return routerServer, nil
 }
 
 // Start launches any helper goroutines required for the rpcServer to function.

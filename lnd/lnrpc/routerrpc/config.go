@@ -1,7 +1,6 @@
 package routerrpc
 
 import (
-	"github.com/pkt-cash/pktd/lnd/macaroons"
 	"github.com/pkt-cash/pktd/lnd/routing"
 )
 
@@ -24,10 +23,6 @@ type Config struct {
 	// NetworkDir is the main network directory wherein the router rpc
 	// server will find the macaroon named DefaultRouterMacFilename.
 	NetworkDir string
-
-	// MacService is the main macaroon service that we'll use to handle
-	// authentication for the Router rpc server.
-	MacService *macaroons.Service
 
 	// Router is the main channel router instance that backs this RPC
 	// server.

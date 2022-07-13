@@ -1233,15 +1233,14 @@ var rpcFunctions []RpcFunc = []RpcFunc{
 		res:     (*RestEmptyResponse)(nil),
 		f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
 
-			//	force a crash by defer a nil pointer
-			meta, errr := c.withMetaServer()
-			if meta != nil {
-				meta.ForceCrash(context.TODO(), nil)
+			var someVariable *string = nil
 
-				return &RestEmptyResponse{}, nil
-			} else {
-				return nil, errr
+			//	dereference o nil pointer to force a core dump
+			if len(*someVariable) == 0 {
+				return nil, nil
 			}
+
+			return &lnrpc.CrashResponse{}, nil
 		},
 	},
 
@@ -1279,9 +1278,9 @@ var rpcFunctions []RpcFunc = []RpcFunc{
 			if err != nil {
 				return nil, err
 			}
-			_, errr := meta.ChangePassword(context.TODO(), req)
-			if errr != nil {
-				return nil, er.E(errr)
+			_, err = meta.ChangePassword0(context.TODO(), req)
+			if err != nil {
+				return nil, err
 			}
 			return &RestEmptyResponse{}, nil
 		},
@@ -1307,9 +1306,9 @@ var rpcFunctions []RpcFunc = []RpcFunc{
 				return nil, errr
 			}
 
-			checkPasswordResp, err := meta.CheckPassword(context.TODO(), checkPasswordReq)
+			checkPasswordResp, err := meta.CheckPassword0(context.TODO(), checkPasswordReq)
 			if err != nil {
-				return nil, er.E(err)
+				return nil, err
 			}
 
 			return checkPasswordResp, nil
@@ -2210,7 +2209,7 @@ type RpcContext struct {
 	MaybeWallet           *wallet.Wallet
 	MaybeRpcServer        lnrpc.LightningServer
 	MaybeWalletUnlocker   *walletunlocker.UnlockerService
-	MaybeMetaService      lnrpc.MetaServiceServer
+	MaybeMetaService      *lnrpc.MetaService
 	MaybeVerRPCServer     verrpc.VersionerServer
 	MaybeRouterServer     routerrpc.RouterServer
 	MaybeWatchTowerClient wtclientrpc.WatchtowerClientClient
@@ -2237,7 +2236,7 @@ func (c *RpcContext) withRpcServer() (lnrpc.LightningServer, er.R) {
 func (c *RpcContext) withUnlocker() (*walletunlocker.UnlockerService, er.R) {
 	return c.MaybeWalletUnlocker, with(c.MaybeWalletUnlocker, "UnlockerService")
 }
-func (c *RpcContext) withMetaServer() (lnrpc.MetaServiceServer, er.R) {
+func (c *RpcContext) withMetaServer() (*lnrpc.MetaService, er.R) {
 	return c.MaybeMetaService, with(c.MaybeMetaService, "MetaServiceService")
 }
 func (c *RpcContext) withVerRPCServer() (verrpc.VersionerServer, er.R) {

@@ -35,14 +35,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	//	we want to disable the use of macaroons so, force that it's turned off
-	loadedConfig.NoMacaroons = true
-
 	// Call the "real" main in a nested manner so the defers will properly
 	// be executed in the case of a graceful shutdown.
-	if err := lnd.Main(
-		loadedConfig, lnd.ListenerCfg{}, signal.ShutdownChannel(),
-	); err != nil {
+	if err := lnd.Main(loadedConfig, signal.ShutdownChannel()); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

@@ -9,13 +9,11 @@ import (
 	"github.com/pkt-cash/pktd/btcec"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/lnd/lncfg"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
 	"github.com/pkt-cash/pktd/lnd/lnwire"
 	"github.com/pkt-cash/pktd/lnd/watchtower"
 	"github.com/pkt-cash/pktd/lnd/watchtower/wtclient"
 	"github.com/pkt-cash/pktd/pktlog/log"
 	"google.golang.org/grpc"
-	"gopkg.in/macaroon-bakery.v2/bakery"
 )
 
 const (
@@ -26,42 +24,10 @@ const (
 	subServerName = "WatchtowerClientRPC"
 )
 
-var (
-	// macPermissions maps RPC calls to the permissions they require.
-	//
-	// TODO(wilmer): create tower macaroon?
-	macPermissions = map[string][]bakery.Op{
-		"/wtclientrpc.WatchtowerClient/AddTower": {{
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/wtclientrpc.WatchtowerClient/RemoveTower": {{
-			Entity: "offchain",
-			Action: "write",
-		}},
-		"/wtclientrpc.WatchtowerClient/ListTowers": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/wtclientrpc.WatchtowerClient/GetTowerInfo": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/wtclientrpc.WatchtowerClient/Stats": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-		"/wtclientrpc.WatchtowerClient/Policy": {{
-			Entity: "offchain",
-			Action: "read",
-		}},
-	}
-
-	// ErrWtclientNotActive signals that RPC calls cannot be processed
-	// because the watchtower client is not active.
-	ErrWtclientNotActive = er.GenericErrorType.CodeWithDetail("ErrWtclientNotActive",
-		"watchtower client not active")
-)
+// ErrWtclientNotActive signals that RPC calls cannot be processed
+// because the watchtower client is not active.
+var ErrWtclientNotActive = er.GenericErrorType.CodeWithDetail("ErrWtclientNotActive",
+	"watchtower client not active")
 
 // WatchtowerClient is the RPC server we'll use to interact with the backing
 // active watchtower client.
@@ -80,8 +46,8 @@ var _ WatchtowerClientServer = (*WatchtowerClient)(nil)
 // within this method. If the macaroons we need aren't found in the filepath,
 // then we'll create them on start up. If we're unable to locate, or create the
 // macaroons we need, then we'll return with an error.
-func New(cfg *Config) (*WatchtowerClient, lnrpc.MacaroonPerms, er.R) {
-	return &WatchtowerClient{*cfg}, macPermissions, nil
+func New(cfg *Config) (*WatchtowerClient, er.R) {
+	return &WatchtowerClient{*cfg}, nil
 }
 
 // Start launches any helper goroutines required for the WatchtowerClient to

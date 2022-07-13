@@ -1,13 +1,8 @@
-// +build walletrpc
-
 package walletrpc
 
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -23,125 +18,33 @@ import (
 	"github.com/pkt-cash/pktd/lnd/lnwallet"
 	"github.com/pkt-cash/pktd/lnd/lnwallet/btcwallet"
 	"github.com/pkt-cash/pktd/lnd/lnwallet/chainfee"
-	"github.com/pkt-cash/pktd/lnd/macaroons"
 	"github.com/pkt-cash/pktd/lnd/sweep"
+	"github.com/pkt-cash/pktd/pktlog/log"
 	"github.com/pkt-cash/pktd/pktwallet/wtxmgr"
 	"github.com/pkt-cash/pktd/txscript"
+	"github.com/pkt-cash/pktd/txscript/params"
 	"github.com/pkt-cash/pktd/wire"
 	"google.golang.org/grpc"
-	"gopkg.in/macaroon-bakery.v2/bakery"
 )
 
-const (
-	// subServerName is the name of the sub rpc server. We'll use this name
-	// to register ourselves, and we also require that the main
-	// SubServerConfigDispatcher instance recognize as the name of our
-	subServerName = "WalletKitRPC"
-)
+// subServerName is the name of the sub rpc server. We'll use this name
+// to register ourselves, and we also require that the main
+// SubServerConfigDispatcher instance recognize as the name of our
+const subServerName = "WalletKitRPC"
 
-var (
-	// macaroonOps are the set of capabilities that our minted macaroon (if
-	// it doesn't already exist) will have.
-	macaroonOps = []bakery.Op{
-		{
-			Entity: "address",
-			Action: "write",
-		},
-		{
-			Entity: "address",
-			Action: "read",
-		},
-		{
-			Entity: "onchain",
-			Action: "write",
-		},
-		{
-			Entity: "onchain",
-			Action: "read",
-		},
-	}
+// LndInternalLockID is the binary representation of the SHA256 hash of
+// the string "lnd-internal-lock-id" and is used for UTXO lock leases to
+// identify that we ourselves are locking an UTXO, for example when
+// giving out a funded PSBT. The ID corresponds to the hex value of
+// ede19a92ed321a4705f8a1cccc1d4f6182545d4bb4fae08bd5937831b7e38f98.
+var LndInternalLockID = wtxmgr.LockID{
+	0xed, 0xe1, 0x9a, 0x92, 0xed, 0x32, 0x1a, 0x47,
+	0x05, 0xf8, 0xa1, 0xcc, 0xcc, 0x1d, 0x4f, 0x61,
+	0x82, 0x54, 0x5d, 0x4b, 0xb4, 0xfa, 0xe0, 0x8b,
+	0xd5, 0x93, 0x78, 0x31, 0xb7, 0xe3, 0x8f, 0x98,
+}
 
-	// macPermissions maps RPC calls to the permissions they require.
-	macPermissions = map[string][]bakery.Op{
-		"/walletrpc.WalletKit/DeriveNextKey": {{
-			Entity: "address",
-			Action: "read",
-		}},
-		"/walletrpc.WalletKit/DeriveKey": {{
-			Entity: "address",
-			Action: "read",
-		}},
-		"/walletrpc.WalletKit/NextAddr": {{
-			Entity: "address",
-			Action: "read",
-		}},
-		"/walletrpc.WalletKit/PublishTransaction": {{
-			Entity: "onchain",
-			Action: "write",
-		}},
-		"/walletrpc.WalletKit/SendOutputs": {{
-			Entity: "onchain",
-			Action: "write",
-		}},
-		"/walletrpc.WalletKit/EstimateFee": {{
-			Entity: "onchain",
-			Action: "read",
-		}},
-		"/walletrpc.WalletKit/PendingSweeps": {{
-			Entity: "onchain",
-			Action: "read",
-		}},
-		"/walletrpc.WalletKit/BumpFee": {{
-			Entity: "onchain",
-			Action: "write",
-		}},
-		"/walletrpc.WalletKit/ListSweeps": {{
-			Entity: "onchain",
-			Action: "read",
-		}},
-		"/walletrpc.WalletKit/LabelTransaction": {{
-			Entity: "onchain",
-			Action: "write",
-		}},
-		"/walletrpc.WalletKit/LeaseOutput": {{
-			Entity: "onchain",
-			Action: "write",
-		}},
-		"/walletrpc.WalletKit/ReleaseOutput": {{
-			Entity: "onchain",
-			Action: "write",
-		}},
-		"/walletrpc.WalletKit/ListUnspent": {{
-			Entity: "onchain",
-			Action: "read",
-		}},
-		"/walletrpc.WalletKit/FundPsbt": {{
-			Entity: "onchain",
-			Action: "write",
-		}},
-		"/walletrpc.WalletKit/FinalizePsbt": {{
-			Entity: "onchain",
-			Action: "write",
-		}},
-	}
-
-	// DefaultWalletKitMacFilename is the default name of the wallet kit
-	// macaroon that we expect to find via a file handle within the main
-	// configuration file in this package.
-	DefaultWalletKitMacFilename = "walletkit.macaroon"
-
-	// LndInternalLockID is the binary representation of the SHA256 hash of
-	// the string "lnd-internal-lock-id" and is used for UTXO lock leases to
-	// identify that we ourselves are locking an UTXO, for example when
-	// giving out a funded PSBT. The ID corresponds to the hex value of
-	// ede19a92ed321a4705f8a1cccc1d4f6182545d4bb4fae08bd5937831b7e38f98.
-	LndInternalLockID = wtxmgr.LockID{
-		0xed, 0xe1, 0x9a, 0x92, 0xed, 0x32, 0x1a, 0x47,
-		0x05, 0xf8, 0xa1, 0xcc, 0xcc, 0x1d, 0x4f, 0x61,
-		0x82, 0x54, 0x5d, 0x4b, 0xb4, 0xfa, 0xe0, 0x8b,
-		0xd5, 0x93, 0x78, 0x31, 0xb7, 0xe3, 0x8f, 0x98,
-	}
-)
+var Err = er.NewErrorType("walletrpc")
 
 // ErrZeroLabel is returned when an attempt is made to label a transaction with
 // an empty label.
@@ -159,51 +62,11 @@ type WalletKit struct {
 var _ WalletKitServer = (*WalletKit)(nil)
 
 // New creates a new instance of the WalletKit sub-RPC server.
-func New(cfg *Config) (*WalletKit, lnrpc.MacaroonPerms, er.R) {
-	// If the path of the wallet kit macaroon wasn't specified, then we'll
-	// assume that it's found at the default network directory.
-	if cfg.WalletKitMacPath == "" {
-		cfg.WalletKitMacPath = filepath.Join(
-			cfg.NetworkDir, DefaultWalletKitMacFilename,
-		)
-	}
-
-	// Now that we know the full path of the wallet kit macaroon, we can
-	// check to see if we need to create it or not. If stateless_init is set
-	// then we don't write the macaroons.
-	macFilePath := cfg.WalletKitMacPath
-	if cfg.MacService != nil && !cfg.MacService.StatelessInit &&
-		!lnrpc.FileExists(macFilePath) {
-
-		log.Infof("Baking macaroons for WalletKit RPC Server at: %v",
-			macFilePath)
-
-		// At this point, we know that the wallet kit macaroon doesn't
-		// yet, exist, so we need to create it with the help of the
-		// main macaroon service.
-		walletKitMac, err := cfg.MacService.NewMacaroon(
-			context.Background(), macaroons.DefaultRootKeyID,
-			macaroonOps...,
-		)
-		if err != nil {
-			return nil, nil, err
-		}
-		walletKitMacBytes, err := walletKitMac.M().MarshalBinary()
-		if err != nil {
-			return nil, nil, err
-		}
-		err = ioutil.WriteFile(macFilePath, walletKitMacBytes, 0644)
-		if err != nil {
-			_ = os.Remove(macFilePath)
-			return nil, nil, err
-		}
-	}
-
+func New(cfg *Config) (*WalletKit, er.R) {
 	walletKit := &WalletKit{
 		cfg: cfg,
 	}
-
-	return walletKit, macPermissions, nil
+	return walletKit, nil
 }
 
 // Start launches any helper goroutines required for the sub-server to function.
@@ -258,7 +121,7 @@ func (w *WalletKit) RegisterWithRestServer(ctx context.Context,
 	if err != nil {
 		log.Errorf("Could not register WalletKit REST server "+
 			"with root REST server: %v", err)
-		return err
+		return er.E(err)
 	}
 
 	log.Debugf("WalletKit REST server successfully registered with " +
@@ -274,6 +137,11 @@ func (w *WalletKit) RegisterWithRestServer(ctx context.Context,
 // minimum and maximum number of confirmations specified by the user, with 0
 // meaning unconfirmed.
 func (w *WalletKit) ListUnspent(ctx context.Context,
+	in *ListUnspentRequest) (*ListUnspentResponse, error) {
+	out, err := w.ListUnspent0(ctx, in)
+	return out, er.Native(err)
+}
+func (w *WalletKit) ListUnspent0(ctx context.Context,
 	req *ListUnspentRequest) (*ListUnspentResponse, er.R) {
 
 	// Validate the confirmation arguments.
@@ -317,6 +185,11 @@ func (w *WalletKit) ListUnspent(ctx context.Context,
 // output has already been locked to a different ID, then
 // wtxmgr.ErrOutputAlreadyLocked is returned.
 func (w *WalletKit) LeaseOutput(ctx context.Context,
+	in *LeaseOutputRequest) (*LeaseOutputResponse, error) {
+	out, err := w.LeaseOutput0(ctx, in)
+	return out, er.Native(err)
+}
+func (w *WalletKit) LeaseOutput0(ctx context.Context,
 	req *LeaseOutputRequest) (*LeaseOutputResponse, er.R) {
 
 	if len(req.Id) != 32 {
@@ -361,6 +234,11 @@ func (w *WalletKit) LeaseOutput(ctx context.Context,
 // selection if it remains unspent. The ID should match the one used to
 // originally lock the output.
 func (w *WalletKit) ReleaseOutput(ctx context.Context,
+	in *ReleaseOutputRequest) (*ReleaseOutputResponse, error) {
+	out, err := w.ReleaseOutput0(ctx, in)
+	return out, er.Native(err)
+}
+func (w *WalletKit) ReleaseOutput0(ctx context.Context,
 	req *ReleaseOutputRequest) (*ReleaseOutputResponse, er.R) {
 
 	if len(req.Id) != 32 {
@@ -390,6 +268,11 @@ func (w *WalletKit) ReleaseOutput(ctx context.Context,
 // (account in BIP43) specified. This method should return the next external
 // child within this branch.
 func (w *WalletKit) DeriveNextKey(ctx context.Context,
+	in *KeyReq) (*signrpc.KeyDescriptor, error) {
+	out, err := w.DeriveNextKey0(ctx, in)
+	return out, er.Native(err)
+}
+func (w *WalletKit) DeriveNextKey0(ctx context.Context,
 	req *KeyReq) (*signrpc.KeyDescriptor, er.R) {
 
 	nextKeyDesc, err := w.cfg.KeyRing.DeriveNextKey(
@@ -411,6 +294,11 @@ func (w *WalletKit) DeriveNextKey(ctx context.Context,
 // DeriveKey attempts to derive an arbitrary key specified by the passed
 // KeyLocator.
 func (w *WalletKit) DeriveKey(ctx context.Context,
+	in *signrpc.KeyLocator) (*signrpc.KeyDescriptor, error) {
+	out, err := w.DeriveKey0(ctx, in)
+	return out, er.Native(err)
+}
+func (w *WalletKit) DeriveKey0(ctx context.Context,
 	req *signrpc.KeyLocator) (*signrpc.KeyDescriptor, er.R) {
 
 	keyDesc, err := w.cfg.KeyRing.DeriveKey(keychain.KeyLocator{
@@ -432,6 +320,11 @@ func (w *WalletKit) DeriveKey(ctx context.Context,
 
 // NextAddr returns the next unused address within the wallet.
 func (w *WalletKit) NextAddr(ctx context.Context,
+	in *AddrRequest) (*AddrResponse, error) {
+	out, err := w.NextAddr0(ctx, in)
+	return out, er.Native(err)
+}
+func (w *WalletKit) NextAddr0(ctx context.Context,
 	req *AddrRequest) (*AddrResponse, er.R) {
 
 	addr, err := w.cfg.Wallet.NewAddress(lnwallet.WitnessPubKey, false)
@@ -448,6 +341,11 @@ func (w *WalletKit) NextAddr(ctx context.Context,
 // without an error, the wallet will continually attempt to re-broadcast the
 // transaction on start up, until it enters the chain.
 func (w *WalletKit) PublishTransaction(ctx context.Context,
+	in *Transaction) (*PublishResponse, error) {
+	out, err := w.PublishTransaction0(ctx, in)
+	return out, er.Native(err)
+}
+func (w *WalletKit) PublishTransaction0(ctx context.Context,
 	req *Transaction) (*PublishResponse, er.R) {
 
 	switch {
@@ -481,6 +379,11 @@ func (w *WalletKit) PublishTransaction(ctx context.Context,
 // the caller to create a transaction that sends to several outputs at once.
 // This is ideal when wanting to batch create a set of transactions.
 func (w *WalletKit) SendOutputs(ctx context.Context,
+	in *SendOutputsRequest) (*SendOutputsResponse, error) {
+	out, err := w.SendOutputs0(ctx, in)
+	return out, er.Native(err)
+}
+func (w *WalletKit) SendOutputs0(ctx context.Context,
 	req *SendOutputsRequest) (*SendOutputsResponse, er.R) {
 
 	switch {
@@ -537,6 +440,11 @@ func (w *WalletKit) SendOutputs(ctx context.Context,
 // determine the fee (in sat/kw) to attach to a transaction in order to achieve
 // the confirmation target.
 func (w *WalletKit) EstimateFee(ctx context.Context,
+	in *EstimateFeeRequest) (*EstimateFeeResponse, error) {
+	out, err := w.EstimateFee0(ctx, in)
+	return out, er.Native(err)
+}
+func (w *WalletKit) EstimateFee0(ctx context.Context,
 	req *EstimateFeeRequest) (*EstimateFeeResponse, er.R) {
 
 	switch {
@@ -565,6 +473,11 @@ func (w *WalletKit) EstimateFee(ctx context.Context,
 // transaction. The fee rate of each sweeping transaction is determined by
 // taking the average fee rate of all the outputs it's trying to sweep.
 func (w *WalletKit) PendingSweeps(ctx context.Context,
+	in *PendingSweepsRequest) (*PendingSweepsResponse, error) {
+	out, err := w.PendingSweeps0(ctx, in)
+	return out, er.Native(err)
+}
+func (w *WalletKit) PendingSweeps0(ctx context.Context,
 	in *PendingSweepsRequest) (*PendingSweepsResponse, er.R) {
 
 	// Retrieve all of the outputs the UtxoSweeper is currently trying to
@@ -681,6 +594,11 @@ func unmarshallOutPoint(op *lnrpc.OutPoint) (*wire.OutPoint, er.R) {
 // explicitly specified, then an error is returned. The status of the input
 // sweep can be checked through the PendingSweeps RPC.
 func (w *WalletKit) BumpFee(ctx context.Context,
+	in *BumpFeeRequest) (*BumpFeeResponse, error) {
+	res, err := w.BumpFee0(ctx, in)
+	return res, er.Native(err)
+}
+func (w *WalletKit) BumpFee0(ctx context.Context,
 	in *BumpFeeRequest) (*BumpFeeResponse, er.R) {
 
 	// Parse the outpoint from the request.
@@ -701,16 +619,16 @@ func (w *WalletKit) BumpFee(ctx context.Context,
 	// bump its fee, which will result in a replacement transaction (RBF)
 	// being broadcast. If it is not aware of the input however,
 	// lnwallet.ErrNotMine is returned.
-	params := sweep.ParamsUpdate{
+	sweepParams := sweep.ParamsUpdate{
 		Fee:   feePreference,
 		Force: in.Force,
 	}
 
-	_, err = w.cfg.Sweeper.UpdateParams(*op, params)
-	switch err {
-	case nil:
+	_, err = w.cfg.Sweeper.UpdateParams(*op, sweepParams)
+	switch {
+	case err == nil:
 		return &BumpFeeResponse{}, nil
-	case lnwallet.ErrNotMine:
+	case lnwallet.ErrNotMine.Is(err):
 		break
 	default:
 		return nil, err
@@ -772,7 +690,12 @@ func (w *WalletKit) BumpFee(ctx context.Context,
 }
 
 // ListSweeps returns a list of the sweeps that our node has published.
-func (w *WalletKit) ListSweeps(ctx context.Context,
+func (w *WalletKit) ListSweeps(c context.Context,
+	req *ListSweepsRequest) (*ListSweepsResponse, error) {
+	out, err := w.ListSweeps0(c, req)
+	return out, er.Native(err)
+}
+func (w *WalletKit) ListSweeps0(ctx context.Context,
 	in *ListSweepsRequest) (*ListSweepsResponse, er.R) {
 
 	sweeps, err := w.cfg.Sweeper.ListSweeps()
@@ -790,7 +713,7 @@ func (w *WalletKit) ListSweeps(ctx context.Context,
 	// can match our list of sweeps against the list of transactions that
 	// the wallet is still tracking.
 	transactions, err := w.cfg.Wallet.ListTransactionDetails(
-		0, btcwallet.UnconfirmedHeight,
+		0, btcwallet.UnconfirmedHeight, 0, 0, 0, false,
 	)
 	if err != nil {
 		return nil, err
@@ -821,6 +744,7 @@ func (w *WalletKit) ListSweeps(ctx context.Context,
 			Sweeps: &ListSweepsResponse_TransactionDetails{
 				TransactionDetails: lnrpc.RPCTransactionDetails(
 					txDetails,
+					false,
 				),
 			},
 		}, nil
@@ -837,6 +761,11 @@ func (w *WalletKit) ListSweeps(ctx context.Context,
 
 // LabelTransaction adds a label to a transaction.
 func (w *WalletKit) LabelTransaction(ctx context.Context,
+	req *LabelTransactionRequest) (*LabelTransactionResponse, error) {
+	out, err := w.LabelTransaction0(ctx, req)
+	return out, er.Native(err)
+}
+func (w *WalletKit) LabelTransaction0(ctx context.Context,
 	req *LabelTransactionRequest) (*LabelTransactionResponse, er.R) {
 
 	// Check that the label provided in non-zero.
@@ -875,11 +804,16 @@ func (w *WalletKit) LabelTransaction(ctx context.Context,
 // responsibility to either spend the locked UTXOs (by finalizing and then
 // publishing the transaction) or to unlock/release the locked UTXOs in case of
 // an error on the caller's side.
-func (w *WalletKit) FundPsbt(_ context.Context,
+func (w *WalletKit) FundPsbt(c context.Context,
+	req *FundPsbtRequest) (*FundPsbtResponse, error) {
+	out, err := w.FundPsbt0(c, req)
+	return out, er.Native(err)
+}
+func (w *WalletKit) FundPsbt0(_ context.Context,
 	req *FundPsbtRequest) (*FundPsbtResponse, er.R) {
 
 	var (
-		err         error
+		err         er.R
 		packet      *psbt.Packet
 		feeSatPerKW chainfee.SatPerKWeight
 		locks       []*utxoLock
@@ -1074,7 +1008,12 @@ func (w *WalletKit) FundPsbt(_ context.Context,
 // NOTE: This method does NOT publish the transaction once finalized. It is the
 // caller's responsibility to either publish the transaction on success or
 // unlock/release any locked UTXOs in case of an error in this method.
-func (w *WalletKit) FinalizePsbt(_ context.Context,
+func (w *WalletKit) FinalizePsbt(c context.Context,
+	req *FinalizePsbtRequest) (*FinalizePsbtResponse, error) {
+	out, err := w.FinalizePsbt0(c, req)
+	return out, er.Native(err)
+}
+func (w *WalletKit) FinalizePsbt0(_ context.Context,
 	req *FinalizePsbtRequest) (*FinalizePsbtResponse, er.R) {
 
 	// Parse the funded PSBT. No additional checks are required at this

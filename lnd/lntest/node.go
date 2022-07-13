@@ -32,7 +32,6 @@ import (
 	"github.com/pkt-cash/pktd/lnd/lnrpc/watchtowerrpc"
 	"github.com/pkt-cash/pktd/lnd/lnrpc/wtclientrpc"
 	"github.com/pkt-cash/pktd/lnd/lntest/wait"
-	"github.com/pkt-cash/pktd/lnd/macaroons"
 	"github.com/pkt-cash/pktd/rpcclient"
 	"github.com/pkt-cash/pktd/wire"
 	"google.golang.org/grpc"
@@ -902,13 +901,6 @@ func (hn *HarnessNode) ConnectRPCWithMacaroon(mac *macaroon.Macaroon) (
 
 	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer cancel()
-
-	if mac == nil {
-		c, e := grpc.DialContext(ctx, hn.Cfg.RPCAddr(), opts...)
-		return c, er.E(e)
-	}
-	macCred := macaroons.NewMacaroonCredential(mac)
-	opts = append(opts, grpc.WithPerRPCCredentials(macCred))
 
 	c, e := grpc.DialContext(ctx, hn.Cfg.RPCAddr(), opts...)
 	return c, er.E(e)

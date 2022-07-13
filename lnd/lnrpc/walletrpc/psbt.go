@@ -1,16 +1,15 @@
-// +build walletrpc
-
 package walletrpc
 
 import (
-	"fmt"
 	"math"
 	"time"
 
-	"github.com/pkt-cash/pktd/wire"
+	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/btcutil/psbt"
-	"github.com/pkt-cash/pktd/pktwallet/wtxmgr"
 	"github.com/pkt-cash/pktd/lnd/lnwallet"
+	"github.com/pkt-cash/pktd/pktlog/log"
+	"github.com/pkt-cash/pktd/pktwallet/wtxmgr"
+	"github.com/pkt-cash/pktd/wire"
 )
 
 const (
@@ -50,8 +49,7 @@ func verifyInputsUnspent(inputs []*wire.TxIn, utxos []*lnwallet.Utxo) er.R {
 
 // lockInputs requests a lock lease for all inputs specified in a PSBT packet
 // by using the internal, static lock ID of lnd's wallet.
-func lockInputs(w lnwallet.WalletController, packet *psbt.Packet) ([]*utxoLock,
-	error) {
+func lockInputs(w lnwallet.WalletController, packet *psbt.Packet) ([]*utxoLock, er.R) {
 
 	locks := make([]*utxoLock, len(packet.UnsignedTx.TxIn))
 	for idx, rawInput := range packet.UnsignedTx.TxIn {
