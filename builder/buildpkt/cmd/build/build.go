@@ -134,7 +134,7 @@ func genproto() {
 		helpFile := helpPath + "helpgen.go"
 		fmt.Printf("GENERATING   %s\n", helpFile)
 		ensureDir(helpPath)
-		_, out, err := e.exe(0, "./builder/buildpkt/bin/mkhelp", "./lnd/lnrpc")
+		_, out, err := e.exe(0, "./builder/buildpkt/bin/mkhelp", "./generated/lnd/lnrpc")
 		if len(err) > 0 {
 			fmt.Printf("mkhelp -> %s\n", err)
 		}

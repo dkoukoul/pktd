@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -69,21 +70,15 @@ func main() {
 		return
 	}
 	path := os.Args[len(os.Args)-1]
-	dir, err := os.Open(path)
-	if err != nil {
-		panic(err.Error())
-	}
-	files, err := dir.ReadDir(0)
-	if err != nil {
-		panic(err.Error())
-	}
 	var templates []gendoc.Template
-	for _, f := range files {
-		if !strings.HasSuffix(f.Name(), ".doc.json") {
-			continue
+	filepath.Walk(path, func(file string, info os.FileInfo, err error) error {
+		if err != nil {
+			panic(err)
 		}
-		//fmt.Println("Generating help " + path + "/" + f.Name())
-		content, err := os.ReadFile(path + "/" + f.Name())
+		if !strings.HasSuffix(file, ".doc.json") {
+			return nil
+		}
+		content, err := os.ReadFile(file)
 		if err != nil {
 			panic(err.Error())
 		}
@@ -92,7 +87,8 @@ func main() {
 			panic(err.Error())
 		}
 		templates = append(templates, t)
-	}
+		return nil
+	})
 	fmt.Print(prologue)
 	for _, t := range templates {
 		for _, s := range t.Scalars {
@@ -155,7 +151,7 @@ func main() {
 	var categoryRegexp *regexp.Regexp
 	var shortDescriptionRegexp *regexp.Regexp
 
-	categoryRegexp, err = regexp.Compile("\\$pld\\.category:\\s*`([^`]+)`")
+	categoryRegexp, err := regexp.Compile("\\$pld\\.category:\\s*`([^`]+)`")
 	if err != nil {
 		panic(err.Error())
 	}
