@@ -1,19 +1,17 @@
-// Copyright (c) 2020 The PKT developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
 package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
 )
-
-// generic stuff
 
 func die(format string, args ...interface{}) {
 	panic(fmt.Sprintf(format, args...))
@@ -33,13 +31,24 @@ const (
 	exeNoRedirect exeF = 1 << iota
 )
 
+type execer []string
+
+var noEnvExecer execer = []string{}
+
 func exe(flags exeF, name string, arg ...string) (int, string, string) {
+	return noEnvExecer.exe(flags, name, arg...)
+}
+
+func (e *execer) exe(flags exeF, name string, arg ...string) (int, string, string) {
 	stdout := bytes.NewBuffer(nil)
 	stderr := bytes.NewBuffer(nil)
 	if flags&exeEcho != 0 {
 		fmt.Println(strings.Join(append([]string{name}, arg...), " "))
 	}
 	cmd := exec.Command(name, arg...)
+	if len(*e) > 0 {
+		cmd.Env = append([]string{}, *e...)
+	}
 	if flags&exeNoRedirect == 0 {
 		cmd.Stdout = stdout
 		cmd.Stderr = stderr
@@ -57,6 +66,81 @@ func exe(flags exeF, name string, arg ...string) (int, string, string) {
 		}
 	}
 	return ret, stdout.String(), stderr.String()
+}
+
+func needUpdate(inPath string, outPaths []string) bool {
+	if inFileStat, err := os.Stat(inPath); err != nil {
+		panic(err)
+	} else {
+		for _, p := range outPaths {
+			if fileStat, err := os.Stat(p); err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					fmt.Printf("GENERATING   %s\n", p)
+					return true
+				} else {
+					panic(err)
+				}
+			} else if inFileStat.ModTime().After(fileStat.ModTime()) {
+				fmt.Printf("REGENERATING %s\n", p)
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func ensureDir(dir string) {
+	if _, err := os.Stat(dir); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			os.MkdirAll(dir, 0755)
+		} else {
+			panic(err)
+		}
+	}
+}
+
+func processProto(inPath string, e *execer) bool {
+	inDir, file := filepath.Split(inPath)
+	outDir := "./generated/" + inDir
+	jsonfile := file + ".doc.json"
+	jsonPath := filepath.Join(outDir, jsonfile)
+	ensureDir(outDir)
+	if needUpdate(inPath, []string{jsonPath}) {
+		e.exe(exeNoRedirect, "protoc",
+			"-I./lnd/lnrpc",
+			"--pkt-json_opt=json,"+file+".doc.json",
+			"--pkt-json_out="+outDir,
+			inPath,
+		)
+		return true
+	}
+	return false
+}
+
+func genproto() {
+	e := execer{"PATH=" + os.Getenv("PATH") + ":./builder/buildpkt/bin"}
+	didUpdate := false
+	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+		if !info.IsDir() && filepath.Ext(path) == ".proto" {
+			didUpdate = processProto(path, &e) || didUpdate
+		}
+		return nil
+	})
+	if err != nil {
+		panic(err)
+	}
+	if didUpdate {
+		helpPath := "generated/lnd/pkthelp/"
+		helpFile := helpPath + "helpgen.go"
+		fmt.Printf("GENERATING   %s\n", helpFile)
+		ensureDir(helpPath)
+		_, out, err := e.exe(0, "./builder/buildpkt/bin/mkhelp", "./lnd/lnrpc")
+		if len(err) > 0 {
+			fmt.Printf("mkhelp -> %s\n", err)
+		}
+		ioutil.WriteFile(helpFile, []byte(out), 0755)
+	}
+	fmt.Println("Protobufs generated")
 }
 
 // build stuff
@@ -77,7 +161,7 @@ func build(name string, pkg string, conf *config) {
 }
 
 func chkdir() {
-	info, err := os.Stat("./contrib/build/build.go")
+	info, err := os.Stat("./builder/buildpkt/bin/build")
 	if err != nil || info.IsDir() {
 		die("this script must be invoked from the project root")
 	}
@@ -109,6 +193,7 @@ var regex = regexp.MustCompile("[A-Z0-9_]+=.*")
 
 func main() {
 	chkdir()
+	genproto()
 	conf := config{}
 	conf.bindir = "./bin"
 	conf.buildargs = append(conf.buildargs, "-trimpath")

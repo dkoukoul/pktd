@@ -6,7 +6,7 @@
 
 package help
 
-import "github.com/pkt-cash/pktd/lnd/pkthelp"
+import "github.com/pkt-cash/pktd/generated/lnd/pkthelp"
 
 const (
 	URI_prefix = "/api/v1"

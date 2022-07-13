@@ -16,8 +16,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pkt-cash/pktd/generated/lnd/pkthelp"
 	"github.com/pkt-cash/pktd/lnd/lnrpc/restrpc/help"
-	"github.com/pkt-cash/pktd/lnd/pkthelp"
 )
 
 var (
