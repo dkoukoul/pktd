@@ -58,6 +58,8 @@ type WalletInitMsg struct {
 	ChanBackups ChannelsToRecover
 
 	WalletName string
+
+	Complete chan struct{}
 }
 
 // WalletUnlockMsg is a message sent by the UnlockerService when a user wishes
@@ -89,6 +91,8 @@ type WalletUnlockMsg struct {
 	// UnloadWallet is a function for unloading the wallet, which should
 	// be called on shutdown.
 	UnloadWallet func() er.R
+
+	Complete chan struct{}
 }
 
 // UnlockerService implements the WalletUnlocker service used to provide lnd
@@ -130,10 +134,9 @@ func New(chainDir string, params *chaincfg.Params, noFreelistSync bool,
 	}
 }
 
-func (u *UnlockerService) GenSeed(_ context.Context,
+func (u *UnlockerService) GenSeed(ctx context.Context,
 	in *lnrpc.GenSeedRequest) (*lnrpc.GenSeedResponse, error) {
-	//	TODO: should replace the nil context by context.TODO()
-	res, err := u.GenSeed0(nil, in)
+	res, err := u.GenSeed0(ctx, in)
 	return res, er.Native(err)
 }
 
@@ -314,6 +317,7 @@ func (u *UnlockerService) InitWallet0(ctx context.Context,
 		Seed:           seed,
 		RecoveryWindow: uint32(recoveryWindow),
 		WalletName:     walletFile,
+		Complete:       make(chan struct{}),
 	}
 
 	// Before we return the unlock payload, we'll check if we can extract
@@ -327,7 +331,7 @@ func (u *UnlockerService) InitWallet0(ctx context.Context,
 	select {
 	case u.InitMsgs <- initMsg:
 		select {
-		case <-u.MacResponseChan:
+		case <-initMsg.Complete:
 			return &lnrpc.InitWalletResponse{}, nil
 
 		case <-ctx.Done():
@@ -408,6 +412,7 @@ func (u *UnlockerService) UnlockWallet0(ctx context.Context,
 		RecoveryWindow: recoveryWindow,
 		Wallet:         unlockedWallet,
 		UnloadWallet:   loader.UnloadWallet,
+		Complete:       make(chan struct{}),
 	}
 
 	// Before we return the unlock payload, we'll check if we can extract
@@ -426,7 +431,7 @@ func (u *UnlockerService) UnlockWallet0(ctx context.Context,
 		// its work. But we don't need the returned macaroon for this
 		// operation, so we read it but then discard it.
 		select {
-		case <-u.MacResponseChan:
+		case <-walletUnlockMsg.Complete:
 			return &lnrpc.UnlockWalletResponse{}, nil
 
 		case <-ctx.Done():

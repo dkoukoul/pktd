@@ -1335,9 +1335,9 @@ var rpcFunctions []RpcFunc = []RpcFunc{
 				return nil, errr
 			}
 
-			_, err := cc.InitWallet(context.TODO(), initWalletReq)
+			_, err := cc.InitWallet0(context.TODO(), initWalletReq)
 			if err != nil {
-				return nil, er.E(err)
+				return nil, err
 			}
 			return &RestEmptyResponse{}, nil
 		},
@@ -2011,9 +2011,9 @@ var rpcFunctions []RpcFunc = []RpcFunc{
 			if cc != nil {
 				var genSeedResp *lnrpc.GenSeedResponse
 
-				genSeedResp, err := cc.GenSeed(context.TODO(), genSeedReq)
+				genSeedResp, err := cc.GenSeed0(context.TODO(), genSeedReq)
 				if err != nil {
-					return nil, er.E(err)
+					return nil, err
 				} else {
 					return genSeedResp, nil
 				}

@@ -161,7 +161,6 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 
 	var (
 		walletInitParams WalletUnlockParams
-		shutdownUnlocker = func() {}
 		privateWalletPw  = lnwallet.DefaultPrivatePassphrase
 		publicWalletPw   = lnwallet.DefaultPublicPassphrase
 	)
@@ -193,7 +192,7 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 	// for wallet encryption.
 
 	if !cfg.NoSeedBackup {
-		params, shutdown, err := waitForWalletPassword(cfg, &restContext)
+		params, err := waitForWalletPassword(cfg, &restContext)
 		if err != nil {
 			err := er.Errorf("unable to set up wallet password "+
 				"listeners: %v", err)
@@ -202,7 +201,6 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 		}
 
 		walletInitParams = *params
-		shutdownUnlocker = shutdown
 		privateWalletPw = walletInitParams.Password
 		publicWalletPw = walletInitParams.Password
 		//Pass wallet to metaservice for getinfo2
@@ -220,10 +218,6 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 				walletInitParams.RecoveryWindow)
 		}
 	}
-
-	// Now we're definitely done with the unlocker, shut it down so we can
-	// start the main RPC service later.
-	shutdownUnlocker()
 
 	// With the information parsed from the configuration, create valid
 	// instances of the pertinent interfaces required to operate the
@@ -465,6 +459,10 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 	}
 	defer rpcServer.Stop()
 
+	// We have brought up the RPC server so we can now cause the wallet/create
+	// or wallet/unlock to complete.
+	close(walletInitParams.Complete)
+
 	// If we're not in regtest or simnet mode, We'll wait until we're fully
 	// synced to continue the start up of the remainder of the daemon. This
 	// ensures that we don't accept any possibly invalid state transitions, or
@@ -582,6 +580,8 @@ type WalletUnlockParams struct {
 	// UnloadWallet is a function for unloading the wallet, which should
 	// be called on shutdown.
 	UnloadWallet func() er.R
+
+	Complete chan struct{}
 }
 
 // waitForWalletPassword will spin up gRPC and REST endpoints for the
@@ -590,7 +590,7 @@ type WalletUnlockParams struct {
 func waitForWalletPassword(
 	cfg *Config,
 	restContext *restrpc.RpcContext,
-) (*WalletUnlockParams, func(), er.R) {
+) (*WalletUnlockParams, er.R) {
 
 	chainConfig := cfg.Bitcoin
 	if cfg.registeredChains.PrimaryChain() == chainreg.LitecoinChain {
@@ -613,13 +613,6 @@ func waitForWalletPassword(
 		!cfg.SyncFreelist, walletPath, walletFilename,
 	)
 	restContext.MaybeWalletUnlocker = pwService
-
-	var shutdownFuncs []func()
-	shutdown := func() {
-		for _, shutdownFn := range shutdownFuncs {
-			shutdownFn()
-		}
-	}
 
 	// Wait for user to provide the password.
 	log.Infof("Waiting for wallet (" + walletFilename + ") encryption password. " +
@@ -660,7 +653,7 @@ func waitForWalletPassword(
 				log.Errorf("Could not unload new "+
 					"wallet: %v", err)
 			}
-			return nil, shutdown, err
+			return nil, err
 		}
 
 		// For new wallets, the ResetWalletTransactions flag is a no-op.
@@ -676,7 +669,8 @@ func waitForWalletPassword(
 			Wallet:         newWallet,
 			ChansToRestore: initMsg.ChanBackups,
 			UnloadWallet:   loader.UnloadWallet,
-		}, shutdown, nil
+			Complete:       initMsg.Complete,
+		}, nil
 
 	// The wallet has already been created in the past, and is simply being
 	// unlocked. So we'll just return these passphrases.
@@ -699,7 +693,7 @@ func waitForWalletPassword(
 					log.Errorf("Could not unload "+
 						"wallet: %v", err)
 				}
-				return nil, shutdown, err
+				return nil, err
 			}
 		}
 
@@ -709,10 +703,11 @@ func waitForWalletPassword(
 			Wallet:         unlockMsg.Wallet,
 			ChansToRestore: unlockMsg.ChanBackups,
 			UnloadWallet:   unlockMsg.UnloadWallet,
-		}, shutdown, nil
+			Complete:       unlockMsg.Complete,
+		}, nil
 
 	case <-signal.ShutdownChannel():
-		return nil, shutdown, er.Errorf("shutting down")
+		return nil, er.Errorf("shutting down")
 	}
 }
 
