@@ -11,6 +11,7 @@ import (
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd/chainntnfs"
 	"github.com/pkt-cash/pktd/lnd/chainreg"
 	"github.com/pkt-cash/pktd/lnd/chanacceptor"
@@ -22,7 +23,6 @@ import (
 	"github.com/pkt-cash/pktd/lnd/keychain"
 	"github.com/pkt-cash/pktd/lnd/labels"
 	"github.com/pkt-cash/pktd/lnd/lnpeer"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
 	"github.com/pkt-cash/pktd/lnd/lnwallet"
 	"github.com/pkt-cash/pktd/lnd/lnwallet/chainfee"
 	"github.com/pkt-cash/pktd/lnd/lnwallet/chanfunding"
@@ -142,7 +142,7 @@ type reservationWithCtx struct {
 	updateMtx   sync.RWMutex
 	lastUpdated time.Time
 
-	updates chan *lnrpc.OpenStatusUpdate
+	updates chan *rpc_pb.OpenStatusUpdate
 	err     chan er.R
 }
 
@@ -809,7 +809,7 @@ func (f *fundingManager) reservationCoordinator() {
 //
 // NOTE: This MUST be run as a goroutine.
 func (f *fundingManager) advanceFundingState(channel *channeldb.OpenChannel,
-	pendingChanID [32]byte, updateChan chan<- *lnrpc.OpenStatusUpdate) {
+	pendingChanID [32]byte, updateChan chan<- *rpc_pb.OpenStatusUpdate) {
 
 	defer f.wg.Done()
 
@@ -881,7 +881,7 @@ func (f *fundingManager) stateStep(channel *channeldb.OpenChannel,
 	lnChannel *lnwallet.LightningChannel,
 	shortChanID *lnwire.ShortChannelID, pendingChanID [32]byte,
 	channelState channelOpeningState,
-	updateChan chan<- *lnrpc.OpenStatusUpdate) er.R {
+	updateChan chan<- *rpc_pb.OpenStatusUpdate) er.R {
 
 	chanID := lnwire.NewChanIDFromOutPoint(&channel.FundingOutpoint)
 	log.Debugf("Channel(%v) with ShortChanID %v has opening state %v",
@@ -945,17 +945,17 @@ func (f *fundingManager) stateStep(channel *channeldb.OpenChannel,
 		// the channel is now open.
 		// TODO(roasbeef): only notify after recv of funding locked?
 		fundingPoint := channel.FundingOutpoint
-		cp := &lnrpc.ChannelPoint{
-			FundingTxid: &lnrpc.ChannelPoint_FundingTxidBytes{
+		cp := &rpc_pb.ChannelPoint{
+			FundingTxid: &rpc_pb.ChannelPoint_FundingTxidBytes{
 				FundingTxidBytes: fundingPoint.Hash[:],
 			},
 			OutputIndex: fundingPoint.Index,
 		}
 
 		if updateChan != nil {
-			upd := &lnrpc.OpenStatusUpdate{
-				Update: &lnrpc.OpenStatusUpdate_ChanOpen{
-					ChanOpen: &lnrpc.ChannelOpenUpdate{
+			upd := &rpc_pb.OpenStatusUpdate{
+				Update: &rpc_pb.OpenStatusUpdate_ChanOpen{
+					ChanOpen: &rpc_pb.ChannelOpenUpdate{
 						ChannelPoint: cp,
 					},
 				},
@@ -1627,10 +1627,10 @@ func (f *fundingManager) handleFundingAccept(peer lnpeer.Peer,
 			f.failFundingFlow(peer, msg.PendingChannelID, err)
 			return
 		}
-		resCtx.updates <- &lnrpc.OpenStatusUpdate{
+		resCtx.updates <- &rpc_pb.OpenStatusUpdate{
 			PendingChanId: pendingChanID[:],
-			Update: &lnrpc.OpenStatusUpdate_PsbtFund{
-				PsbtFund: &lnrpc.ReadyForPsbtFunding{
+			Update: &rpc_pb.OpenStatusUpdate_PsbtFund{
+				PsbtFund: &rpc_pb.ReadyForPsbtFunding{
 					FundingAddress: addr.EncodeAddress(),
 					FundingAmount:  amt,
 					Psbt:           buf.Bytes(),
@@ -2071,9 +2071,9 @@ func (f *fundingManager) handleFundingSigned(peer lnpeer.Peer,
 	//
 	// TODO(roasbeef): add abstraction over updates to accommodate
 	// long-polling, or SSE, etc.
-	upd := &lnrpc.OpenStatusUpdate{
-		Update: &lnrpc.OpenStatusUpdate_ChanPending{
-			ChanPending: &lnrpc.PendingUpdate{
+	upd := &rpc_pb.OpenStatusUpdate{
+		Update: &rpc_pb.OpenStatusUpdate_ChanPending{
+			ChanPending: &rpc_pb.PendingUpdate{
 				Txid:        fundingPoint.Hash[:],
 				OutputIndex: fundingPoint.Index,
 			},

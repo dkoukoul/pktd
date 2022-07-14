@@ -8,7 +8,7 @@ import (
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/chaincfg"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/mempool"
 	"github.com/pkt-cash/pktd/pktlog/log"
 	"github.com/pkt-cash/pktd/txscript"
@@ -28,7 +28,7 @@ func Describe(
 	mtx wire.MsgTx,
 	chainParams *chaincfg.Params,
 	includeVinDetail bool,
-) (*lnrpc.TransactionInfo, er.R) {
+) (*rpc_pb.TransactionInfo, er.R) {
 
 	vin, err := createVinListPrevOut(getTxns, &mtx, chainParams)
 	if err != nil {
@@ -63,7 +63,7 @@ func Describe(
 		vin = nil
 	}
 
-	return &lnrpc.TransactionInfo{
+	return &rpc_pb.TransactionInfo{
 		Txid:      mtx.TxHash().String(),
 		Version:   mtx.Version,
 		Locktime:  mtx.LockTime,
@@ -82,7 +82,7 @@ func createVinListPrevOut(
 	getTxns func(map[string]*wire.MsgTx) er.R,
 	mtx *wire.MsgTx,
 	chainParams *chaincfg.Params,
-) ([]*lnrpc.VinDetail, er.R) {
+) ([]*rpc_pb.VinDetail, er.R) {
 	vinFullList := createVinList(mtx, chainParams)
 	if err := loadPrevOuts(getTxns, mtx, chainParams, vinFullList); err != nil {
 		return nil, err
@@ -94,7 +94,7 @@ func loadPrevOuts(
 	getTxns func(map[string]*wire.MsgTx) er.R,
 	mtx *wire.MsgTx,
 	chainParams *chaincfg.Params,
-	list []*lnrpc.VinDetail,
+	list []*rpc_pb.VinDetail,
 ) er.R {
 	if blockchain.IsCoinBaseTx(mtx) {
 		// By definition, a coinbase tx has only one input which cannot be loaded
@@ -131,11 +131,11 @@ func loadPrevOuts(
 
 // createVinList returns a slice of JSON objects for the inputs of the passed
 // transaction.
-func createVinList(mtx *wire.MsgTx, chainParams *chaincfg.Params) []*lnrpc.VinDetail {
+func createVinList(mtx *wire.MsgTx, chainParams *chaincfg.Params) []*rpc_pb.VinDetail {
 	// Coinbase transactions only have a single txin by definition.
 	if blockchain.IsCoinBaseTx(mtx) {
 		txIn := mtx.TxIn[0]
-		return []*lnrpc.VinDetail{
+		return []*rpc_pb.VinDetail{
 			{
 				Coinbase: txIn.SignatureScript,
 				Sequence: txIn.Sequence,
@@ -143,14 +143,14 @@ func createVinList(mtx *wire.MsgTx, chainParams *chaincfg.Params) []*lnrpc.VinDe
 		}
 	}
 
-	vinList := make([]*lnrpc.VinDetail, 0, len(mtx.TxIn))
+	vinList := make([]*rpc_pb.VinDetail, 0, len(mtx.TxIn))
 
 	for i, txIn := range mtx.TxIn {
 		// Create the basic input entry without the additional optional
 		// previous output details which will be added later if
 		// requested and available.
 		prevOut := &txIn.PreviousOutPoint
-		vinEntry := lnrpc.VinDetail{
+		vinEntry := rpc_pb.VinDetail{
 			Txid:       prevOut.Hash.String(),
 			Vout:       prevOut.Index,
 			Sequence:   txIn.Sequence,
@@ -202,12 +202,12 @@ func createVinList(mtx *wire.MsgTx, chainParams *chaincfg.Params) []*lnrpc.VinDe
 	return vinList
 }
 
-func vote(voteOut **lnrpc.Vote, script []byte, params *chaincfg.Params) {
+func vote(voteOut **rpc_pb.Vote, script []byte, params *chaincfg.Params) {
 	voteFor, voteAgainst := txscript.ElectionGetVotesForAgainst(script)
 	if voteFor == nil && voteAgainst == nil {
 		return
 	}
-	v := lnrpc.Vote{}
+	v := rpc_pb.Vote{}
 	if voteFor != nil {
 		v.For = txscript.PkScriptToAddress(voteFor, params).EncodeAddress()
 	}
@@ -219,12 +219,12 @@ func vote(voteOut **lnrpc.Vote, script []byte, params *chaincfg.Params) {
 
 // createVoutList returns a slice of JSON objects for the outputs of the passed
 // transaction.
-func createVoutList(mtx *wire.MsgTx, chainParams *chaincfg.Params) []*lnrpc.Vout {
-	voutList := make([]*lnrpc.Vout, 0, len(mtx.TxOut))
+func createVoutList(mtx *wire.MsgTx, chainParams *chaincfg.Params) []*rpc_pb.Vout {
+	voutList := make([]*rpc_pb.Vout, 0, len(mtx.TxOut))
 	for i, v := range mtx.TxOut {
 		encodedAddr := txscript.PkScriptToAddress(v.PkScript, chainParams).EncodeAddress()
 
-		vout := &lnrpc.Vout{
+		vout := &rpc_pb.Vout{
 			N:          uint32(i),
 			ValueCoins: btcutil.Amount(v.Value).ToBTC(),
 			Svalue:     strconv.FormatInt(v.Value, 10),
@@ -241,12 +241,12 @@ func createVoutList(mtx *wire.MsgTx, chainParams *chaincfg.Params) []*lnrpc.Vout
 // Simplify the VinDetail list into a list of Payers
 // You should call loadPrevOuts first, otherwise you will definitely
 // not have any ValueCoins or Svalue.
-func getPayers(list []*lnrpc.VinDetail) []*lnrpc.Payer {
-	payerByAddress := make(map[string]*lnrpc.Payer)
+func getPayers(list []*rpc_pb.VinDetail) []*rpc_pb.Payer {
+	payerByAddress := make(map[string]*rpc_pb.Payer)
 	for _, vd := range list {
 		payer, ok := payerByAddress[vd.Address]
 		if !ok {
-			p := lnrpc.Payer{
+			p := rpc_pb.Payer{
 				Address:    vd.Address,
 				Inputs:     0,
 				ValueCoins: 0.0,
@@ -275,7 +275,7 @@ func getPayers(list []*lnrpc.VinDetail) []*lnrpc.Payer {
 			}
 		}
 	}
-	payers := make([]*lnrpc.Payer, 0, len(payerByAddress))
+	payers := make([]*rpc_pb.Payer, 0, len(payerByAddress))
 	for _, p := range payerByAddress {
 		payers = append(payers, p)
 	}

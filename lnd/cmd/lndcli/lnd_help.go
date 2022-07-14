@@ -12,7 +12,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pkt-cash/pktd/generated/lnd/pkthelp"
+	"github.com/pkt-cash/pktd/generated/pkthelp"
+	"github.com/pkt-cash/pktd/generated/proto/restrpc_pb/help_pb"
 	"github.com/pkt-cash/pktd/lnd/lnrpc/restrpc/help"
 )
 
@@ -38,7 +39,7 @@ func getMasterHelp() error {
 }
 
 //	show a fancy output for the help on a specific category
-func showCategory(category *help.RestCommandCategory, level int) {
+func showCategory(category *help_pb.RestCommandCategory, level int) {
 
 	const indentation = "  "
 	var levelIndentation string

@@ -7,6 +7,7 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/generated/proto/invoicesrpc_pb"
 	"github.com/pkt-cash/pktd/lnd/channeldb"
 	"github.com/pkt-cash/pktd/lnd/lnrpc"
 	"github.com/pkt-cash/pktd/lnd/lntypes"
@@ -33,11 +34,13 @@ type Server struct {
 	quit chan struct{}
 
 	cfg *Config
+
+	invoicesrpc_pb.UnimplementedInvoicesServer
 }
 
 // A compile time check to ensure that Server fully implements the
 // InvoicesServer gRPC service.
-var _ InvoicesServer = (*Server)(nil)
+var _ invoicesrpc_pb.InvoicesServer = (*Server)(nil)
 
 // New returns a new instance of the invoicesrpc Invoices sub-server. We also
 // return the set of permissions for the macaroons that we may create within
@@ -84,7 +87,7 @@ func (s *Server) Name() string {
 func (s *Server) RegisterWithRootServer(grpcServer *grpc.Server) er.R {
 	// We make sure that we register it with the main gRPC server to ensure
 	// all our methods are routed properly.
-	RegisterInvoicesServer(grpcServer, s)
+	invoicesrpc_pb.RegisterInvoicesServer(grpcServer, s)
 
 	log.Debugf("Invoices RPC server successfully registered with root " +
 		"gRPC server")
@@ -102,12 +105,12 @@ func (s *Server) RegisterWithRestServer(ctx context.Context,
 
 	// We make sure that we register it with the main REST server to ensure
 	// all our methods are routed properly.
-	err := RegisterInvoicesHandlerFromEndpoint(ctx, mux, dest, opts)
-	if err != nil {
-		log.Errorf("Could not register Invoices REST server "+
-			"with root REST server: %v", err)
-		return er.E(err)
-	}
+	// err := RegisterInvoicesHandlerFromEndpoint(ctx, mux, dest, opts)
+	// if err != nil {
+	// 	log.Errorf("Could not register Invoices REST server "+
+	// 		"with root REST server: %v", err)
+	// 	return er.E(err)
+	// }
 
 	log.Debugf("Invoices REST server successfully registered with " +
 		"root REST server")
@@ -117,13 +120,13 @@ func (s *Server) RegisterWithRestServer(ctx context.Context,
 // SubscribeSingleInvoice returns a uni-directional stream (server -> client)
 // for notifying the client of state changes for a specified invoice.
 func (s *Server) SubscribeSingleInvoice(
-	in *SubscribeSingleInvoiceRequest,
-	updateStream Invoices_SubscribeSingleInvoiceServer,
+	in *invoicesrpc_pb.SubscribeSingleInvoiceRequest,
+	updateStream invoicesrpc_pb.Invoices_SubscribeSingleInvoiceServer,
 ) error {
 	return er.Native(s.SubscribeSingleInvoice0(in, updateStream))
 }
-func (s *Server) SubscribeSingleInvoice0(req *SubscribeSingleInvoiceRequest,
-	updateStream Invoices_SubscribeSingleInvoiceServer) er.R {
+func (s *Server) SubscribeSingleInvoice0(req *invoicesrpc_pb.SubscribeSingleInvoiceRequest,
+	updateStream invoicesrpc_pb.Invoices_SubscribeSingleInvoiceServer) er.R {
 
 	hash, err := lntypes.MakeHash(req.RHash)
 	if err != nil {
@@ -160,13 +163,13 @@ func (s *Server) SubscribeSingleInvoice0(req *SubscribeSingleInvoiceRequest,
 // this call will succeed.
 func (s *Server) SettleInvoice(
 	ctx context.Context,
-	in *SettleInvoiceMsg,
-) (*SettleInvoiceResp, error) {
+	in *invoicesrpc_pb.SettleInvoiceMsg,
+) (*invoicesrpc_pb.SettleInvoiceResp, error) {
 	out, err := s.SettleInvoice0(ctx, in)
 	return out, er.Native(err)
 }
 func (s *Server) SettleInvoice0(ctx context.Context,
-	in *SettleInvoiceMsg) (*SettleInvoiceResp, er.R) {
+	in *invoicesrpc_pb.SettleInvoiceMsg) (*invoicesrpc_pb.SettleInvoiceResp, er.R) {
 
 	preimage, err := lntypes.MakePreimage(in.Preimage)
 	if err != nil {
@@ -178,7 +181,7 @@ func (s *Server) SettleInvoice0(ctx context.Context,
 		return nil, err
 	}
 
-	return &SettleInvoiceResp{}, nil
+	return &invoicesrpc_pb.SettleInvoiceResp{}, nil
 }
 
 // CancelInvoice cancels a currently open invoice. If the invoice is already
@@ -186,13 +189,13 @@ func (s *Server) SettleInvoice0(ctx context.Context,
 // fail.
 func (s *Server) CancelInvoice(
 	ctx context.Context,
-	in *CancelInvoiceMsg,
-) (*CancelInvoiceResp, error) {
+	in *invoicesrpc_pb.CancelInvoiceMsg,
+) (*invoicesrpc_pb.CancelInvoiceResp, error) {
 	out, err := s.CancelInvoice0(ctx, in)
 	return out, er.Native(err)
 }
 func (s *Server) CancelInvoice0(ctx context.Context,
-	in *CancelInvoiceMsg) (*CancelInvoiceResp, er.R) {
+	in *invoicesrpc_pb.CancelInvoiceMsg) (*invoicesrpc_pb.CancelInvoiceResp, er.R) {
 
 	paymentHash, err := lntypes.MakeHash(in.PaymentHash)
 	if err != nil {
@@ -206,7 +209,7 @@ func (s *Server) CancelInvoice0(ctx context.Context,
 
 	log.Infof("Canceled invoice %v", paymentHash)
 
-	return &CancelInvoiceResp{}, nil
+	return &invoicesrpc_pb.CancelInvoiceResp{}, nil
 }
 
 // AddHoldInvoice attempts to add a new hold invoice to the invoice database.
@@ -214,15 +217,15 @@ func (s *Server) CancelInvoice0(ctx context.Context,
 // unique payment hash.
 func (s *Server) AddHoldInvoice(
 	ctx context.Context,
-	invoice *AddHoldInvoiceRequest,
-) (*AddHoldInvoiceResp, error) {
+	invoice *invoicesrpc_pb.AddHoldInvoiceRequest,
+) (*invoicesrpc_pb.AddHoldInvoiceResp, error) {
 	out, err := s.AddHoldInvoice0(ctx, invoice)
 	return out, er.Native(err)
 }
 func (s *Server) AddHoldInvoice0(
 	ctx context.Context,
-	invoice *AddHoldInvoiceRequest,
-) (*AddHoldInvoiceResp, er.R) {
+	invoice *invoicesrpc_pb.AddHoldInvoiceRequest,
+) (*invoicesrpc_pb.AddHoldInvoiceResp, er.R) {
 
 	addInvoiceCfg := &AddInvoiceConfig{
 		AddInvoice:         s.cfg.InvoiceRegistry.AddInvoice,
@@ -268,7 +271,7 @@ func (s *Server) AddHoldInvoice0(
 		return nil, err
 	}
 
-	return &AddHoldInvoiceResp{
+	return &invoicesrpc_pb.AddHoldInvoiceResp{
 		PaymentRequest: string(dbInvoice.PaymentRequest),
 	}, nil
 }

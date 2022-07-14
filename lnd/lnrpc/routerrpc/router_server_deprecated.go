@@ -5,43 +5,44 @@ import (
 
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/btcutil/util"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
+	"github.com/pkt-cash/pktd/generated/proto/routerrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 )
 
 // legacyTrackPaymentServer is a wrapper struct that transforms a stream of main
 // rpc payment structs into the legacy PaymentStatus format.
 type legacyTrackPaymentServer struct {
-	Router_TrackPaymentServer
+	routerrpc_pb.Router_TrackPaymentServer
 }
 
 // Send converts a Payment object and sends it as a PaymentStatus object on the
 // embedded stream.
-func (i *legacyTrackPaymentServer) Send(p *lnrpc.Payment) error {
-	var state PaymentState
+func (i *legacyTrackPaymentServer) Send(p *rpc_pb.Payment) error {
+	var state routerrpc_pb.PaymentState
 	switch p.Status {
-	case lnrpc.Payment_IN_FLIGHT:
-		state = PaymentState_IN_FLIGHT
-	case lnrpc.Payment_SUCCEEDED:
-		state = PaymentState_SUCCEEDED
-	case lnrpc.Payment_FAILED:
+	case rpc_pb.Payment_IN_FLIGHT:
+		state = routerrpc_pb.PaymentState_IN_FLIGHT
+	case rpc_pb.Payment_SUCCEEDED:
+		state = routerrpc_pb.PaymentState_SUCCEEDED
+	case rpc_pb.Payment_FAILED:
 		switch p.FailureReason {
-		case lnrpc.PaymentFailureReason_FAILURE_REASON_NONE:
+		case rpc_pb.PaymentFailureReason_FAILURE_REASON_NONE:
 			return er.Native(er.Errorf("expected fail reason"))
 
-		case lnrpc.PaymentFailureReason_FAILURE_REASON_TIMEOUT:
-			state = PaymentState_FAILED_TIMEOUT
+		case rpc_pb.PaymentFailureReason_FAILURE_REASON_TIMEOUT:
+			state = routerrpc_pb.PaymentState_FAILED_TIMEOUT
 
-		case lnrpc.PaymentFailureReason_FAILURE_REASON_NO_ROUTE:
-			state = PaymentState_FAILED_NO_ROUTE
+		case rpc_pb.PaymentFailureReason_FAILURE_REASON_NO_ROUTE:
+			state = routerrpc_pb.PaymentState_FAILED_NO_ROUTE
 
-		case lnrpc.PaymentFailureReason_FAILURE_REASON_ERROR:
-			state = PaymentState_FAILED_ERROR
+		case rpc_pb.PaymentFailureReason_FAILURE_REASON_ERROR:
+			state = routerrpc_pb.PaymentState_FAILED_ERROR
 
-		case lnrpc.PaymentFailureReason_FAILURE_REASON_INCORRECT_PAYMENT_DETAILS:
-			state = PaymentState_FAILED_INCORRECT_PAYMENT_DETAILS
+		case rpc_pb.PaymentFailureReason_FAILURE_REASON_INCORRECT_PAYMENT_DETAILS:
+			state = routerrpc_pb.PaymentState_FAILED_INCORRECT_PAYMENT_DETAILS
 
-		case lnrpc.PaymentFailureReason_FAILURE_REASON_INSUFFICIENT_BALANCE:
-			state = PaymentState_FAILED_INSUFFICIENT_BALANCE
+		case rpc_pb.PaymentFailureReason_FAILURE_REASON_INSUFFICIENT_BALANCE:
+			state = routerrpc_pb.PaymentState_FAILED_INSUFFICIENT_BALANCE
 
 		default:
 			return er.Native(er.Errorf("unknown failure reason %v",
@@ -56,7 +57,7 @@ func (i *legacyTrackPaymentServer) Send(p *lnrpc.Payment) error {
 		return er.Native(err)
 	}
 
-	legacyState := PaymentStatus{
+	legacyState := routerrpc_pb.PaymentStatus{
 		State:    state,
 		Preimage: preimage,
 		Htlcs:    p.Htlcs,
@@ -67,8 +68,8 @@ func (i *legacyTrackPaymentServer) Send(p *lnrpc.Payment) error {
 
 // TrackPayment returns a stream of payment state updates. The stream is
 // closed when the payment completes.
-func (s *Server) TrackPayment(request *TrackPaymentRequest,
-	stream Router_TrackPaymentServer) error {
+func (s *Server) TrackPayment(request *routerrpc_pb.TrackPaymentRequest,
+	stream routerrpc_pb.Router_TrackPaymentServer) error {
 
 	legacyStream := legacyTrackPaymentServer{
 		Router_TrackPaymentServer: stream,
@@ -81,8 +82,8 @@ func (s *Server) TrackPayment(request *TrackPaymentRequest,
 // payment, or cannot find a route that satisfies the constraints in the
 // PaymentRequest, then an error will be returned. Otherwise, the payment
 // pre-image, along with the final route will be returned.
-func (s *Server) SendPayment(request *SendPaymentRequest,
-	stream Router_SendPaymentServer) error {
+func (s *Server) SendPayment(request *routerrpc_pb.SendPaymentRequest,
+	stream routerrpc_pb.Router_SendPaymentServer) error {
 
 	if request.MaxParts > 1 {
 		return er.Native(er.New("for multi-part payments, use SendPaymentV2"))
@@ -97,7 +98,7 @@ func (s *Server) SendPayment(request *SendPaymentRequest,
 // SendToRoute sends a payment through a predefined route. The response of this
 // call contains structured error information.
 func (s *Server) SendToRoute(ctx context.Context,
-	req *SendToRouteRequest) (*SendToRouteResponse, error) {
+	req *routerrpc_pb.SendToRouteRequest) (*routerrpc_pb.SendToRouteResponse, error) {
 
 	resp, err := s.SendToRouteV2(ctx, req)
 	if err != nil {
@@ -110,7 +111,7 @@ func (s *Server) SendToRoute(ctx context.Context,
 
 	// Need to convert to legacy response message because proto identifiers
 	// don't line up.
-	legacyResp := &SendToRouteResponse{
+	legacyResp := &routerrpc_pb.SendToRouteResponse{
 		Preimage: resp.Preimage,
 		Failure:  resp.Failure,
 	}

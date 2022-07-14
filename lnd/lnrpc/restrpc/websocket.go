@@ -17,6 +17,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/pkt-cash/pktd/generated/proto/restrpc_pb/rest_pb"
 	"github.com/pkt-cash/pktd/lnd/lnrpc/restrpc/help"
 	"github.com/pkt-cash/pktd/pktlog/log"
 	"google.golang.org/protobuf/runtime/protoiface"
@@ -33,10 +34,10 @@ type WebSocketJSonRequest struct {
 }
 
 type WebSocketJSonResponse struct {
-	RequestId string          `json:"request_id,omitempty"`
-	HasMore   bool            `json:"has_more,omitempty"`
-	Payload   json.RawMessage `json:"payload,omitempty"`
-	Error     WebSocketError  `json:"error,omitempty"`
+	RequestId string                 `json:"request_id,omitempty"`
+	HasMore   bool                   `json:"has_more,omitempty"`
+	Payload   json.RawMessage        `json:"payload,omitempty"`
+	Error     rest_pb.WebSocketError `json:"error,omitempty"`
 }
 
 var upgrader = websocket.Upgrader{}
@@ -165,7 +166,7 @@ func (conn *websocketConn) HandleJsonMessage(ctx *RpcContext, req []byte) {
 func (conn *websocketConn) HandleProtobufMessage(ctx *RpcContext, req []byte) {
 
 	//	unmarshal the request message
-	var webSocketReq = &WebSocketProtobufRequest{}
+	var webSocketReq = &rest_pb.WebSocketProtobufRequest{}
 
 	err := proto.Unmarshal(req, webSocketReq)
 	if err != nil {
@@ -218,9 +219,9 @@ func (conn *websocketConn) HandleProtobufMessage(ctx *RpcContext, req []byte) {
 			}
 
 			//	valid response message
-			var responseMsg = &WebSocketProtobufResponse{
+			var responseMsg = &rest_pb.WebSocketProtobufResponse{
 				RequestId: webSocketReq.RequestId,
-				Payload: &WebSocketProtobufResponse_Ok{
+				Payload: &rest_pb.WebSocketProtobufResponse_Ok{
 					Ok: &anypb.Any{
 						TypeUrl: "github.com/pkt-cash/pktd/lnd/" + reflect.TypeOf(rpcFunc.res).String()[1:],
 						Value:   respPayload,
@@ -254,7 +255,7 @@ func (conn *websocketConn) WriteJSonErrorMessage(requestId string, errorMsg stri
 	//	error response message
 	var errorResponseMsg = &WebSocketJSonResponse{
 		RequestId: requestId,
-		Error: WebSocketError{
+		Error: rest_pb.WebSocketError{
 			HttpCode: 500,
 		},
 	}
@@ -282,20 +283,20 @@ func (conn *websocketConn) WriteJSonErrorMessage(requestId string, errorMsg stri
 func (conn *websocketConn) WriteProtobufErrorMessage(requestId string, errorMsg string, err error) {
 
 	//	error response message
-	var errorResponseMsg = &WebSocketProtobufResponse{
+	var errorResponseMsg = &rest_pb.WebSocketProtobufResponse{
 		RequestId: requestId,
 	}
 
 	if err == nil {
-		errorResponseMsg.Payload = &WebSocketProtobufResponse_Error{
-			Error: &WebSocketError{
+		errorResponseMsg.Payload = &rest_pb.WebSocketProtobufResponse_Error{
+			Error: &rest_pb.WebSocketError{
 				HttpCode: 500,
 				Message:  errorMsg,
 			},
 		}
 	} else {
-		errorResponseMsg.Payload = &WebSocketProtobufResponse_Error{
-			Error: &WebSocketError{
+		errorResponseMsg.Payload = &rest_pb.WebSocketProtobufResponse_Error{
+			Error: &rest_pb.WebSocketError{
 				HttpCode: 500,
 				Message:  errorMsg + ": " + err.Error(),
 			},

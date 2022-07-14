@@ -6,8 +6,9 @@ import (
 
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/chaincfg"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/walletunlocker_pb"
 	"github.com/pkt-cash/pktd/lnd/chanbackup"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
 	"github.com/pkt-cash/pktd/lnd/lnwallet/btcwallet"
 	"github.com/pkt-cash/pktd/pktwallet/wallet"
 	"github.com/pkt-cash/pktd/pktwallet/wallet/seedwords"
@@ -114,9 +115,11 @@ type UnlockerService struct {
 
 	walletFile string
 	walletPath string
+
+	walletunlocker_pb.UnimplementedWalletUnlockerServer
 }
 
-var _ lnrpc.WalletUnlockerServer = (*UnlockerService)(nil)
+var _ walletunlocker_pb.WalletUnlockerServer = (*UnlockerService)(nil)
 
 // New creates and returns a new UnlockerService.
 func New(chainDir string, params *chaincfg.Params, noFreelistSync bool,
@@ -135,7 +138,7 @@ func New(chainDir string, params *chaincfg.Params, noFreelistSync bool,
 }
 
 func (u *UnlockerService) GenSeed(ctx context.Context,
-	in *lnrpc.GenSeedRequest) (*lnrpc.GenSeedResponse, error) {
+	in *walletunlocker_pb.GenSeedRequest) (*walletunlocker_pb.GenSeedResponse, error) {
 	res, err := u.GenSeed0(ctx, in)
 	return res, er.Native(err)
 }
@@ -149,7 +152,7 @@ func (u *UnlockerService) GenSeed(ctx context.Context,
 // method should be used to commit the newly generated seed, and create the
 // wallet.
 func (u *UnlockerService) GenSeed0(_ context.Context,
-	in *lnrpc.GenSeedRequest) (*lnrpc.GenSeedResponse, er.R) {
+	in *walletunlocker_pb.GenSeedRequest) (*walletunlocker_pb.GenSeedResponse, er.R) {
 
 	//var entropy [aezeed.EntropySize]byte
 
@@ -182,7 +185,7 @@ func (u *UnlockerService) GenSeed0(_ context.Context,
 		return nil, err
 	}
 
-	return &lnrpc.GenSeedResponse{
+	return &walletunlocker_pb.GenSeedResponse{
 		Seed: strings.Split(mnemonic, " "),
 	}, nil
 }
@@ -190,7 +193,7 @@ func (u *UnlockerService) GenSeed0(_ context.Context,
 // extractChanBackups is a helper function that extracts the set of channel
 // backups from the proto into a format that we'll pass to higher level
 // sub-systems.
-func extractChanBackups(chanBackups *lnrpc.ChanBackupSnapshot) *ChannelsToRecover {
+func extractChanBackups(chanBackups *rpc_pb.ChanBackupSnapshot) *ChannelsToRecover {
 	// If there aren't any populated channel backups, then we can exit
 	// early as there's nothing to extract.
 	if chanBackups == nil || (chanBackups.SingleChanBackups == nil &&
@@ -225,7 +228,7 @@ func extractChanBackups(chanBackups *lnrpc.ChanBackupSnapshot) *ChannelsToRecove
 }
 
 func (u *UnlockerService) InitWallet(ctx context.Context,
-	in *lnrpc.InitWalletRequest) (*lnrpc.InitWalletResponse, error) {
+	in *walletunlocker_pb.InitWalletRequest) (*walletunlocker_pb.InitWalletResponse, error) {
 	res, err := u.InitWallet0(ctx, in)
 	return res, er.Native(err)
 }
@@ -243,7 +246,7 @@ func (u *UnlockerService) InitWallet(ctx context.Context,
 // seed, then present it to the user. Once it has been verified by the user,
 // the seed can be fed into this RPC in order to commit the new wallet.
 func (u *UnlockerService) InitWallet0(ctx context.Context,
-	in *lnrpc.InitWalletRequest) (*lnrpc.InitWalletResponse, er.R) {
+	in *walletunlocker_pb.InitWalletRequest) (*walletunlocker_pb.InitWalletResponse, er.R) {
 
 	//	fetch wallet passphrase from request
 	var walletPassphrase []byte
@@ -332,7 +335,7 @@ func (u *UnlockerService) InitWallet0(ctx context.Context,
 	case u.InitMsgs <- initMsg:
 		select {
 		case <-initMsg.Complete:
-			return &lnrpc.InitWalletResponse{}, nil
+			return &walletunlocker_pb.InitWalletResponse{}, nil
 
 		case <-ctx.Done():
 			return nil, ErrUnlockTimeout.Default()
@@ -344,7 +347,7 @@ func (u *UnlockerService) InitWallet0(ctx context.Context,
 }
 
 func (u *UnlockerService) UnlockWallet(ctx context.Context,
-	in *lnrpc.UnlockWalletRequest) (*lnrpc.UnlockWalletResponse, error) {
+	in *walletunlocker_pb.UnlockWalletRequest) (*walletunlocker_pb.UnlockWalletResponse, error) {
 	res, err := u.UnlockWallet0(ctx, in)
 	return res, er.Native(err)
 }
@@ -353,7 +356,7 @@ func (u *UnlockerService) UnlockWallet(ctx context.Context,
 // over the UnlockMsgs channel in case it successfully decrypts an existing
 // wallet found in the chain's wallet database directory.
 func (u *UnlockerService) UnlockWallet0(ctx context.Context,
-	in *lnrpc.UnlockWalletRequest) (*lnrpc.UnlockWalletResponse, er.R) {
+	in *walletunlocker_pb.UnlockWalletRequest) (*walletunlocker_pb.UnlockWalletResponse, er.R) {
 
 	//	fetch wallet passphrase from request
 	var walletPassphrase []byte
@@ -432,7 +435,7 @@ func (u *UnlockerService) UnlockWallet0(ctx context.Context,
 		// operation, so we read it but then discard it.
 		select {
 		case <-walletUnlockMsg.Complete:
-			return &lnrpc.UnlockWalletResponse{}, nil
+			return &walletunlocker_pb.UnlockWalletResponse{}, nil
 
 		case <-ctx.Done():
 			return nil, ErrUnlockTimeout.Default()

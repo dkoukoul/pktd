@@ -6,6 +6,7 @@ import (
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/chaincfg"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd/lnwallet"
 	"github.com/pkt-cash/pktd/lnd/lnwire"
 	"github.com/pkt-cash/pktd/txscript"
@@ -23,20 +24,20 @@ var (
 // CalculateFeeLimit returns the fee limit in millisatoshis. If a percentage
 // based fee limit has been requested, we'll factor in the ratio provided with
 // the amount of the payment.
-func CalculateFeeLimit(feeLimit *FeeLimit,
+func CalculateFeeLimit(feeLimit *rpc_pb.FeeLimit,
 	amount lnwire.MilliSatoshi) lnwire.MilliSatoshi {
 
 	switch feeLimit.GetLimit().(type) {
 
-	case *FeeLimit_Fixed:
+	case *rpc_pb.FeeLimit_Fixed:
 		return lnwire.NewMSatFromSatoshis(
 			btcutil.Amount(feeLimit.GetFixed()),
 		)
 
-	case *FeeLimit_FixedMsat:
+	case *rpc_pb.FeeLimit_FixedMsat:
 		return lnwire.MilliSatoshi(feeLimit.GetFixedMsat())
 
-	case *FeeLimit_Percent:
+	case *rpc_pb.FeeLimit_Percent:
 		return amount * lnwire.MilliSatoshi(feeLimit.GetPercent()) / 100
 
 	default:
@@ -82,20 +83,20 @@ func ParseConfs(min, max int32) (int32, int32, er.R) {
 
 // MarshalUtxos translates a []*lnwallet.Utxo into a []*lnrpc.Utxo.
 func MarshalUtxos(utxos []*lnwallet.Utxo, activeNetParams *chaincfg.Params) (
-	[]*Utxo, er.R) {
+	[]*rpc_pb.Utxo, er.R) {
 
-	res := make([]*Utxo, 0, len(utxos))
+	res := make([]*rpc_pb.Utxo, 0, len(utxos))
 	for _, utxo := range utxos {
 		// Translate lnwallet address type to the proper gRPC proto
 		// address type.
-		var addrType AddressType
+		var addrType rpc_pb.AddressType
 		switch utxo.AddressType {
 
 		case lnwallet.WitnessPubKey:
-			addrType = AddressType_WITNESS_PUBKEY_HASH
+			addrType = rpc_pb.AddressType_WITNESS_PUBKEY_HASH
 
 		case lnwallet.NestedWitnessPubKey:
-			addrType = AddressType_NESTED_PUBKEY_HASH
+			addrType = rpc_pb.AddressType_NESTED_PUBKEY_HASH
 
 		case lnwallet.UnknownAddressType:
 			continue
@@ -106,13 +107,13 @@ func MarshalUtxos(utxos []*lnwallet.Utxo, activeNetParams *chaincfg.Params) (
 
 		// Now that we know we have a proper mapping to an address,
 		// we'll convert the regular outpoint to an lnrpc variant.
-		outpoint := &OutPoint{
+		outpoint := &rpc_pb.OutPoint{
 			TxidBytes:   utxo.OutPoint.Hash[:],
 			TxidStr:     utxo.OutPoint.Hash.String(),
 			OutputIndex: utxo.OutPoint.Index,
 		}
 
-		utxoResp := Utxo{
+		utxoResp := rpc_pb.Utxo{
 			AddressType:   addrType,
 			AmountSat:     int64(utxo.Value),
 			PkScript:      hex.EncodeToString(utxo.PkScript),

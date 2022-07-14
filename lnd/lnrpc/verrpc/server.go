@@ -5,6 +5,7 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/generated/proto/verrpc_pb"
 	"github.com/pkt-cash/pktd/pktconfig/version"
 	"github.com/pkt-cash/pktd/pktlog/log"
 	"google.golang.org/grpc"
@@ -14,7 +15,9 @@ const subServerName = "VersionRPC"
 
 // Server is an rpc server that supports querying for information about the
 // running binary.
-type Server struct{}
+type Server struct {
+	verrpc_pb.UnimplementedVersionerServer
+}
 
 // Start launches any helper goroutines required for the rpcServer to function.
 //
@@ -44,7 +47,7 @@ func (s *Server) Name() string {
 //
 // NOTE: This is part of the lnrpc.SubServer interface.
 func (s *Server) RegisterWithRootServer(grpcServer *grpc.Server) er.R {
-	RegisterVersionerServer(grpcServer, s)
+	verrpc_pb.RegisterVersionerServer(grpcServer, s)
 
 	log.Debugf("Versioner RPC server successfully registered with root " +
 		"gRPC server")
@@ -62,12 +65,12 @@ func (s *Server) RegisterWithRestServer(ctx context.Context,
 
 	// We make sure that we register it with the main REST server to ensure
 	// all our methods are routed properly.
-	err := RegisterVersionerHandlerFromEndpoint(ctx, mux, dest, opts)
-	if err != nil {
-		log.Errorf("Could not register Versioner REST server "+
-			"with root REST server: %v", err)
-		return er.E(err)
-	}
+	// err := RegisterVersionerHandlerFromEndpoint(ctx, mux, dest, opts)
+	// if err != nil {
+	// 	log.Errorf("Could not register Versioner REST server "+
+	// 		"with root REST server: %v", err)
+	// 	return er.E(err)
+	// }
 
 	log.Debugf("Versioner REST server successfully registered with " +
 		"root REST server")
@@ -76,9 +79,9 @@ func (s *Server) RegisterWithRestServer(ctx context.Context,
 
 // GetVersion returns information about the compiled binary.
 func (s *Server) GetVersion(_ context.Context,
-	_ *VersionRequest) (*Version, error) {
+	_ *verrpc_pb.VersionRequest) (*verrpc_pb.Version, error) {
 
-	return &Version{
+	return &verrpc_pb.Version{
 		Version:  version.Version(),
 		AppMajor: uint32(version.AppMajorVersion()),
 		AppMinor: uint32(version.AppMinorVersion()),

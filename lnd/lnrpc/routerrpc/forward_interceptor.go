@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/generated/proto/routerrpc_pb"
 	"github.com/pkt-cash/pktd/lnd/channeldb"
 	"github.com/pkt-cash/pktd/lnd/htlcswitch"
 	"github.com/pkt-cash/pktd/lnd/lntypes"
@@ -34,7 +35,7 @@ type forwardInterceptor struct {
 	holdForwards map[channeldb.CircuitKey]htlcswitch.InterceptedForward
 
 	// stream is the bidirectional RPC stream
-	stream Router_HtlcInterceptorServer
+	stream routerrpc_pb.Router_HtlcInterceptorServer
 
 	// quit is a channel that is closed when this forwardInterceptor is shutting
 	// down.
@@ -48,7 +49,7 @@ type forwardInterceptor struct {
 }
 
 // newForwardInterceptor creates a new forwardInterceptor.
-func newForwardInterceptor(server *Server, stream Router_HtlcInterceptorServer) *forwardInterceptor {
+func newForwardInterceptor(server *Server, stream routerrpc_pb.Router_HtlcInterceptorServer) *forwardInterceptor {
 	return &forwardInterceptor{
 		server: server,
 		stream: stream,
@@ -76,7 +77,7 @@ func (r *forwardInterceptor) run() er.R {
 
 	// start a go routine that reads client resolutions.
 	errChan := make(chan er.R)
-	resolutionRequests := make(chan *ForwardHtlcInterceptResponse)
+	resolutionRequests := make(chan *routerrpc_pb.ForwardHtlcInterceptResponse)
 	r.wg.Add(1)
 	go r.readClientResponses(resolutionRequests, errChan)
 
@@ -122,7 +123,7 @@ func (r *forwardInterceptor) onIntercept(p htlcswitch.InterceptedForward) bool {
 }
 
 func (r *forwardInterceptor) readClientResponses(
-	resolutionChan chan *ForwardHtlcInterceptResponse, errChan chan er.R) {
+	resolutionChan chan *routerrpc_pb.ForwardHtlcInterceptResponse, errChan chan er.R) {
 
 	defer r.wg.Done()
 	for {
@@ -153,8 +154,8 @@ func (r *forwardInterceptor) holdAndForwardToClient(
 
 	// First hold the forward, then send to client.
 	r.holdForwards[inKey] = forward
-	interceptionRequest := &ForwardHtlcInterceptRequest{
-		IncomingCircuitKey: &CircuitKey{
+	interceptionRequest := &routerrpc_pb.ForwardHtlcInterceptRequest{
+		IncomingCircuitKey: &routerrpc_pb.CircuitKey{
 			ChanId: inKey.ChanID.ToUint64(),
 			HtlcId: inKey.HtlcID,
 		},
@@ -173,7 +174,7 @@ func (r *forwardInterceptor) holdAndForwardToClient(
 
 // resolveFromClient handles a resolution arrived from the client.
 func (r *forwardInterceptor) resolveFromClient(
-	in *ForwardHtlcInterceptResponse) er.R {
+	in *routerrpc_pb.ForwardHtlcInterceptResponse) er.R {
 
 	circuitKey := channeldb.CircuitKey{
 		ChanID: lnwire.NewShortChanIDFromInt(in.IncomingCircuitKey.ChanId),
@@ -187,11 +188,11 @@ func (r *forwardInterceptor) resolveFromClient(
 	delete(r.holdForwards, circuitKey)
 
 	switch in.Action {
-	case ResolveHoldForwardAction_RESUME:
+	case routerrpc_pb.ResolveHoldForwardAction_RESUME:
 		return interceptedForward.Resume()
-	case ResolveHoldForwardAction_FAIL:
+	case routerrpc_pb.ResolveHoldForwardAction_FAIL:
 		return interceptedForward.Fail()
-	case ResolveHoldForwardAction_SETTLE:
+	case routerrpc_pb.ResolveHoldForwardAction_SETTLE:
 		if in.Preimage == nil {
 			return ErrMissingPreimage.Default()
 		}

@@ -9,8 +9,8 @@ import (
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/chaincfg"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd/input"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
 	"github.com/pkt-cash/pktd/lnd/lnwallet/chancloser"
 	"github.com/pkt-cash/pktd/lnd/lnwire"
 	"github.com/pkt-cash/pktd/pktlog/log"
@@ -66,11 +66,11 @@ type chanAcceptInfo struct {
 type RPCAcceptor struct {
 	// receive is a function from which we receive channel acceptance
 	// decisions. Note that this function is expected to block.
-	receive func() (*lnrpc.ChannelAcceptResponse, error)
+	receive func() (*rpc_pb.ChannelAcceptResponse, error)
 
 	// send is a function which sends requests for channel acceptance
 	// decisions into our rpc stream.
-	send func(request *lnrpc.ChannelAcceptRequest) error
+	send func(request *rpc_pb.ChannelAcceptRequest) error
 
 	// requests is a channel that we send requests for a acceptor response
 	// into.
@@ -152,8 +152,8 @@ func (r *RPCAcceptor) Accept(req *ChannelAcceptRequest) *ChannelAcceptResponse {
 }
 
 // NewRPCAcceptor creates and returns an instance of the RPCAcceptor.
-func NewRPCAcceptor(receive func() (*lnrpc.ChannelAcceptResponse, error),
-	send func(*lnrpc.ChannelAcceptRequest) error, timeout time.Duration,
+func NewRPCAcceptor(receive func() (*rpc_pb.ChannelAcceptResponse, error),
+	send func(*rpc_pb.ChannelAcceptRequest) error, timeout time.Duration,
 	params *chaincfg.Params, quit chan struct{}) *RPCAcceptor {
 
 	return &RPCAcceptor{
@@ -175,7 +175,7 @@ func (r *RPCAcceptor) Run() er.R {
 	defer r.wg.Wait()
 
 	// Create a channel that responses from acceptors are sent into.
-	responses := make(chan lnrpc.ChannelAcceptResponse)
+	responses := make(chan rpc_pb.ChannelAcceptResponse)
 
 	// errChan is used by the receive loop to signal any errors that occur
 	// during reading from the stream. This is primarily used to shutdown
@@ -199,7 +199,7 @@ func (r *RPCAcceptor) Run() er.R {
 // dispatches them into the responses channel provided, sending any errors that
 // occur into the error channel provided.
 func (r *RPCAcceptor) receiveResponses(errChan chan er.R,
-	responses chan lnrpc.ChannelAcceptResponse) {
+	responses chan rpc_pb.ChannelAcceptResponse) {
 
 	for {
 		resp, err := r.receive()
@@ -211,7 +211,7 @@ func (r *RPCAcceptor) receiveResponses(errChan chan er.R,
 		var pendingID [32]byte
 		copy(pendingID[:], resp.PendingChanId)
 
-		openChanResp := lnrpc.ChannelAcceptResponse{
+		openChanResp := rpc_pb.ChannelAcceptResponse{
 			Accept:          resp.Accept,
 			PendingChanId:   pendingID[:],
 			Error:           resp.Error,
@@ -242,7 +242,7 @@ func (r *RPCAcceptor) receiveResponses(errChan chan er.R,
 // Accept() function, dispatching them to our acceptor stream and coordinating
 // return of responses to their callers.
 func (r *RPCAcceptor) sendAcceptRequests(errChan chan er.R,
-	responses chan lnrpc.ChannelAcceptResponse) er.R {
+	responses chan rpc_pb.ChannelAcceptResponse) er.R {
 
 	// Close the done channel to indicate that the acceptor is no longer
 	// listening and any in-progress requests should be terminated.
@@ -265,7 +265,7 @@ func (r *RPCAcceptor) sendAcceptRequests(errChan chan er.R,
 			acceptRequests[pendingChanID] = newRequest
 
 			// A ChannelAcceptRequest has been received, send it to the client.
-			chanAcceptReq := &lnrpc.ChannelAcceptRequest{
+			chanAcceptReq := &rpc_pb.ChannelAcceptRequest{
 				NodePubkey:       req.Node.SerializeCompressed(),
 				ChainHash:        req.OpenChanMsg.ChainHash[:],
 				PendingChanId:    req.OpenChanMsg.PendingChannelID[:],
@@ -338,7 +338,7 @@ func (r *RPCAcceptor) sendAcceptRequests(errChan chan er.R,
 // acceptor, returning a boolean indicating whether to accept the channel, an
 // error to send to the peer, and any validation errors that occurred.
 func (r *RPCAcceptor) validateAcceptorResponse(dustLimit btcutil.Amount,
-	req lnrpc.ChannelAcceptResponse) (bool, er.R, lnwire.DeliveryAddress,
+	req rpc_pb.ChannelAcceptResponse) (bool, er.R, lnwire.DeliveryAddress,
 	er.R) {
 
 	channelStr := hex.EncodeToString(req.PendingChanId)

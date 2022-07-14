@@ -4,13 +4,14 @@ import (
 	"sort"
 
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd/lnwallet"
 )
 
 // RPCTransactionDetails returns a set of rpc transaction details.
-func RPCTransactionDetails(txns []*lnwallet.TransactionDetail, reversed bool) *TransactionDetails {
-	txDetails := &TransactionDetails{
-		Transactions: make([]*Transaction, len(txns)),
+func RPCTransactionDetails(txns []*lnwallet.TransactionDetail, reversed bool) *rpc_pb.TransactionDetails {
+	txDetails := &rpc_pb.TransactionDetails{
+		Transactions: make([]*rpc_pb.Transaction, len(txns)),
 	}
 
 	for i, tx := range txns {
@@ -26,7 +27,7 @@ func RPCTransactionDetails(txns []*lnwallet.TransactionDetail, reversed bool) *T
 			blockHash = tx.BlockHash.String()
 		}
 
-		txDetails.Transactions[i] = &Transaction{
+		txDetails.Transactions[i] = &rpc_pb.Transaction{
 			TxHash:           tx.Hash.String(),
 			Amount:           int64(tx.Value),
 			NumConfirmations: tx.NumConfirmations,

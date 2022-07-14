@@ -9,6 +9,7 @@ import (
 	"github.com/pkt-cash/pktd/btcec"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
+	"github.com/pkt-cash/pktd/generated/proto/signrpc_pb"
 	"github.com/pkt-cash/pktd/lnd/input"
 	"github.com/pkt-cash/pktd/lnd/keychain"
 	"github.com/pkt-cash/pktd/lnd/lnwire"
@@ -17,7 +18,6 @@ import (
 	"github.com/pkt-cash/pktd/txscript/params"
 	"github.com/pkt-cash/pktd/wire"
 	"google.golang.org/grpc"
-	"gopkg.in/macaroon-bakery.v2/bakery"
 )
 
 const (
@@ -28,49 +28,10 @@ const (
 	subServerName = "SignRPC"
 )
 
-var (
-	// macaroonOps are the set of capabilities that our minted macaroon (if
-	// it doesn't already exist) will have.
-	macaroonOps = []bakery.Op{
-		{
-			Entity: "signer",
-			Action: "generate",
-		},
-		{
-			Entity: "signer",
-			Action: "read",
-		},
-	}
-
-	// macPermissions maps RPC calls to the permissions they require.
-	macPermissions = map[string][]bakery.Op{
-		"/signrpc.Signer/SignOutputRaw": {{
-			Entity: "signer",
-			Action: "generate",
-		}},
-		"/signrpc.Signer/ComputeInputScript": {{
-			Entity: "signer",
-			Action: "generate",
-		}},
-		"/signrpc.Signer/SignMessage": {{
-			Entity: "signer",
-			Action: "generate",
-		}},
-		"/signrpc.Signer/VerifyMessage": {{
-			Entity: "signer",
-			Action: "read",
-		}},
-		"/signrpc.Signer/DeriveSharedKey": {{
-			Entity: "signer",
-			Action: "generate",
-		}},
-	}
-
-	// DefaultSignerMacFilename is the default name of the signer macaroon
-	// that we expect to find via a file handle within the main
-	// configuration file in this package.
-	DefaultSignerMacFilename = "signer.macaroon"
-)
+// DefaultSignerMacFilename is the default name of the signer macaroon
+// that we expect to find via a file handle within the main
+// configuration file in this package.
+var DefaultSignerMacFilename = "signer.macaroon"
 
 // Server is a sub-server of the main RPC server: the signer RPC. This sub RPC
 // server allows external callers to access the full signing capabilities of
@@ -78,11 +39,12 @@ var (
 // backed by multiple distinct lnd across independent failure domains.
 type Server struct {
 	cfg *Config
+	signrpc_pb.UnimplementedSignerServer
 }
 
 // A compile time check to ensure that Server fully implements the SignerServer
 // gRPC service.
-var _ SignerServer = (*Server)(nil)
+var _ signrpc_pb.SignerServer = (*Server)(nil)
 
 // New returns a new instance of the signrpc Signer sub-server. We also return
 // the set of permissions for the macaroons that we may create within this
@@ -136,7 +98,7 @@ func (s *Server) Name() string {
 func (s *Server) RegisterWithRootServer(grpcServer *grpc.Server) er.R {
 	// We make sure that we register it with the main gRPC server to ensure
 	// all our methods are routed properly.
-	RegisterSignerServer(grpcServer, s)
+	signrpc_pb.RegisterSignerServer(grpcServer, s)
 
 	log.Debugf("Signer RPC server successfully register with root gRPC " +
 		"server")
@@ -154,12 +116,12 @@ func (s *Server) RegisterWithRestServer(ctx context.Context,
 
 	// We make sure that we register it with the main REST server to ensure
 	// all our methods are routed properly.
-	err := RegisterSignerHandlerFromEndpoint(ctx, mux, dest, opts)
-	if err != nil {
-		log.Errorf("Could not register Signer REST server "+
-			"with root REST server: %v", err)
-		return er.E(err)
-	}
+	// err := RegisterSignerHandlerFromEndpoint(ctx, mux, dest, opts)
+	// if err != nil {
+	// 	log.Errorf("Could not register Signer REST server "+
+	// 		"with root REST server: %v", err)
+	// 	return er.E(err)
+	// }
 
 	log.Debugf("Signer REST server successfully registered with " +
 		"root REST server")
@@ -173,11 +135,11 @@ func (s *Server) RegisterWithRestServer(ctx context.Context,
 // provides an invalid transaction, then we'll return with an error.
 //
 // NOTE: The resulting signature should be void of a sighash byte.
-func (s *Server) SignOutputRaw(c context.Context, in *SignReq) (*SignResp, error) {
+func (s *Server) SignOutputRaw(c context.Context, in *signrpc_pb.SignReq) (*signrpc_pb.SignResp, error) {
 	out, err := s.SignOutputRaw0(c, in)
 	return out, er.Native(err)
 }
-func (s *Server) SignOutputRaw0(ctx context.Context, in *SignReq) (*SignResp, er.R) {
+func (s *Server) SignOutputRaw0(ctx context.Context, in *signrpc_pb.SignReq) (*signrpc_pb.SignResp, er.R) {
 
 	switch {
 	// If the client doesn't specify a transaction, then there's nothing to
@@ -289,7 +251,7 @@ func (s *Server) SignOutputRaw0(ctx context.Context, in *SignReq) (*SignResp, er
 	// request signatures for each of them, passing in the transaction to
 	// be signed.
 	numSigs := len(in.SignDescs)
-	resp := &SignResp{
+	resp := &signrpc_pb.SignResp{
 		RawSigs: make([][]byte, numSigs),
 	}
 	for i, signDesc := range signDescs {
@@ -315,12 +277,12 @@ func (s *Server) SignOutputRaw0(ctx context.Context, in *SignReq) (*SignResp, er
 // Note that when using this method to sign inputs belonging to the wallet, the
 // only items of the SignDescriptor that need to be populated are pkScript in
 // the TxOut field, the value in that same field, and finally the input index.
-func (s *Server) ComputeInputScript(c context.Context, in *SignReq) (*InputScriptResp, error) {
+func (s *Server) ComputeInputScript(c context.Context, in *signrpc_pb.SignReq) (*signrpc_pb.InputScriptResp, error) {
 	out, err := s.ComputeInputScript0(c, in)
 	return out, er.Native(err)
 }
 func (s *Server) ComputeInputScript0(ctx context.Context,
-	in *SignReq) (*InputScriptResp, er.R) {
+	in *signrpc_pb.SignReq) (*signrpc_pb.InputScriptResp, er.R) {
 
 	switch {
 	// If the client doesn't specify a transaction, then there's nothing to
@@ -367,8 +329,8 @@ func (s *Server) ComputeInputScript0(ctx context.Context,
 	// input script for each of them, and collate the responses to return
 	// back to the caller.
 	numWitnesses := len(in.SignDescs)
-	resp := &InputScriptResp{
-		InputScripts: make([]*InputScript, numWitnesses),
+	resp := &signrpc_pb.InputScriptResp{
+		InputScripts: make([]*signrpc_pb.InputScript, numWitnesses),
 	}
 	for i, signDesc := range signDescs {
 		inputScript, err := s.cfg.Signer.ComputeInputScript(
@@ -378,7 +340,7 @@ func (s *Server) ComputeInputScript0(ctx context.Context,
 			return nil, err
 		}
 
-		resp.InputScripts[i] = &InputScript{
+		resp.InputScripts[i] = &signrpc_pb.InputScript{
 			Witness:   inputScript.Witness,
 			SigScript: inputScript.SigScript,
 		}
@@ -389,12 +351,12 @@ func (s *Server) ComputeInputScript0(ctx context.Context,
 
 // SignMessage signs a message with the key specified in the key locator. The
 // returned signature is fixed-size LN wire format encoded.
-func (s *Server) SignMessage(c context.Context, in *SignMessageReq) (*SignMessageResp, error) {
+func (s *Server) SignMessage(c context.Context, in *signrpc_pb.SignMessageReq) (*signrpc_pb.SignMessageResp, error) {
 	out, err := s.SignMessage0(c, in)
 	return out, er.Native(err)
 }
 func (s *Server) SignMessage0(ctx context.Context,
-	in *SignMessageReq) (*SignMessageResp, er.R) {
+	in *signrpc_pb.SignMessageReq) (*signrpc_pb.SignMessageResp, er.R) {
 
 	if in.Msg == nil {
 		return nil, er.Errorf("a message to sign MUST be passed in")
@@ -425,19 +387,19 @@ func (s *Server) SignMessage0(ctx context.Context,
 	if err != nil {
 		return nil, er.Errorf("can't convert to wire format: %v", err)
 	}
-	return &SignMessageResp{
+	return &signrpc_pb.SignMessageResp{
 		Signature: wireSig.ToSignatureBytes(),
 	}, nil
 }
 
 // VerifyMessage verifies a signature over a message using the public key
 // provided. The signature must be fixed-size LN wire format encoded.
-func (s *Server) VerifyMessage(c context.Context, in *VerifyMessageReq) (*VerifyMessageResp, error) {
+func (s *Server) VerifyMessage(c context.Context, in *signrpc_pb.VerifyMessageReq) (*signrpc_pb.VerifyMessageResp, error) {
 	out, err := s.VerifyMessage0(c, in)
 	return out, er.Native(err)
 }
 func (s *Server) VerifyMessage0(ctx context.Context,
-	in *VerifyMessageReq) (*VerifyMessageResp, er.R) {
+	in *signrpc_pb.VerifyMessageReq) (*signrpc_pb.VerifyMessageResp, er.R) {
 
 	if in.Msg == nil {
 		return nil, er.Errorf("a message to verify MUST be passed in")
@@ -468,7 +430,7 @@ func (s *Server) VerifyMessage0(ctx context.Context,
 	// The signature is over the sha256 hash of the message.
 	digest := chainhash.HashB(in.Msg)
 	valid := sig.Verify(digest, pubkey)
-	return &VerifyMessageResp{
+	return &signrpc_pb.VerifyMessageResp{
 		Valid: valid,
 	}, nil
 }
@@ -481,12 +443,12 @@ func (s *Server) VerifyMessage0(ctx context.Context,
 // shouldn't be used anymore.
 // The resulting shared public key is serialized in the compressed format and
 // hashed with sha256, resulting in the final key length of 256bit.
-func (s *Server) DeriveSharedKey(c context.Context, in *SharedKeyRequest) (*SharedKeyResponse, error) {
+func (s *Server) DeriveSharedKey(c context.Context, in *signrpc_pb.SharedKeyRequest) (*signrpc_pb.SharedKeyResponse, error) {
 	out, err := s.DeriveSharedKey0(c, in)
 	return out, er.Native(err)
 }
-func (s *Server) DeriveSharedKey0(_ context.Context, in *SharedKeyRequest) (
-	*SharedKeyResponse, er.R) {
+func (s *Server) DeriveSharedKey0(_ context.Context, in *signrpc_pb.SharedKeyRequest) (
+	*signrpc_pb.SharedKeyResponse, er.R) {
 
 	// Check that EphemeralPubkey is valid.
 	ephemeralPubkey, err := parseRawKeyBytes(in.EphemeralPubkey)
@@ -522,7 +484,7 @@ func (s *Server) DeriveSharedKey0(_ context.Context, in *SharedKeyRequest) (
 	// When no keyLoc is supplied, defaults to the node's identity private
 	// key.
 	if keyLoc == nil {
-		keyLoc = &KeyLocator{
+		keyLoc = &signrpc_pb.KeyLocator{
 			KeyFamily: int32(keychain.KeyFamilyNodeKey),
 			KeyIndex:  0,
 		}
@@ -562,7 +524,7 @@ func (s *Server) DeriveSharedKey0(_ context.Context, in *SharedKeyRequest) (
 		return nil, err
 	}
 
-	return &SharedKeyResponse{SharedKey: sharedKeyHash[:]}, nil
+	return &signrpc_pb.SharedKeyResponse{SharedKey: sharedKeyHash[:]}, nil
 }
 
 // parseRawKeyBytes checks that the provided raw public key is valid and returns

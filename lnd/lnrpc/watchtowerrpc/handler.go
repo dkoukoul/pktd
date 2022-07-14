@@ -6,6 +6,7 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/generated/proto/watchtower_pb"
 	"github.com/pkt-cash/pktd/pktlog/log"
 	"google.golang.org/grpc"
 )
@@ -28,11 +29,12 @@ var (
 // watchtower.
 type Handler struct {
 	cfg Config
+	watchtower_pb.UnimplementedWatchtowerServer
 }
 
 // A compile time check to ensure that Handler fully implements the Handler gRPC
 // service.
-var _ WatchtowerServer = (*Handler)(nil)
+var _ watchtower_pb.WatchtowerServer = (*Handler)(nil)
 
 // New returns a new instance of the Watchtower sub-server. We also return the
 // set of permissions for the macaroons that we may create within this method.
@@ -40,7 +42,7 @@ var _ WatchtowerServer = (*Handler)(nil)
 // on start up. If we're unable to locate, or create the macaroons we need, then
 // we'll return with an error.
 func New(cfg *Config) (*Handler, er.R) {
-	return &Handler{*cfg}, nil
+	return &Handler{cfg: *cfg}, nil
 }
 
 // Start launches any helper goroutines required for the Handler to function.
@@ -73,7 +75,7 @@ func (c *Handler) Name() string {
 func (c *Handler) RegisterWithRootServer(grpcServer *grpc.Server) er.R {
 	// We make sure that we register it with the main gRPC server to ensure
 	// all our methods are routed properly.
-	RegisterWatchtowerServer(grpcServer, c)
+	watchtower_pb.RegisterWatchtowerServer(grpcServer, c)
 
 	log.Debugf("Watchtower RPC server successfully register with root " +
 		"gRPC server")
@@ -91,12 +93,12 @@ func (c *Handler) RegisterWithRestServer(ctx context.Context,
 
 	// We make sure that we register it with the main REST server to ensure
 	// all our methods are routed properly.
-	err := RegisterWatchtowerHandlerFromEndpoint(ctx, mux, dest, opts)
-	if err != nil {
-		log.Errorf("Could not register Watchtower REST server "+
-			"with root REST server: %v", err)
-		return er.E(err)
-	}
+	// err := RegisterWatchtowerHandlerFromEndpoint(ctx, mux, dest, opts)
+	// if err != nil {
+	// 	log.Errorf("Could not register Watchtower REST server "+
+	// 		"with root REST server: %v", err)
+	// 	return er.E(err)
+	// }
 
 	log.Debugf("Watchtower REST server successfully registered with " +
 		"root REST server")
@@ -108,12 +110,12 @@ func (c *Handler) RegisterWithRestServer(ctx context.Context,
 // included will be considered when dialing it for session negotiations and
 // backups.
 func (c *Handler) GetInfo(ctx context.Context,
-	req *GetInfoRequest) (*GetInfoResponse, error) {
+	req *watchtower_pb.GetInfoRequest) (*watchtower_pb.GetInfoResponse, error) {
 	out, err := c.GetInfo0(ctx, req)
 	return out, er.Native(err)
 }
 func (c *Handler) GetInfo0(ctx context.Context,
-	req *GetInfoRequest) (*GetInfoResponse, er.R) {
+	req *watchtower_pb.GetInfoRequest) (*watchtower_pb.GetInfoResponse, er.R) {
 
 	if err := c.isActive(); err != nil {
 		return nil, err
@@ -131,7 +133,7 @@ func (c *Handler) GetInfo0(ctx context.Context,
 		uris = append(uris, fmt.Sprintf("%x@%v", pubkey, addr))
 	}
 
-	return &GetInfoResponse{
+	return &watchtower_pb.GetInfoResponse{
 		Pubkey:    pubkey,
 		Listeners: listeners,
 		Uris:      uris,

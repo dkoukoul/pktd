@@ -23,6 +23,7 @@ import (
 	"github.com/pkt-cash/pktd/btcutil/util"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
 	"github.com/pkt-cash/pktd/connmgr"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	sphinx "github.com/pkt-cash/pktd/lightning-onion"
 	"github.com/pkt-cash/pktd/lnd/autopilot"
 	"github.com/pkt-cash/pktd/lnd/brontide"
@@ -45,7 +46,6 @@ import (
 	"github.com/pkt-cash/pktd/lnd/keychain"
 	"github.com/pkt-cash/pktd/lnd/lncfg"
 	"github.com/pkt-cash/pktd/lnd/lnpeer"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
 	"github.com/pkt-cash/pktd/lnd/lnrpc/routerrpc"
 	"github.com/pkt-cash/pktd/lnd/lnwallet"
 	"github.com/pkt-cash/pktd/lnd/lnwallet/chainfee"
@@ -3463,7 +3463,7 @@ type openChanReq struct {
 	// protocol.
 	pendingChanID [32]byte
 
-	updates chan *lnrpc.OpenStatusUpdate
+	updates chan *rpc_pb.OpenStatusUpdate
 	err     chan er.R
 }
 
@@ -3611,12 +3611,12 @@ func (s *server) DisconnectPeer(pubKey *btcec.PublicKey) er.R {
 //
 // NOTE: This function is safe for concurrent access.
 func (s *server) OpenChannel(
-	req *openChanReq) (chan *lnrpc.OpenStatusUpdate, chan er.R) {
+	req *openChanReq) (chan *rpc_pb.OpenStatusUpdate, chan er.R) {
 
 	// The updateChan will have a buffer of 2, since we expect a ChanPending
 	// + a ChanOpen update, and we want to make sure the funding process is
 	// not blocked if the caller is not reading the updates.
-	req.updates = make(chan *lnrpc.OpenStatusUpdate, 2)
+	req.updates = make(chan *rpc_pb.OpenStatusUpdate, 2)
 	req.err = make(chan er.R, 1)
 
 	// First attempt to locate the target peer to open a channel with, if

@@ -7,7 +7,8 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/gorilla/mux"
 	"github.com/pkt-cash/pktd/btcutil/er"
-	"github.com/pkt-cash/pktd/generated/lnd/pkthelp"
+	"github.com/pkt-cash/pktd/generated/pkthelp"
+	"github.com/pkt-cash/pktd/generated/proto/restrpc_pb/help_pb"
 	"github.com/pkt-cash/pktd/lnd/lnrpc/restrpc/help"
 	"github.com/pkt-cash/pktd/pktlog/log"
 )
@@ -17,15 +18,15 @@ const (
 )
 
 //	convert	pkthelp.type to REST help proto struct
-func convertHelpType(t pkthelp.Type) *help.Type {
-	resultType := &help.Type{
+func convertHelpType(t pkthelp.Type) *help_pb.Type {
+	resultType := &help_pb.Type{
 		Name:        t.Name,
 		Description: t.Description,
 	}
 
 	//	convert the array of fields
 	for _, field := range t.Fields {
-		resultType.Fields = append(resultType.Fields, &help.Field{
+		resultType.Fields = append(resultType.Fields, &help_pb.Field{
 			Name:        field.Name,
 			Description: field.Description,
 			Repeated:    field.Repeated,
@@ -46,7 +47,7 @@ func marshalHelp(httpResponse http.ResponseWriter, helpInfo pkthelp.Method) er.R
 		Indent:       "   ",
 	}
 
-	s, err := marshaler.MarshalToString(&help.RestHelpResponse{
+	s, err := marshaler.MarshalToString(&help_pb.RestHelpResponse{
 		Name:        helpInfo.Name,
 		Service:     helpInfo.Service,
 		Description: helpInfo.Description,

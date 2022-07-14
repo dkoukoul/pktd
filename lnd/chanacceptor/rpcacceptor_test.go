@@ -7,8 +7,8 @@ import (
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/chaincfg"
+	lnrpcgen "github.com/pkt-cash/pktd/generated/lnd/lnrpc"
 	"github.com/pkt-cash/pktd/lnd/input"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
 	"github.com/pkt-cash/pktd/lnd/lnwallet/chancloser"
 	"github.com/pkt-cash/pktd/lnd/lnwire"
 	"github.com/stretchr/testify/require"
@@ -27,7 +27,7 @@ func TestValidateAcceptorResponse(t *testing.T) {
 	tests := []struct {
 		name        string
 		dustLimit   btcutil.Amount
-		response    lnrpc.ChannelAcceptResponse
+		response    lnrpcgen.ChannelAcceptResponse
 		accept      bool
 		acceptorErr er.R
 		error       er.R
@@ -35,7 +35,7 @@ func TestValidateAcceptorResponse(t *testing.T) {
 	}{
 		{
 			name: "accepted with error",
-			response: lnrpc.ChannelAcceptResponse{
+			response: lnrpcgen.ChannelAcceptResponse{
 				Accept: true,
 				Error:  customError.String(),
 			},
@@ -45,7 +45,7 @@ func TestValidateAcceptorResponse(t *testing.T) {
 		},
 		{
 			name: "custom error too long",
-			response: lnrpc.ChannelAcceptResponse{
+			response: lnrpcgen.ChannelAcceptResponse{
 				Accept: false,
 				Error:  strings.Repeat(" ", maxErrorLength+1),
 			},
@@ -55,7 +55,7 @@ func TestValidateAcceptorResponse(t *testing.T) {
 		},
 		{
 			name: "accepted",
-			response: lnrpc.ChannelAcceptResponse{
+			response: lnrpcgen.ChannelAcceptResponse{
 				Accept:          true,
 				UpfrontShutdown: validAddr,
 			},
@@ -66,7 +66,7 @@ func TestValidateAcceptorResponse(t *testing.T) {
 		},
 		{
 			name: "rejected with error",
-			response: lnrpc.ChannelAcceptResponse{
+			response: lnrpcgen.ChannelAcceptResponse{
 				Accept: false,
 				Error:  customError.String(),
 			},
@@ -76,7 +76,7 @@ func TestValidateAcceptorResponse(t *testing.T) {
 		},
 		{
 			name: "rejected with no error",
-			response: lnrpc.ChannelAcceptResponse{
+			response: lnrpcgen.ChannelAcceptResponse{
 				Accept: false,
 			},
 			accept:      false,
@@ -85,7 +85,7 @@ func TestValidateAcceptorResponse(t *testing.T) {
 		},
 		{
 			name: "invalid upfront shutdown",
-			response: lnrpc.ChannelAcceptResponse{
+			response: lnrpcgen.ChannelAcceptResponse{
 				Accept:          true,
 				UpfrontShutdown: "invalid addr",
 			},
@@ -96,7 +96,7 @@ func TestValidateAcceptorResponse(t *testing.T) {
 		{
 			name:      "reserve too low",
 			dustLimit: 100,
-			response: lnrpc.ChannelAcceptResponse{
+			response: lnrpcgen.ChannelAcceptResponse{
 				Accept:     true,
 				ReserveSat: 10,
 			},
@@ -107,7 +107,7 @@ func TestValidateAcceptorResponse(t *testing.T) {
 		{
 			name:      "max htlcs too high",
 			dustLimit: 100,
-			response: lnrpc.ChannelAcceptResponse{
+			response: lnrpcgen.ChannelAcceptResponse{
 				Accept:       true,
 				MaxHtlcCount: 1 + input.MaxHTLCNumber/2,
 			},

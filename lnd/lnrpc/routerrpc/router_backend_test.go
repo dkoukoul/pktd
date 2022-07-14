@@ -8,13 +8,12 @@ import (
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/btcutil/util"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd/channeldb"
 	"github.com/pkt-cash/pktd/lnd/lnwire"
 	"github.com/pkt-cash/pktd/lnd/record"
 	"github.com/pkt-cash/pktd/lnd/routing"
 	"github.com/pkt-cash/pktd/lnd/routing/route"
-
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
 )
 
 const (
@@ -76,9 +75,9 @@ func testQueryRoutes(t *testing.T, useMissionControl bool, useMsat bool) {
 		t.Fatal(err)
 	}
 
-	rpcRouteHints := []*lnrpc.RouteHint{
+	rpcRouteHints := []*rpc_pb.RouteHint{
 		{
-			HopHints: []*lnrpc.HopHint{
+			HopHints: []*rpc_pb.HopHint{
 				{
 					ChanId: 38484,
 					NodeId: nodeIdBytes,
@@ -92,37 +91,37 @@ func testQueryRoutes(t *testing.T, useMissionControl bool, useMsat bool) {
 		t.Fatal(err)
 	}
 
-	request := &lnrpc.QueryRoutesRequest{
+	request := &rpc_pb.QueryRoutesRequest{
 		PubKey:         pubKeyBytes,
 		FinalCltvDelta: 100,
 		IgnoredNodes:   [][]byte{ignoreNodeBytes},
-		IgnoredEdges: []*lnrpc.EdgeLocator{{
+		IgnoredEdges: []*rpc_pb.EdgeLocator{{
 			ChannelId:        555,
 			DirectionReverse: true,
 		}},
-		IgnoredPairs: []*lnrpc.NodePair{{
+		IgnoredPairs: []*rpc_pb.NodePair{{
 			From: node1[:],
 			To:   node2[:],
 		}},
 		UseMissionControl: useMissionControl,
 		LastHopPubkey:     lastHop[:],
 		OutgoingChanId:    outgoingChan,
-		DestFeatures:      []lnrpc.FeatureBit{lnrpc.FeatureBit_MPP_OPT},
+		DestFeatures:      []rpc_pb.FeatureBit{rpc_pb.FeatureBit_MPP_OPT},
 		RouteHints:        rpcRouteHints,
 	}
 
 	amtSat := int64(100000)
 	if useMsat {
 		request.AmtMsat = amtSat * 1000
-		request.FeeLimit = &lnrpc.FeeLimit{
-			Limit: &lnrpc.FeeLimit_FixedMsat{
+		request.FeeLimit = &rpc_pb.FeeLimit{
+			Limit: &rpc_pb.FeeLimit_FixedMsat{
 				FixedMsat: 250000,
 			},
 		}
 	} else {
 		request.Amt = amtSat
-		request.FeeLimit = &lnrpc.FeeLimit{
-			Limit: &lnrpc.FeeLimit_Fixed{
+		request.FeeLimit = &rpc_pb.FeeLimit{
+			Limit: &rpc_pb.FeeLimit_Fixed{
 				Fixed: 250,
 			},
 		}
@@ -259,7 +258,7 @@ const (
 
 type unmarshalMPPTest struct {
 	name    string
-	mpp     *lnrpc.MPPRecord
+	mpp     *rpc_pb.MPPRecord
 	outcome mppOutcome
 }
 
@@ -276,7 +275,7 @@ func TestUnmarshalMPP(t *testing.T) {
 		},
 		{
 			name: "invalid total or addr",
-			mpp: &lnrpc.MPPRecord{
+			mpp: &rpc_pb.MPPRecord{
 				PaymentAddr:  nil,
 				TotalAmtMsat: 0,
 			},
@@ -284,7 +283,7 @@ func TestUnmarshalMPP(t *testing.T) {
 		},
 		{
 			name: "valid total only",
-			mpp: &lnrpc.MPPRecord{
+			mpp: &rpc_pb.MPPRecord{
 				PaymentAddr:  nil,
 				TotalAmtMsat: 8,
 			},
@@ -292,7 +291,7 @@ func TestUnmarshalMPP(t *testing.T) {
 		},
 		{
 			name: "valid addr only",
-			mpp: &lnrpc.MPPRecord{
+			mpp: &rpc_pb.MPPRecord{
 				PaymentAddr:  bytes.Repeat([]byte{0x02}, 32),
 				TotalAmtMsat: 0,
 			},
@@ -300,7 +299,7 @@ func TestUnmarshalMPP(t *testing.T) {
 		},
 		{
 			name: "valid total and invalid addr",
-			mpp: &lnrpc.MPPRecord{
+			mpp: &rpc_pb.MPPRecord{
 				PaymentAddr:  []byte{0x02},
 				TotalAmtMsat: 8,
 			},
@@ -308,7 +307,7 @@ func TestUnmarshalMPP(t *testing.T) {
 		},
 		{
 			name: "valid total and valid addr",
-			mpp: &lnrpc.MPPRecord{
+			mpp: &rpc_pb.MPPRecord{
 				PaymentAddr:  bytes.Repeat([]byte{0x02}, 32),
 				TotalAmtMsat: 8,
 			},

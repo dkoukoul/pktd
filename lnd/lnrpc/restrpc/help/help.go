@@ -6,7 +6,10 @@
 
 package help
 
-import "github.com/pkt-cash/pktd/generated/lnd/pkthelp"
+import (
+	"github.com/pkt-cash/pktd/generated/pkthelp"
+	"github.com/pkt-cash/pktd/generated/proto/restrpc_pb/help_pb"
+)
 
 const (
 	URI_prefix = "/api/v1"
@@ -381,19 +384,22 @@ func init() {
 }
 
 //	the category help in REST master
-func RESTCategory_help(category string, subCategory []*RestCommandCategory) *RestCommandCategory {
-	restCommandCategory := &RestCommandCategory{
+func RESTCategory_help(
+	category string,
+	subCategory []*help_pb.RestCommandCategory,
+) *help_pb.RestCommandCategory {
+	restCommandCategory := &help_pb.RestCommandCategory{
 		Name:        category,
 		Description: CategoryDescription[category],
-		Endpoints:   make([]*RestEndpoint, 0, 10),
-		Subcategory: make([]*RestCommandCategory, 0, 10),
+		Endpoints:   make([]*help_pb.RestEndpoint, 0, 10),
+		Subcategory: make([]*help_pb.RestCommandCategory, 0, 10),
 	}
 
 	//	add all endpoints for the category
 	for _, commandInfo := range CommandInfoData {
 
 		if commandInfo.Category == category {
-			restCommandCategory.Endpoints = append(restCommandCategory.Endpoints, &RestEndpoint{
+			restCommandCategory.Endpoints = append(restCommandCategory.Endpoints, &help_pb.RestEndpoint{
 				URI:              URI_prefix + commandInfo.Path,
 				ShortDescription: commandInfo.Description,
 			})
@@ -407,36 +413,36 @@ func RESTCategory_help(category string, subCategory []*RestCommandCategory) *Res
 }
 
 //	return the REST master help messsage
-func RESTMaster_help() *RestMasterHelpResponse {
-	masterHelpResp := &RestMasterHelpResponse{
+func RESTMaster_help() *help_pb.RestMasterHelpResponse {
+	masterHelpResp := &help_pb.RestMasterHelpResponse{
 		Name: "pld - Lightning Network Daemon REST interface (pld)",
 		Description: []string{
 			"General information about PLD",
 		},
-		Category: []*RestCommandCategory{
-			RESTCategory_help(CategoryLightning, []*RestCommandCategory{
-				RESTCategory_help(SubcategoryChannel, []*RestCommandCategory{
-					RESTCategory_help(SubSubCategoryBackup, []*RestCommandCategory{}),
+		Category: []*help_pb.RestCommandCategory{
+			RESTCategory_help(CategoryLightning, []*help_pb.RestCommandCategory{
+				RESTCategory_help(SubcategoryChannel, []*help_pb.RestCommandCategory{
+					RESTCategory_help(SubSubCategoryBackup, []*help_pb.RestCommandCategory{}),
 				}),
-				RESTCategory_help(SubCategoryGraph, []*RestCommandCategory{}),
-				RESTCategory_help(SubCategoryInvoice, []*RestCommandCategory{}),
-				RESTCategory_help(SubCategoryPayment, []*RestCommandCategory{}),
-				RESTCategory_help(SubCategoryPeer, []*RestCommandCategory{}),
+				RESTCategory_help(SubCategoryGraph, []*help_pb.RestCommandCategory{}),
+				RESTCategory_help(SubCategoryInvoice, []*help_pb.RestCommandCategory{}),
+				RESTCategory_help(SubCategoryPayment, []*help_pb.RestCommandCategory{}),
+				RESTCategory_help(SubCategoryPeer, []*help_pb.RestCommandCategory{}),
 			}),
-			RESTCategory_help(CategoryMeta, []*RestCommandCategory{}),
-			RESTCategory_help(CategoryWallet, []*RestCommandCategory{
-				RESTCategory_help(SubCategoryNetworkStewardVote, []*RestCommandCategory{}),
-				RESTCategory_help(SubCategoryTransaction, []*RestCommandCategory{}),
-				RESTCategory_help(SubCategoryUnspent, []*RestCommandCategory{
-					RESTCategory_help(SubSubCategoryLock, []*RestCommandCategory{}),
+			RESTCategory_help(CategoryMeta, []*help_pb.RestCommandCategory{}),
+			RESTCategory_help(CategoryWallet, []*help_pb.RestCommandCategory{
+				RESTCategory_help(SubCategoryNetworkStewardVote, []*help_pb.RestCommandCategory{}),
+				RESTCategory_help(SubCategoryTransaction, []*help_pb.RestCommandCategory{}),
+				RESTCategory_help(SubCategoryUnspent, []*help_pb.RestCommandCategory{
+					RESTCategory_help(SubSubCategoryLock, []*help_pb.RestCommandCategory{}),
 				}),
-				RESTCategory_help(SubCategoryAddress, []*RestCommandCategory{}),
+				RESTCategory_help(SubCategoryAddress, []*help_pb.RestCommandCategory{}),
 			}),
-			RESTCategory_help(CategoryNeutrino, []*RestCommandCategory{}),
-			RESTCategory_help(CategoryUtil, []*RestCommandCategory{
-				RESTCategory_help(SubCategorySeed, []*RestCommandCategory{}),
+			RESTCategory_help(CategoryNeutrino, []*help_pb.RestCommandCategory{}),
+			RESTCategory_help(CategoryUtil, []*help_pb.RestCommandCategory{
+				RESTCategory_help(SubCategorySeed, []*help_pb.RestCommandCategory{}),
 			}),
-			RESTCategory_help(CategoryWatchtower, []*RestCommandCategory{}),
+			RESTCategory_help(CategoryWatchtower, []*help_pb.RestCommandCategory{}),
 		},
 	}
 
