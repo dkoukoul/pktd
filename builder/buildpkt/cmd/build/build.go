@@ -102,14 +102,27 @@ func ensureDir(dir string) {
 func processProto(inPath string, e *execer) bool {
 	inDir, file := filepath.Split(inPath)
 	outDir := "./generated/" + inDir
+
 	jsonfile := file + ".doc.json"
 	jsonPath := filepath.Join(outDir, jsonfile)
+
+	goFile := strings.Replace(file, ".proto", ".pb.go", -1)
+	goPath := filepath.Join(outDir, goFile)
+
 	ensureDir(outDir)
-	if needUpdate(inPath, []string{jsonPath}) {
+	if needUpdate(inPath, []string{jsonPath, goPath}) {
 		e.exe(exeNoRedirect, "protoc",
-			"-I./lnd/lnrpc",
+			"-I.",
+
 			"--pkt-json_opt=json,"+file+".doc.json",
 			"--pkt-json_out="+outDir,
+
+			"--pkt-go_opt=paths=source_relative",
+			"--pkt-go_out=./generated/",
+
+			"--pkt-grpc_opt=paths=source_relative",
+			"--pkt-grpc_out=./generated/",
+
 			inPath,
 		)
 		return true
@@ -120,7 +133,7 @@ func processProto(inPath string, e *execer) bool {
 func genproto() {
 	e := execer{"PATH=" + os.Getenv("PATH") + ":./builder/buildpkt/bin"}
 	didUpdate := false
-	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk("proto", func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() && filepath.Ext(path) == ".proto" {
 			didUpdate = processProto(path, &e) || didUpdate
 		}
@@ -130,11 +143,11 @@ func genproto() {
 		panic(err)
 	}
 	if didUpdate {
-		helpPath := "generated/lnd/pkthelp/"
+		helpPath := "generated/pkthelp/"
 		helpFile := helpPath + "helpgen.go"
 		fmt.Printf("GENERATING   %s\n", helpFile)
 		ensureDir(helpPath)
-		_, out, err := e.exe(0, "./builder/buildpkt/bin/mkhelp", "./generated/lnd/lnrpc")
+		_, out, err := e.exe(0, "./builder/buildpkt/bin/mkhelp", "./generated/proto/")
 		if len(err) > 0 {
 			fmt.Printf("mkhelp -> %s\n", err)
 		}
