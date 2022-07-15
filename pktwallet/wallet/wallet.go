@@ -2758,7 +2758,7 @@ func paysUncreditedAddress(
 			for _, credit := range storedTx.Credits {
 				if credit.Index != uint32(index) {
 				} else if credit.Amount != btcutil.Amount(out.Value) {
-					log.Debug("Reload [%s] because out records show it "+
+					log.Debugf("Reload [%s] because out records show it "+
 						"paying [%s] [%s] but the chains says [%s]",
 						tx.TxHash(),
 						addr.EncodeAddress(),
