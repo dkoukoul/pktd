@@ -10,7 +10,7 @@ import (
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/btcutil/util"
 	"github.com/pkt-cash/pktd/chaincfg"
-	lnrpcgen "github.com/pkt-cash/pktd/generated/lnd/lnrpc"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd/lnwallet/chancloser"
 	"github.com/pkt-cash/pktd/lnd/lnwire"
 	"github.com/stretchr/testify/assert"
@@ -29,7 +29,7 @@ type channelAcceptorCtx struct {
 
 	// responses is a map of pending channel IDs to the response which we
 	// wish to mock the remote channel acceptor sending.
-	responses map[[32]byte]*lnrpcgen.ChannelAcceptResponse
+	responses map[[32]byte]*rpc_pb.ChannelAcceptResponse
 
 	// acceptor is the channel acceptor we create for the test.
 	acceptor *RPCAcceptor
@@ -44,7 +44,7 @@ type channelAcceptorCtx struct {
 }
 
 func newChanAcceptorCtx(t *testing.T, acceptCallCount int,
-	responses map[[32]byte]*lnrpcgen.ChannelAcceptResponse) *channelAcceptorCtx {
+	responses map[[32]byte]*rpc_pb.ChannelAcceptResponse) *channelAcceptorCtx {
 
 	testCtx := &channelAcceptorCtx{
 		t:           t,
@@ -63,7 +63,7 @@ func newChanAcceptorCtx(t *testing.T, acceptCallCount int,
 }
 
 // sendRequest mocks sending a request to the channel acceptor.
-func (c *channelAcceptorCtx) sendRequest(request *lnrpcgen.ChannelAcceptRequest) error {
+func (c *channelAcceptorCtx) sendRequest(request *rpc_pb.ChannelAcceptRequest) error {
 	select {
 	case c.extRequests <- request.PendingChanId:
 
@@ -75,7 +75,7 @@ func (c *channelAcceptorCtx) sendRequest(request *lnrpcgen.ChannelAcceptRequest)
 }
 
 // receiveResponse mocks sending of a response from the channel acceptor.
-func (c *channelAcceptorCtx) receiveResponse() (*lnrpcgen.ChannelAcceptResponse,
+func (c *channelAcceptorCtx) receiveResponse() (*rpc_pb.ChannelAcceptResponse,
 	error) {
 
 	select {
@@ -202,7 +202,7 @@ func TestMultipleAcceptClients(t *testing.T) {
 
 		// Responses is a mocked set of responses from the remote
 		// channel acceptor.
-		responses = map[[32]byte]*lnrpcgen.ChannelAcceptResponse{
+		responses = map[[32]byte]*rpc_pb.ChannelAcceptResponse{
 			chan1.PendingChannelID: {
 				PendingChanId:   chan1.PendingChannelID[:],
 				Accept:          true,
@@ -257,7 +257,7 @@ func TestInvalidResponse(t *testing.T) {
 
 		// Create a single response which is invalid because it accepts
 		// the channel but also contains an error message.
-		responses = map[[32]byte]*lnrpcgen.ChannelAcceptResponse{
+		responses = map[[32]byte]*rpc_pb.ChannelAcceptResponse{
 			chan1: {
 				PendingChanId: chan1[:],
 				Accept:        true,
@@ -300,7 +300,7 @@ func TestInvalidReserve(t *testing.T) {
 
 		// Create a single response which is invalid because the
 		// proposed reserve is below our dust limit.
-		responses = map[[32]byte]*lnrpcgen.ChannelAcceptResponse{
+		responses = map[[32]byte]*rpc_pb.ChannelAcceptResponse{
 			chan1: {
 				PendingChanId: chan1[:],
 				Accept:        true,

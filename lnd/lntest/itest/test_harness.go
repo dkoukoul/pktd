@@ -16,7 +16,7 @@ import (
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/chaincfg"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 	"github.com/pkt-cash/pktd/lnd/lntest/wait"
 	"github.com/pkt-cash/pktd/rpcclient"
@@ -43,8 +43,8 @@ const (
 	anchorSize          = 330
 	noFeeLimitMsat      = math.MaxInt64
 
-	AddrTypeWitnessPubkeyHash = lnrpc.AddressType_WITNESS_PUBKEY_HASH
-	AddrTypeNestedPubkeyHash  = lnrpc.AddressType_NESTED_PUBKEY_HASH
+	AddrTypeWitnessPubkeyHash = rpc_pb.AddressType_WITNESS_PUBKEY_HASH
+	AddrTypeNestedPubkeyHash  = rpc_pb.AddressType_NESTED_PUBKEY_HASH
 )
 
 // harnessTest wraps a regular testing.T providing enhanced error detection
@@ -250,13 +250,13 @@ func assertTxInBlock(t *harnessTest, block *wire.MsgBlock, txid *chainhash.Hash)
 	t.Fatalf("tx was not included in block")
 }
 
-func assertWalletUnspent(t *harnessTest, node *lntest.HarnessNode, out *lnrpc.OutPoint) {
+func assertWalletUnspent(t *harnessTest, node *lntest.HarnessNode, out *rpc_pb.OutPoint) {
 	t.t.Helper()
 
 	err := wait.NoError(func() er.R {
 		ctxt, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 		defer cancel()
-		unspent, errr := node.ListUnspent(ctxt, &lnrpc.ListUnspentRequest{})
+		unspent, errr := node.ListUnspent(ctxt, &rpc_pb.ListUnspentRequest{})
 		if errr != nil {
 			return er.E(errr)
 		}

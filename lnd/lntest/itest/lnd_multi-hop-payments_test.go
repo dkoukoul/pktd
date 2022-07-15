@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/pkt-cash/pktd/btcutil"
+	"github.com/pkt-cash/pktd/generated/proto/routerrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd"
 	"github.com/pkt-cash/pktd/lnd/chainreg"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/routerrpc"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 	"github.com/pkt-cash/pktd/wire"
 )
@@ -17,7 +17,7 @@ func testMultiHopPayments(net *lntest.NetworkHarness, t *harnessTest) {
 	ctxb := context.Background()
 
 	const chanAmt = btcutil.Amount(100000)
-	var networkChans []*lnrpc.ChannelPoint
+	var networkChans []*rpc_pb.ChannelPoint
 
 	// Open a channel with 100k satoshis between Alice and Bob with Alice
 	// being the sole funder of the channel.
@@ -191,28 +191,28 @@ func testMultiHopPayments(net *lntest.NetworkHarness, t *harnessTest) {
 	defer cancel()
 
 	aliceEvents, errr := net.Alice.RouterClient.SubscribeHtlcEvents(
-		ctxt, &routerrpc.SubscribeHtlcEventsRequest{},
+		ctxt, &routerrpc_pb.SubscribeHtlcEventsRequest{},
 	)
 	if errr != nil {
 		t.Fatalf("could not subscribe events: %v", errr)
 	}
 
 	bobEvents, errr := net.Bob.RouterClient.SubscribeHtlcEvents(
-		ctxt, &routerrpc.SubscribeHtlcEventsRequest{},
+		ctxt, &routerrpc_pb.SubscribeHtlcEventsRequest{},
 	)
 	if errr != nil {
 		t.Fatalf("could not subscribe events: %v", errr)
 	}
 
 	carolEvents, errr := carol.RouterClient.SubscribeHtlcEvents(
-		ctxt, &routerrpc.SubscribeHtlcEventsRequest{},
+		ctxt, &routerrpc_pb.SubscribeHtlcEventsRequest{},
 	)
 	if errr != nil {
 		t.Fatalf("could not subscribe events: %v", errr)
 	}
 
 	daveEvents, errr := dave.RouterClient.SubscribeHtlcEvents(
-		ctxt, &routerrpc.SubscribeHtlcEventsRequest{},
+		ctxt, &routerrpc_pb.SubscribeHtlcEventsRequest{},
 	)
 	if errr != nil {
 		t.Fatalf("could not subscribe events: %v", errr)
@@ -280,7 +280,7 @@ func testMultiHopPayments(net *lntest.NetworkHarness, t *harnessTest) {
 	// accrued over each time range. Dave should've earned 170 satoshi for
 	// each of the forwarded payments.
 	ctxt, _ = context.WithTimeout(ctxb, defaultTimeout)
-	feeReport, errr := dave.FeeReport(ctxt, &lnrpc.FeeReportRequest{})
+	feeReport, errr := dave.FeeReport(ctxt, &rpc_pb.FeeReportRequest{})
 	if errr != nil {
 		t.Fatalf("unable to query for fee report: %v", errr)
 	}
@@ -302,7 +302,7 @@ func testMultiHopPayments(net *lntest.NetworkHarness, t *harnessTest) {
 	// history, it returns 5 values, and each entry is formatted properly.
 	ctxt, _ = context.WithTimeout(ctxb, defaultTimeout)
 	fwdingHistory, errr := dave.ForwardingHistory(
-		ctxt, &lnrpc.ForwardingHistoryRequest{},
+		ctxt, &rpc_pb.ForwardingHistoryRequest{},
 	)
 	if errr != nil {
 		t.Fatalf("unable to query for fee report: %v", errr)
@@ -324,24 +324,24 @@ func testMultiHopPayments(net *lntest.NetworkHarness, t *harnessTest) {
 	// We expect Carol to have successful forwards and settles for
 	// her sends.
 	assertHtlcEvents(
-		t, numPayments, 0, numPayments, routerrpc.HtlcEvent_SEND,
+		t, numPayments, 0, numPayments, routerrpc_pb.HtlcEvent_SEND,
 		carolEvents,
 	)
 
 	// Dave and Alice should both have forwards and settles for
 	// their role as forwarding nodes.
 	assertHtlcEvents(
-		t, numPayments, 0, numPayments, routerrpc.HtlcEvent_FORWARD,
+		t, numPayments, 0, numPayments, routerrpc_pb.HtlcEvent_FORWARD,
 		daveEvents,
 	)
 	assertHtlcEvents(
-		t, numPayments, 0, numPayments, routerrpc.HtlcEvent_FORWARD,
+		t, numPayments, 0, numPayments, routerrpc_pb.HtlcEvent_FORWARD,
 		aliceEvents,
 	)
 
 	// Bob should only have settle events for his receives.
 	assertHtlcEvents(
-		t, 0, 0, numPayments, routerrpc.HtlcEvent_RECEIVE, bobEvents,
+		t, 0, 0, numPayments, routerrpc_pb.HtlcEvent_RECEIVE, bobEvents,
 	)
 
 	ctxt, _ = context.WithTimeout(ctxb, channelCloseTimeout)
@@ -356,8 +356,8 @@ func testMultiHopPayments(net *lntest.NetworkHarness, t *harnessTest) {
 // the expected type and contain the expected number of forwards, forward
 // failures and settles.
 func assertHtlcEvents(t *harnessTest, fwdCount, fwdFailCount, settleCount int,
-	userType routerrpc.HtlcEvent_EventType,
-	client routerrpc.Router_SubscribeHtlcEventsClient) {
+	userType routerrpc_pb.HtlcEvent_EventType,
+	client routerrpc_pb.Router_SubscribeHtlcEventsClient) {
 
 	var forwards, forwardFails, settles int
 
@@ -366,13 +366,13 @@ func assertHtlcEvents(t *harnessTest, fwdCount, fwdFailCount, settleCount int,
 		event := assertEventAndType(t, userType, client)
 
 		switch event.Event.(type) {
-		case *routerrpc.HtlcEvent_ForwardEvent:
+		case *routerrpc_pb.HtlcEvent_ForwardEvent:
 			forwards++
 
-		case *routerrpc.HtlcEvent_ForwardFailEvent:
+		case *routerrpc_pb.HtlcEvent_ForwardFailEvent:
 			forwardFails++
 
-		case *routerrpc.HtlcEvent_SettleEvent:
+		case *routerrpc_pb.HtlcEvent_SettleEvent:
 			settles++
 
 		default:
@@ -398,8 +398,8 @@ func assertHtlcEvents(t *harnessTest, fwdCount, fwdFailCount, settleCount int,
 // it is associated with the correct user related type - a user initiated send,
 // a receive to our node or a forward through our node. Note that this event
 // type is different from the htlc event type (forward, link failure etc).
-func assertEventAndType(t *harnessTest, eventType routerrpc.HtlcEvent_EventType,
-	client routerrpc.Router_SubscribeHtlcEventsClient) *routerrpc.HtlcEvent {
+func assertEventAndType(t *harnessTest, eventType routerrpc_pb.HtlcEvent_EventType,
+	client routerrpc_pb.Router_SubscribeHtlcEventsClient) *routerrpc_pb.HtlcEvent {
 	event, err := client.Recv()
 	if err != nil {
 		t.Fatalf("could not get event")

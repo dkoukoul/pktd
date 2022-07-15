@@ -8,8 +8,8 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/pkt-cash/pktd/btcutil"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/routerrpc"
+	"github.com/pkt-cash/pktd/generated/proto/routerrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 	"github.com/pkt-cash/pktd/lnd/lntest/wait"
 	"github.com/pkt-cash/pktd/lnd/lntypes"
@@ -36,7 +36,7 @@ func testSingleHopInvoice(net *lntest.NetworkHarness, t *harnessTest) {
 	// preimage.
 	const paymentAmt = 1000
 	preimage := bytes.Repeat([]byte("A"), 32)
-	invoice := &lnrpc.Invoice{
+	invoice := &rpc_pb.Invoice{
 		Memo:      "testing",
 		RPreimage: preimage,
 		Value:     paymentAmt,
@@ -64,7 +64,7 @@ func testSingleHopInvoice(net *lntest.NetworkHarness, t *harnessTest) {
 	// to the above generated invoice.
 	resp := sendAndAssertSuccess(
 		t, net.Alice,
-		&routerrpc.SendPaymentRequest{
+		&routerrpc_pb.SendPaymentRequest{
 			PaymentRequest: invoiceResp.PaymentRequest,
 			TimeoutSeconds: 60,
 			FeeLimitMsat:   noFeeLimitMsat,
@@ -76,7 +76,7 @@ func testSingleHopInvoice(net *lntest.NetworkHarness, t *harnessTest) {
 	}
 
 	// Bob's invoice should now be found and marked as settled.
-	payHash := &lnrpc.PaymentHash{
+	payHash := &rpc_pb.PaymentHash{
 		RHash: invoiceResp.RHash,
 	}
 	ctxt, _ = context.WithTimeout(ctxt, defaultTimeout)
@@ -102,7 +102,7 @@ func testSingleHopInvoice(net *lntest.NetworkHarness, t *harnessTest) {
 	// Create another invoice for Bob, this time leaving off the preimage
 	// to one will be randomly generated. We'll test the proper
 	// encoding/decoding of the zpay32 payment requests.
-	invoice = &lnrpc.Invoice{
+	invoice = &rpc_pb.Invoice{
 		Memo:  "test3",
 		Value: paymentAmt,
 	}
@@ -116,7 +116,7 @@ func testSingleHopInvoice(net *lntest.NetworkHarness, t *harnessTest) {
 	// invoice rather than manually specifying the payment details.
 	sendAndAssertSuccess(
 		t, net.Alice,
-		&routerrpc.SendPaymentRequest{
+		&routerrpc_pb.SendPaymentRequest{
 			PaymentRequest: invoiceResp.PaymentRequest,
 			TimeoutSeconds: 60,
 			FeeLimitMsat:   noFeeLimitMsat,
@@ -139,7 +139,7 @@ func testSingleHopInvoice(net *lntest.NetworkHarness, t *harnessTest) {
 
 	sendAndAssertSuccess(
 		t, net.Alice,
-		&routerrpc.SendPaymentRequest{
+		&routerrpc_pb.SendPaymentRequest{
 			Dest:           net.Bob.PubKey[:],
 			Amt:            paymentAmt,
 			FinalCltvDelta: 40,
@@ -166,9 +166,9 @@ func testSingleHopInvoice(net *lntest.NetworkHarness, t *harnessTest) {
 	// We will test that the routing hints are encoded properly.
 	hintChannel := lnwire.ShortChannelID{BlockHeight: 10}
 	bobPubKey := hex.EncodeToString(net.Bob.PubKey[:])
-	hints := []*lnrpc.RouteHint{
+	hints := []*rpc_pb.RouteHint{
 		{
-			HopHints: []*lnrpc.HopHint{
+			HopHints: []*rpc_pb.HopHint{
 				{
 					NodeId:                    net.Bob.PubKey[:],
 					ChanId:                    hintChannel.ToUint64(),
@@ -180,7 +180,7 @@ func testSingleHopInvoice(net *lntest.NetworkHarness, t *harnessTest) {
 		},
 	}
 
-	invoice = &lnrpc.Invoice{
+	invoice = &rpc_pb.Invoice{
 		Memo:       "hints",
 		Value:      paymentAmt,
 		RouteHints: hints,
@@ -191,7 +191,7 @@ func testSingleHopInvoice(net *lntest.NetworkHarness, t *harnessTest) {
 	if errr != nil {
 		t.Fatalf("unable to add invoice: %v", errr)
 	}
-	payreq, errr := net.Bob.DecodePayReq(ctxt, &lnrpc.PayReqString{PayReq: invoiceResp.PaymentRequest})
+	payreq, errr := net.Bob.DecodePayReq(ctxt, &rpc_pb.PayReqString{PayReq: invoiceResp.PaymentRequest})
 	if errr != nil {
 		t.Fatalf("failed to decode payment request %v", errr)
 	}

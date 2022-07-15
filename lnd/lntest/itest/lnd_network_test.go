@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 	"github.com/stretchr/testify/require"
 )
@@ -38,8 +38,8 @@ func testNetworkConnectionTimeout(net *lntest.NetworkHarness, t *harnessTest) {
 
 	// Try to connect Carol to a non-routable IP address, which should give
 	// us a timeout error.
-	req := &lnrpc.ConnectPeerRequest{
-		Addr: &lnrpc.LightningAddress{
+	req := &rpc_pb.ConnectPeerRequest{
+		Addr: &rpc_pb.LightningAddress{
 			Pubkey: testPub,
 			Host:   testHost,
 		},
@@ -56,8 +56,8 @@ func testNetworkConnectionTimeout(net *lntest.NetworkHarness, t *harnessTest) {
 
 	// Try to connect Dave to a non-routable IP address, using a timeout
 	// value of 1ms, which should give us a timeout error immediately.
-	req = &lnrpc.ConnectPeerRequest{
-		Addr: &lnrpc.LightningAddress{
+	req = &rpc_pb.ConnectPeerRequest{
+		Addr: &rpc_pb.LightningAddress{
 			Pubkey: testPub,
 			Host:   testHost,
 		},
@@ -71,7 +71,7 @@ func testNetworkConnectionTimeout(net *lntest.NetworkHarness, t *harnessTest) {
 // connection timeout is less than the default, we won't see the request context
 // times out, instead a network connection timeout will be returned.
 func assertTimeoutError(ctxt context.Context, t *harnessTest,
-	node *lntest.HarnessNode, req *lnrpc.ConnectPeerRequest) {
+	node *lntest.HarnessNode, req *rpc_pb.ConnectPeerRequest) {
 
 	t.t.Helper()
 
@@ -93,7 +93,7 @@ func assertTimeoutError(ctxt context.Context, t *harnessTest,
 }
 
 func connect(ctxt context.Context, node *lntest.HarnessNode,
-	req *lnrpc.ConnectPeerRequest) er.R {
+	req *rpc_pb.ConnectPeerRequest) er.R {
 
 	syncTimeout := time.After(15 * time.Second)
 	ticker := time.NewTicker(time.Millisecond * 100)

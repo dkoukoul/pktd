@@ -6,8 +6,8 @@ import (
 	"github.com/pkt-cash/pktd/btcec"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/btcutil/util"
+	"github.com/pkt-cash/pktd/generated/proto/signrpc_pb"
 	"github.com/pkt-cash/pktd/lnd/keychain"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/signrpc"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 	"github.com/stretchr/testify/require"
 )
@@ -30,7 +30,7 @@ func testDeriveSharedKey(net *lntest.NetworkHarness, t *harnessTest) {
 	// assertECDHMatch checks the correctness of the ECDH between the
 	// ephemeral key and the given public key.
 	assertECDHMatch := func(pub *btcec.PublicKey,
-		req *signrpc.SharedKeyRequest) {
+		req *signrpc_pb.SharedKeyRequest) {
 
 		ctxt, _ := context.WithTimeout(ctxb, defaultTimeout)
 		resp, errr := net.Alice.SignerClient.DeriveSharedKey(ctxt, req)
@@ -55,13 +55,13 @@ func testDeriveSharedKey(net *lntest.NetworkHarness, t *harnessTest) {
 
 	// Test DeriveSharedKey with no optional arguments. It will result in
 	// performing an ECDH between the ephemeral key and the node's pubkey.
-	req := &signrpc.SharedKeyRequest{EphemeralPubkey: ephemeralPubBytes}
+	req := &signrpc_pb.SharedKeyRequest{EphemeralPubkey: ephemeralPubBytes}
 	assertECDHMatch(nodePub, req)
 
 	// Test DeriveSharedKey with a KeyLoc which points to the node's pubkey.
-	req = &signrpc.SharedKeyRequest{
+	req = &signrpc_pb.SharedKeyRequest{
 		EphemeralPubkey: ephemeralPubBytes,
-		KeyLoc: &signrpc.KeyLocator{
+		KeyLoc: &signrpc_pb.KeyLocator{
 			KeyFamily: int32(keychain.KeyFamilyNodeKey),
 			KeyIndex:  0,
 		},
@@ -70,10 +70,10 @@ func testDeriveSharedKey(net *lntest.NetworkHarness, t *harnessTest) {
 
 	// Test DeriveSharedKey with a KeyLoc being set in KeyDesc. The KeyLoc
 	// points to the node's pubkey.
-	req = &signrpc.SharedKeyRequest{
+	req = &signrpc_pb.SharedKeyRequest{
 		EphemeralPubkey: ephemeralPubBytes,
-		KeyDesc: &signrpc.KeyDescriptor{
-			KeyLoc: &signrpc.KeyLocator{
+		KeyDesc: &signrpc_pb.KeyDescriptor{
+			KeyLoc: &signrpc_pb.KeyLocator{
 				KeyFamily: int32(keychain.KeyFamilyNodeKey),
 				KeyIndex:  0,
 			},
@@ -83,11 +83,11 @@ func testDeriveSharedKey(net *lntest.NetworkHarness, t *harnessTest) {
 
 	// Test DeriveSharedKey with RawKeyBytes set in KeyDesc. The RawKeyBytes
 	// is the node's pubkey bytes, and the KeyFamily is KeyFamilyNodeKey.
-	req = &signrpc.SharedKeyRequest{
+	req = &signrpc_pb.SharedKeyRequest{
 		EphemeralPubkey: ephemeralPubBytes,
-		KeyDesc: &signrpc.KeyDescriptor{
+		KeyDesc: &signrpc_pb.KeyDescriptor{
 			RawKeyBytes: net.Alice.PubKey[:],
-			KeyLoc: &signrpc.KeyLocator{
+			KeyLoc: &signrpc_pb.KeyLocator{
 				KeyFamily: int32(keychain.KeyFamilyNodeKey),
 			},
 		},
@@ -96,9 +96,9 @@ func testDeriveSharedKey(net *lntest.NetworkHarness, t *harnessTest) {
 
 	// Test DeriveSharedKey with a KeyLoc which points to the customized
 	// public key.
-	req = &signrpc.SharedKeyRequest{
+	req = &signrpc_pb.SharedKeyRequest{
 		EphemeralPubkey: ephemeralPubBytes,
-		KeyLoc: &signrpc.KeyLocator{
+		KeyLoc: &signrpc_pb.KeyLocator{
 			KeyFamily: customizedKeyFamily,
 			KeyIndex:  customizedIndex,
 		},
@@ -107,10 +107,10 @@ func testDeriveSharedKey(net *lntest.NetworkHarness, t *harnessTest) {
 
 	// Test DeriveSharedKey with a KeyLoc being set in KeyDesc. The KeyLoc
 	// points to the customized public key.
-	req = &signrpc.SharedKeyRequest{
+	req = &signrpc_pb.SharedKeyRequest{
 		EphemeralPubkey: ephemeralPubBytes,
-		KeyDesc: &signrpc.KeyDescriptor{
-			KeyLoc: &signrpc.KeyLocator{
+		KeyDesc: &signrpc_pb.KeyDescriptor{
+			KeyLoc: &signrpc_pb.KeyLocator{
 				KeyFamily: customizedKeyFamily,
 				KeyIndex:  customizedIndex,
 			},
@@ -121,11 +121,11 @@ func testDeriveSharedKey(net *lntest.NetworkHarness, t *harnessTest) {
 	// Test DeriveSharedKey with RawKeyBytes set in KeyDesc. The RawKeyBytes
 	// is the customized public key. The KeyLoc is also set with the family
 	// being the customizedKeyFamily.
-	req = &signrpc.SharedKeyRequest{
+	req = &signrpc_pb.SharedKeyRequest{
 		EphemeralPubkey: ephemeralPubBytes,
-		KeyDesc: &signrpc.KeyDescriptor{
+		KeyDesc: &signrpc_pb.KeyDescriptor{
 			RawKeyBytes: customizedPub.SerializeCompressed(),
-			KeyLoc: &signrpc.KeyLocator{
+			KeyLoc: &signrpc_pb.KeyLocator{
 				KeyFamily: customizedKeyFamily,
 			},
 		},
@@ -134,7 +134,7 @@ func testDeriveSharedKey(net *lntest.NetworkHarness, t *harnessTest) {
 
 	// assertErrorMatch checks when calling DeriveSharedKey with invalid
 	// params, the expected error is returned.
-	assertErrorMatch := func(match string, req *signrpc.SharedKeyRequest) {
+	assertErrorMatch := func(match string, req *signrpc_pb.SharedKeyRequest) {
 		ctxt, _ := context.WithTimeout(ctxb, defaultTimeout)
 		_, errr := net.Alice.SignerClient.DeriveSharedKey(ctxt, req)
 		require.NoError(t.t, errr, "expected to have an error")
@@ -144,16 +144,16 @@ func testDeriveSharedKey(net *lntest.NetworkHarness, t *harnessTest) {
 	}
 
 	// Test that EphemeralPubkey must be supplied.
-	req = &signrpc.SharedKeyRequest{}
+	req = &signrpc_pb.SharedKeyRequest{}
 	assertErrorMatch("must provide ephemeral pubkey", req)
 
 	// Test that cannot use both KeyDesc and KeyLoc.
-	req = &signrpc.SharedKeyRequest{
+	req = &signrpc_pb.SharedKeyRequest{
 		EphemeralPubkey: ephemeralPubBytes,
-		KeyDesc: &signrpc.KeyDescriptor{
+		KeyDesc: &signrpc_pb.KeyDescriptor{
 			RawKeyBytes: customizedPub.SerializeCompressed(),
 		},
-		KeyLoc: &signrpc.KeyLocator{
+		KeyLoc: &signrpc_pb.KeyLocator{
 			KeyFamily: customizedKeyFamily,
 			KeyIndex:  0,
 		},
@@ -161,20 +161,20 @@ func testDeriveSharedKey(net *lntest.NetworkHarness, t *harnessTest) {
 	assertErrorMatch("use either key_desc or key_loc", req)
 
 	// Test when KeyDesc is used, KeyLoc must be set.
-	req = &signrpc.SharedKeyRequest{
+	req = &signrpc_pb.SharedKeyRequest{
 		EphemeralPubkey: ephemeralPubBytes,
-		KeyDesc: &signrpc.KeyDescriptor{
+		KeyDesc: &signrpc_pb.KeyDescriptor{
 			RawKeyBytes: net.Alice.PubKey[:],
 		},
 	}
 	assertErrorMatch("key_desc.key_loc must also be set", req)
 
 	// Test that cannot use both RawKeyBytes and KeyIndex.
-	req = &signrpc.SharedKeyRequest{
+	req = &signrpc_pb.SharedKeyRequest{
 		EphemeralPubkey: ephemeralPubBytes,
-		KeyDesc: &signrpc.KeyDescriptor{
+		KeyDesc: &signrpc_pb.KeyDescriptor{
 			RawKeyBytes: customizedPub.SerializeCompressed(),
-			KeyLoc: &signrpc.KeyLocator{
+			KeyLoc: &signrpc_pb.KeyLocator{
 				KeyFamily: customizedKeyFamily,
 				KeyIndex:  1,
 			},
@@ -189,7 +189,7 @@ func deriveCustomizedKey(ctx context.Context, node *lntest.HarnessNode,
 	family, index int32) (*btcec.PublicKey, er.R) {
 
 	ctxt, _ := context.WithTimeout(ctx, defaultTimeout)
-	req := &signrpc.KeyLocator{
+	req := &signrpc_pb.KeyLocator{
 		KeyFamily: family,
 		KeyIndex:  index,
 	}

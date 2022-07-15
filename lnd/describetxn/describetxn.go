@@ -118,7 +118,7 @@ func loadPrevOuts(
 		relevantOutput := txn.TxOut[vin.Vout]
 		a := txscript.PkScriptToAddress(relevantOutput.PkScript, chainParams).EncodeAddress()
 		if vin.Address != "unknown" && vin.Address != a {
-			log.Warn("For txin %s:%d - computed address is %s but prev txn address is %s",
+			log.Warnf("For txin %s:%d - computed address is %s but prev txn address is %s",
 				vin.Txid, vin.Vout, vin.Address, a)
 		}
 		vin.Address = a

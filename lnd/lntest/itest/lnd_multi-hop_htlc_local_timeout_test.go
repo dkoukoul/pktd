@@ -8,10 +8,10 @@ import (
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/btcutil/util"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
+	"github.com/pkt-cash/pktd/generated/proto/routerrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd"
 	"github.com/pkt-cash/pktd/lnd/lncfg"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/routerrpc"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 	"github.com/pkt-cash/pktd/lnd/lntest/wait"
 	"github.com/pkt-cash/pktd/wire"
@@ -59,7 +59,7 @@ func testMultiHopHtlcLocalTimeout(net *lntest.NetworkHarness, t *harnessTest,
 	payHash := makeFakePayHash(t)
 
 	_, errr := alice.RouterClient.SendPaymentV2(
-		ctx, &routerrpc.SendPaymentRequest{
+		ctx, &routerrpc_pb.SendPaymentRequest{
 			Dest:           carolPubKey,
 			Amt:            int64(dustHtlcAmt),
 			PaymentHash:    dustPayHash,
@@ -71,7 +71,7 @@ func testMultiHopHtlcLocalTimeout(net *lntest.NetworkHarness, t *harnessTest,
 	require.NoError(t.t, errr)
 
 	_, errr = alice.RouterClient.SendPaymentV2(
-		ctx, &routerrpc.SendPaymentRequest{
+		ctx, &routerrpc_pb.SendPaymentRequest{
 			Dest:           carolPubKey,
 			Amt:            int64(htlcAmt),
 			PaymentHash:    payHash,
@@ -176,7 +176,7 @@ func testMultiHopHtlcLocalTimeout(net *lntest.NetworkHarness, t *harnessTest,
 	// Bob's pending channel report should show that he has a commitment
 	// output awaiting sweeping, and also that there's an outgoing HTLC
 	// output pending.
-	pendingChansRequest := &lnrpc.PendingChannelsRequest{}
+	pendingChansRequest := &rpc_pb.PendingChannelsRequest{}
 	ctxt, _ := context.WithTimeout(ctxb, defaultTimeout)
 	pendingChanResp, errr := bob.PendingChannels(ctxt, pendingChansRequest)
 	require.NoError(t.t, errr)

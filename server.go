@@ -790,7 +790,7 @@ func (sp *serverPeer) OnGetCFHeaders(_ *peer.Peer, msg *wire.MsgGetCFHeaders) {
 		break
 
 	default:
-		log.Debug("Filter request for unknown headers for "+
+		log.Debugf("Filter request for unknown headers for "+
 			"filter: %v", msg.FilterType)
 		return
 	}
@@ -907,7 +907,7 @@ func (sp *serverPeer) OnGetCFCheckpt(_ *peer.Peer, msg *wire.MsgGetCFCheckpt) {
 		break
 
 	default:
-		log.Debug("Filter request for unknown checkpoints for "+
+		log.Debugf("Filter request for unknown checkpoints for "+
 			"filter: %v", msg.FilterType)
 		return
 	}

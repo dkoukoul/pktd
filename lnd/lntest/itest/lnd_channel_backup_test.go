@@ -15,8 +15,8 @@ import (
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/btcutil/util"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd/chanbackup"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 	"github.com/pkt-cash/pktd/lnd/lntest/wait"
 	"github.com/pkt-cash/pktd/wire"
@@ -49,7 +49,7 @@ func testChannelBackupRestore(net *lntest.NetworkHarness, t *harnessTest) {
 				// current multi-channel backup from the old
 				// node, and use it to restore a new node
 				// within the closure.
-				req := &lnrpc.ChanBackupExportRequest{}
+				req := &rpc_pb.ChanBackupExportRequest{}
 				chanBackup, err := oldNode.ExportAllChannelBackups(
 					ctxb, req,
 				)
@@ -108,13 +108,13 @@ func testChannelBackupRestore(net *lntest.NetworkHarness, t *harnessTest) {
 				// First, fetch the current backup state as is,
 				// to obtain our latest Multi.
 				chanBackup, err := oldNode.ExportAllChannelBackups(
-					ctxb, &lnrpc.ChanBackupExportRequest{},
+					ctxb, &rpc_pb.ChanBackupExportRequest{},
 				)
 				if err != nil {
 					return nil, er.Errorf("unable to obtain "+
 						"channel backup: %v", err)
 				}
-				backupSnapshot := &lnrpc.ChanBackupSnapshot{
+				backupSnapshot := &rpc_pb.ChanBackupSnapshot{
 					MultiChanBackup: chanBackup.MultiChanBackup,
 				}
 
@@ -143,13 +143,13 @@ func testChannelBackupRestore(net *lntest.NetworkHarness, t *harnessTest) {
 				// First, fetch the current backup state as is,
 				// to obtain our latest Multi.
 				chanBackup, err := oldNode.ExportAllChannelBackups(
-					ctxb, &lnrpc.ChanBackupExportRequest{},
+					ctxb, &rpc_pb.ChanBackupExportRequest{},
 				)
 				if err != nil {
 					return nil, er.Errorf("unable to obtain "+
 						"channel backup: %v", err)
 				}
-				backupSnapshot := &lnrpc.ChanBackupSnapshot{
+				backupSnapshot := &rpc_pb.ChanBackupSnapshot{
 					MultiChanBackup: chanBackup.MultiChanBackup,
 				}
 
@@ -198,7 +198,7 @@ func testChannelBackupRestore(net *lntest.NetworkHarness, t *harnessTest) {
 				// Now that we have Dave's backup file, we'll
 				// create a new nodeRestorer that will restore
 				// using the on-disk channels.backup.
-				backup := &lnrpc.RestoreChanBackupRequest_MultiChanBackup{
+				backup := &rpc_pb.RestoreChanBackupRequest_MultiChanBackup{
 					MultiChanBackup: multi,
 				}
 
@@ -216,7 +216,7 @@ func testChannelBackupRestore(net *lntest.NetworkHarness, t *harnessTest) {
 
 					_, errr := newNode.RestoreChannelBackups(
 						ctxb,
-						&lnrpc.RestoreChanBackupRequest{
+						&rpc_pb.RestoreChanBackupRequest{
 							Backup: backup,
 						},
 					)
@@ -228,7 +228,7 @@ func testChannelBackupRestore(net *lntest.NetworkHarness, t *harnessTest) {
 
 					_, errr = newNode.RestoreChannelBackups(
 						ctxb,
-						&lnrpc.RestoreChanBackupRequest{
+						&rpc_pb.RestoreChanBackupRequest{
 							Backup: backup,
 						},
 					)
@@ -298,7 +298,7 @@ func testChannelBackupRestore(net *lntest.NetworkHarness, t *harnessTest) {
 				// current multi-channel backup from the old
 				// node. The channel should be included, even if
 				// it is not confirmed yet.
-				req := &lnrpc.ChanBackupExportRequest{}
+				req := &rpc_pb.ChanBackupExportRequest{}
 				chanBackup, err := oldNode.ExportAllChannelBackups(
 					ctxb, req,
 				)
@@ -410,7 +410,7 @@ func testChannelBackupUpdates(net *lntest.NetworkHarness, t *harnessTest) {
 	// Next, we'll register for streaming notifications for changes to the
 	// backup file.
 	backupStream, err := carol.SubscribeChannelBackups(
-		ctxb, &lnrpc.ChannelBackupSubscription{},
+		ctxb, &rpc_pb.ChannelBackupSubscription{},
 	)
 	if err != nil {
 		t.Fatalf("unable to create backup stream: %v", err)
@@ -419,7 +419,7 @@ func testChannelBackupUpdates(net *lntest.NetworkHarness, t *harnessTest) {
 	// We'll use this goroutine to proxy any updates to a channel we can
 	// easily use below.
 	var wg sync.WaitGroup
-	backupUpdates := make(chan *lnrpc.ChanBackupSnapshot)
+	backupUpdates := make(chan *rpc_pb.ChanBackupSnapshot)
 	streamErr := make(chan er.R)
 	streamQuit := make(chan struct{})
 
@@ -453,7 +453,7 @@ func testChannelBackupUpdates(net *lntest.NetworkHarness, t *harnessTest) {
 	}
 
 	// Next, we'll open two channels between Alice and Carol back to back.
-	var chanPoints []*lnrpc.ChannelPoint
+	var chanPoints []*rpc_pb.ChannelPoint
 	numChans := 2
 	chanAmt := btcutil.Amount(1000000)
 	for i := 0; i < numChans; i++ {
@@ -470,7 +470,7 @@ func testChannelBackupUpdates(net *lntest.NetworkHarness, t *harnessTest) {
 
 	// Using this helper function, we'll maintain a pointer to the latest
 	// channel backup so we can compare it to the on disk state.
-	var currentBackup *lnrpc.ChanBackupSnapshot
+	var currentBackup *rpc_pb.ChanBackupSnapshot
 	assertBackupNtfns := func(numNtfns int) {
 		for i := 0; i < numNtfns; i++ {
 			select {
@@ -509,8 +509,8 @@ func testChannelBackupUpdates(net *lntest.NetworkHarness, t *harnessTest) {
 			// Additionally, we'll assert that both backups up
 			// returned are valid.
 			for i, backup := range [][]byte{rawBackup, packedBackup} {
-				snapshot := &lnrpc.ChanBackupSnapshot{
-					MultiChanBackup: &lnrpc.MultiChanBackup{
+				snapshot := &rpc_pb.ChanBackupSnapshot{
+					MultiChanBackup: &rpc_pb.MultiChanBackup{
 						MultiChanBackup: backup,
 					},
 				}
@@ -587,7 +587,7 @@ func testExportChannelBackup(net *lntest.NetworkHarness, t *harnessTest) {
 	}
 
 	// Next, we'll open two channels between Alice and Carol back to back.
-	var chanPoints []*lnrpc.ChannelPoint
+	var chanPoints []*rpc_pb.ChannelPoint
 	numChans := 2
 	chanAmt := btcutil.Amount(1000000)
 	for i := 0; i < numChans; i++ {
@@ -606,7 +606,7 @@ func testExportChannelBackup(net *lntest.NetworkHarness, t *harnessTest) {
 	// backups of each of the channels.
 	for _, chanPoint := range chanPoints {
 		ctxt, _ := context.WithTimeout(ctxb, defaultTimeout)
-		req := &lnrpc.ExportChannelBackupRequest{
+		req := &rpc_pb.ExportChannelBackupRequest{
 			ChanPoint: chanPoint,
 		}
 		chanBackup, err := carol.ExportChannelBackup(ctxt, req)
@@ -635,7 +635,7 @@ func testExportChannelBackup(net *lntest.NetworkHarness, t *harnessTest) {
 	assertNumSingleBackups := func(numSingles int) {
 		err := wait.NoError(func() er.R {
 			ctxt, _ := context.WithTimeout(ctxb, defaultTimeout)
-			req := &lnrpc.ChanBackupExportRequest{}
+			req := &rpc_pb.ChanBackupExportRequest{}
 			chanSnapshot, err := carol.ExportAllChannelBackups(
 				ctxt, req,
 			)
@@ -663,7 +663,7 @@ func testExportChannelBackup(net *lntest.NetworkHarness, t *harnessTest) {
 	}
 	assertMultiBackupFound := func() func(bool, map[wire.OutPoint]struct{}) {
 		ctxt, _ := context.WithTimeout(ctxb, defaultTimeout)
-		req := &lnrpc.ChanBackupExportRequest{}
+		req := &rpc_pb.ChanBackupExportRequest{}
 		chanSnapshot, err := carol.ExportAllChannelBackups(ctxt, req)
 		if err != nil {
 			t.Fatalf("unable to export channel backup: %v", err)
@@ -895,7 +895,7 @@ func testChanRestoreScenario(t *harnessTest, net *lntest.NetworkHarness,
 	// If both parties should start with existing channel updates, then
 	// we'll send+settle an HTLC between 'from' and 'to' now.
 	if testCase.channelsUpdated {
-		invoice := &lnrpc.Invoice{
+		invoice := &rpc_pb.Invoice{
 			Memo:  "testing",
 			Value: 10000,
 		}
@@ -916,7 +916,7 @@ func testChanRestoreScenario(t *harnessTest, net *lntest.NetworkHarness,
 
 	// Before we start the recovery, we'll record the balances of both
 	// Carol and Dave to ensure they both sweep their coins at the end.
-	balReq := &lnrpc.WalletBalanceRequest{}
+	balReq := &rpc_pb.WalletBalanceRequest{}
 	ctxt, _ = context.WithTimeout(ctxb, defaultTimeout)
 	carolBalResp, errr := carol.WalletBalance(ctxt, balReq)
 	if errr != nil {
@@ -959,7 +959,7 @@ func testChanRestoreScenario(t *harnessTest, net *lntest.NetworkHarness,
 	// First ensure that the on-chain balance is restored.
 	err = wait.NoError(func() er.R {
 		ctxt, _ := context.WithTimeout(ctxb, defaultTimeout)
-		balReq := &lnrpc.WalletBalanceRequest{}
+		balReq := &rpc_pb.WalletBalanceRequest{}
 		daveBalResp, err := dave.WalletBalance(ctxt, balReq)
 		if err != nil {
 			return er.E(err)
@@ -985,7 +985,7 @@ func testChanRestoreScenario(t *harnessTest, net *lntest.NetworkHarness,
 	ctxt, cancel := context.WithTimeout(ctxb, defaultTimeout)
 	defer cancel()
 	pendingChanResp, errr := dave.PendingChannels(
-		ctxt, &lnrpc.PendingChannelsRequest{},
+		ctxt, &rpc_pb.PendingChannelsRequest{},
 	)
 	require.NoError(t.t, errr)
 
@@ -996,9 +996,9 @@ func testChanRestoreScenario(t *harnessTest, net *lntest.NetworkHarness,
 		":",
 	)
 	chanPointIndex, _ := strconv.ParseUint(chanPointParts[1], 10, 32)
-	resp, errr := dave.CloseChannel(ctxt, &lnrpc.CloseChannelRequest{
-		ChannelPoint: &lnrpc.ChannelPoint{
-			FundingTxid: &lnrpc.ChannelPoint_FundingTxidStr{
+	resp, errr := dave.CloseChannel(ctxt, &rpc_pb.CloseChannelRequest{
+		ChannelPoint: &rpc_pb.ChannelPoint{
+			FundingTxid: &rpc_pb.ChannelPoint_FundingTxidStr{
 				FundingTxidStr: chanPointParts[0],
 			},
 			OutputIndex: uint32(chanPointIndex),
@@ -1050,7 +1050,7 @@ func chanRestoreViaRPC(net *lntest.NetworkHarness,
 	password []byte, mnemonic []string,
 	multi []byte) (nodeRestorer, er.R) {
 
-	backup := &lnrpc.RestoreChanBackupRequest_MultiChanBackup{
+	backup := &rpc_pb.RestoreChanBackupRequest_MultiChanBackup{
 		MultiChanBackup: multi,
 	}
 
@@ -1066,7 +1066,7 @@ func chanRestoreViaRPC(net *lntest.NetworkHarness,
 		}
 
 		_, errr := newNode.RestoreChannelBackups(
-			ctxb, &lnrpc.RestoreChanBackupRequest{
+			ctxb, &rpc_pb.RestoreChanBackupRequest{
 				Backup: backup,
 			},
 		)

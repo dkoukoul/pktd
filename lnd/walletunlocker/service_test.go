@@ -13,7 +13,7 @@ import (
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/btcutil/util"
 	"github.com/pkt-cash/pktd/chaincfg"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
+	"github.com/pkt-cash/pktd/generated/proto/walletunlocker_pb"
 	"github.com/pkt-cash/pktd/lnd/lnwallet/btcwallet"
 	"github.com/pkt-cash/pktd/lnd/walletunlocker"
 	"github.com/pkt-cash/pktd/pktlog/log"
@@ -118,7 +118,7 @@ func TestGenSeed(t *testing.T) {
 	// Now that the service has been created, we'll ask it to generate a
 	// new seed for us given a test passphrase.
 	seedPass := []byte("kek")
-	genSeedReq := &lnrpc.GenSeedRequest{
+	genSeedReq := &walletunlocker_pb.GenSeedRequest{
 		SeedPassphraseBin: seedPass,
 		SeedEntropy:       make([]byte, 0),
 	}
@@ -155,7 +155,7 @@ func TestGenSeedGenerateEntropy(t *testing.T) {
 	// Now that the service has been created, we'll ask it to generate a
 	// new seed for us given a test passphrase. Note that we don't actually
 	aezeedPass := []byte("kek")
-	genSeedReq := &lnrpc.GenSeedRequest{
+	genSeedReq := &rpc_pb.GenSeedRequest{
 		AezeedPassphrase: aezeedPass,
 	}
 
@@ -190,7 +190,7 @@ func TestGenSeedInvalidEntropy(t *testing.T) {
 	// new seed for us given a test passphrase. However, we'll be using an
 	// invalid set of entropy that's 55 bytes, instead of 15 bytes.
 	seedPass := []byte("kek")
-	genSeedReq := &lnrpc.GenSeedRequest{
+	genSeedReq := &walletunlocker_pb.GenSeedRequest{
 		SeedPassphraseBin: seedPass,
 		SeedEntropy:       bytes.Repeat([]byte("a"), 55),
 	}
@@ -228,7 +228,7 @@ func TestInitWallet(t *testing.T) {
 	// seed, then send over the initialization information over the init
 	// channel.
 	ctx := context.Background()
-	req := &lnrpc.InitWalletRequest{
+	req := &walletunlocker_pb.InitWalletRequest{
 		WalletPassphraseBin: testPassword,
 		WalletSeed:          strings.Split(mnemonic, " "),
 		SeedPassphraseBin:   pass,
@@ -277,7 +277,7 @@ func TestInitWallet(t *testing.T) {
 
 	// Similarly, if we try to do GenSeed again, we should get an error as
 	// the wallet already exists.
-	_, errr = service.GenSeed(ctx, &lnrpc.GenSeedRequest{})
+	_, errr = service.GenSeed(ctx, &walletunlocker_pb.GenSeedRequest{})
 	require.Error(t, errr)
 	require.Contains(t, errr.Error(), "wallet already exists")
 }
@@ -300,7 +300,7 @@ func TestCreateWalletInvalidEntropy(t *testing.T) {
 
 	// We'll attempt to init the wallet with an invalid cipher seed and
 	// passphrase.
-	req := &lnrpc.InitWalletRequest{
+	req := &walletunlocker_pb.InitWalletRequest{
 		WalletPassphraseBin: testPassword,
 		WalletSeed:          []string{"invalid", "seed"},
 		SeedPassphraseBin:   []byte("fake pass"),
@@ -330,7 +330,7 @@ func TestUnlockWallet(t *testing.T) {
 	service := walletunlocker.New(testDir, testNetParams, true, "", testWalletFilename)
 
 	ctx := context.Background()
-	req := &lnrpc.UnlockWalletRequest{
+	req := &walletunlocker_pb.UnlockWalletRequest{
 		WalletPassphraseBin: testPassword,
 		RecoveryWindow:      int32(testRecoveryWindow),
 	}
@@ -344,7 +344,7 @@ func TestUnlockWallet(t *testing.T) {
 	createTestWallet(t, testDir, testNetParams)
 
 	// Try unlocking this wallet with the wrong passphrase.
-	wrongReq := &lnrpc.UnlockWalletRequest{
+	wrongReq := &walletunlocker_pb.UnlockWalletRequest{
 		WalletPassphraseBin: []byte("wrong-ofc"),
 	}
 	_, err = service.UnlockWallet(ctx, wrongReq)

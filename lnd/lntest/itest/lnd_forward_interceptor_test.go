@@ -8,10 +8,10 @@ import (
 
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/generated/proto/routerrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd"
 	"github.com/pkt-cash/pktd/lnd/chainreg"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/routerrpc"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 	"github.com/pkt-cash/pktd/lnd/routing/route"
 	"github.com/pkt-cash/pktd/wire"
@@ -27,9 +27,9 @@ var (
 
 type interceptorTestCase struct {
 	amountMsat        int64
-	invoice           *lnrpc.Invoice
+	invoice           *rpc_pb.Invoice
 	shouldHold        bool
-	interceptorAction routerrpc.ResolveHoldForwardAction
+	interceptorAction routerrpc_pb.ResolveHoldForwardAction
 }
 
 // testForwardInterceptor tests the forward interceptor RPC layer.
@@ -72,7 +72,7 @@ func testForwardInterceptor(net *lntest.NetworkHarness, t *harnessTest) {
 	}
 
 	// A channel for the interceptor go routine to send the requested packets.
-	interceptedChan := make(chan *routerrpc.ForwardHtlcInterceptRequest,
+	interceptedChan := make(chan *routerrpc_pb.ForwardHtlcInterceptRequest,
 		len(testCases))
 
 	// Run the interceptor loop in its own go routine.
@@ -116,17 +116,17 @@ func testForwardInterceptor(net *lntest.NetworkHarness, t *harnessTest) {
 
 			switch tc.interceptorAction {
 			// For 'fail' interceptor action we make sure the payment failed.
-			case routerrpc.ResolveHoldForwardAction_FAIL:
-				if attempt.Status != lnrpc.HTLCAttempt_FAILED {
+			case routerrpc_pb.ResolveHoldForwardAction_FAIL:
+				if attempt.Status != rpc_pb.HTLCAttempt_FAILED {
 					t.t.Errorf("expected payment to fail, instead got %v", attempt.Status)
 				}
 
 			// For settle and resume we make sure the payment is successful.
-			case routerrpc.ResolveHoldForwardAction_SETTLE:
+			case routerrpc_pb.ResolveHoldForwardAction_SETTLE:
 				fallthrough
 
-			case routerrpc.ResolveHoldForwardAction_RESUME:
-				if attempt.Status != lnrpc.HTLCAttempt_SUCCEEDED {
+			case routerrpc_pb.ResolveHoldForwardAction_RESUME:
+				if attempt.Status != rpc_pb.HTLCAttempt_SUCCEEDED {
 					t.t.Errorf("expected payment to succeed, instead got %v", attempt.Status)
 				}
 			}
@@ -165,7 +165,7 @@ func testForwardInterceptor(net *lntest.NetworkHarness, t *harnessTest) {
 			}
 
 			// For all other packets we resolve according to the test case.
-			_ = interceptor.Send(&routerrpc.ForwardHtlcInterceptResponse{
+			_ = interceptor.Send(&routerrpc_pb.ForwardHtlcInterceptResponse{
 				IncomingCircuitKey: request.IncomingCircuitKey,
 				Action:             testCase.interceptorAction,
 				Preimage:           testCase.invoice.RPreimage,
@@ -179,14 +179,14 @@ func testForwardInterceptor(net *lntest.NetworkHarness, t *harnessTest) {
 	// each one of them has a corresponding 'in-flight' payment at
 	// Alice's node.
 	payments, errr := testContext.alice.ListPayments(context.Background(),
-		&lnrpc.ListPaymentsRequest{IncludeIncomplete: true})
+		&rpc_pb.ListPaymentsRequest{IncludeIncomplete: true})
 	if errr != nil {
 		t.Fatalf("failed to fetch payments")
 	}
 	for _, testCase := range testCases {
 		if testCase.shouldHold {
 			hashStr := hex.EncodeToString(testCase.invoice.RHash)
-			var foundPayment *lnrpc.Payment
+			var foundPayment *rpc_pb.Payment
 			expectedAmt := testCase.invoice.ValueMsat
 			for _, p := range payments.Payments {
 				if p.PaymentHash == hashStr {
@@ -199,7 +199,7 @@ func testForwardInterceptor(net *lntest.NetworkHarness, t *harnessTest) {
 					"htlc %v", hashStr)
 			}
 			if foundPayment.ValueMsat != expectedAmt ||
-				foundPayment.Status != lnrpc.Payment_IN_FLIGHT {
+				foundPayment.Status != rpc_pb.Payment_IN_FLIGHT {
 
 				t.Fatalf("expected to find in flight payment for"+
 					"amount %v, %v", testCase.invoice.ValueMsat, foundPayment.Status)
@@ -221,7 +221,7 @@ type interceptorTestContext struct {
 	net *lntest.NetworkHarness
 
 	// Keep a list of all our active channels.
-	networkChans      []*lnrpc.ChannelPoint
+	networkChans      []*rpc_pb.ChannelPoint
 	closeChannelFuncs []func()
 
 	alice, bob, carol *lntest.HarnessNode
@@ -272,23 +272,23 @@ func (c *interceptorTestContext) prepareTestCases() (
 
 	cases := []*interceptorTestCase{
 		{amountMsat: 1000, shouldHold: false,
-			interceptorAction: routerrpc.ResolveHoldForwardAction_FAIL},
+			interceptorAction: routerrpc_pb.ResolveHoldForwardAction_FAIL},
 		{amountMsat: 1000, shouldHold: false,
-			interceptorAction: routerrpc.ResolveHoldForwardAction_RESUME},
+			interceptorAction: routerrpc_pb.ResolveHoldForwardAction_RESUME},
 		{amountMsat: 1000, shouldHold: false,
-			interceptorAction: routerrpc.ResolveHoldForwardAction_SETTLE},
+			interceptorAction: routerrpc_pb.ResolveHoldForwardAction_SETTLE},
 		{amountMsat: 1000, shouldHold: true,
-			interceptorAction: routerrpc.ResolveHoldForwardAction_RESUME},
+			interceptorAction: routerrpc_pb.ResolveHoldForwardAction_RESUME},
 	}
 
 	for _, t := range cases {
-		addResponse, err := c.carol.AddInvoice(context.Background(), &lnrpc.Invoice{
+		addResponse, err := c.carol.AddInvoice(context.Background(), &rpc_pb.Invoice{
 			ValueMsat: t.amountMsat,
 		})
 		if err != nil {
 			return nil, er.Errorf("unable to add invoice: %v", err)
 		}
-		invoice, err := c.carol.LookupInvoice(context.Background(), &lnrpc.PaymentHash{
+		invoice, err := c.carol.LookupInvoice(context.Background(), &rpc_pb.PaymentHash{
 			RHash: addResponse.RHash,
 		})
 		if err != nil {
@@ -363,16 +363,16 @@ func (c *interceptorTestContext) waitForChannels() {
 }
 
 // sendAliceToCarolPayment sends a payment from alice to carol and make an
-// attempt to pay. The lnrpc.HTLCAttempt is returned.
+// attempt to pay. The rpc_pb.HTLCAttempt is returned.
 func (c *interceptorTestContext) sendAliceToCarolPayment(ctx context.Context,
-	amtMsat int64, paymentHash []byte) (*lnrpc.HTLCAttempt, er.R) {
+	amtMsat int64, paymentHash []byte) (*rpc_pb.HTLCAttempt, er.R) {
 
 	// Build a route from alice to carol.
 	route, err := c.buildRoute(ctx, amtMsat, []*lntest.HarnessNode{c.bob, c.carol})
 	if err != nil {
 		return nil, err
 	}
-	sendReq := &routerrpc.SendToRouteRequest{
+	sendReq := &routerrpc_pb.SendToRouteRequest{
 		PaymentHash: paymentHash,
 		Route:       route,
 	}
@@ -392,7 +392,7 @@ func (c *interceptorTestContext) sendAliceToCarolPayment(ctx context.Context,
 
 // buildRoute is a helper function to build a route with given hops.
 func (c *interceptorTestContext) buildRoute(ctx context.Context, amtMsat int64, hops []*lntest.HarnessNode) (
-	*lnrpc.Route, er.R) {
+	*rpc_pb.Route, er.R) {
 
 	rpcHops := make([][]byte, 0, len(hops))
 	for _, hop := range hops {
@@ -405,7 +405,7 @@ func (c *interceptorTestContext) buildRoute(ctx context.Context, amtMsat int64, 
 		rpcHops = append(rpcHops, pubkey[:])
 	}
 
-	req := &routerrpc.BuildRouteRequest{
+	req := &routerrpc_pb.BuildRouteRequest{
 		AmtMsat:        amtMsat,
 		FinalCltvDelta: chainreg.DefaultBitcoinTimeLockDelta,
 		HopPubkeys:     rpcHops,

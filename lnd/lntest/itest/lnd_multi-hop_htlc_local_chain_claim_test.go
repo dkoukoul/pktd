@@ -5,11 +5,11 @@ import (
 
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/btcutil/util"
+	"github.com/pkt-cash/pktd/generated/proto/invoicesrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/routerrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd"
 	"github.com/pkt-cash/pktd/lnd/lncfg"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/invoicesrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/routerrpc"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 	"github.com/pkt-cash/pktd/lnd/lntest/wait"
 	"github.com/pkt-cash/pktd/lnd/lntypes"
@@ -43,7 +43,7 @@ func testMultiHopHtlcLocalChainClaim(net *lntest.NetworkHarness, t *harnessTest,
 	const invoiceAmt = 100000
 	preimage := lntypes.Preimage{1, 2, 3}
 	payHash := preimage.Hash()
-	invoiceReq := &invoicesrpc.AddHoldInvoiceRequest{
+	invoiceReq := &invoicesrpc_pb.AddHoldInvoiceRequest{
 		Value:      invoiceAmt,
 		CltvExpiry: 40,
 		Hash:       payHash[:],
@@ -60,7 +60,7 @@ func testMultiHopHtlcLocalChainClaim(net *lntest.NetworkHarness, t *harnessTest,
 	defer cancel()
 
 	_, errr = alice.RouterClient.SendPaymentV2(
-		ctx, &routerrpc.SendPaymentRequest{
+		ctx, &routerrpc_pb.SendPaymentRequest{
 			PaymentRequest: carolInvoice.PaymentRequest,
 			TimeoutSeconds: 60,
 			FeeLimitMsat:   noFeeLimitMsat,
@@ -114,7 +114,7 @@ func testMultiHopHtlcLocalChainClaim(net *lntest.NetworkHarness, t *harnessTest,
 	// channel arbitrator won't go to chain.
 	ctx, cancel = context.WithTimeout(ctxb, defaultTimeout)
 	defer cancel()
-	_, errr = carol.SettleInvoice(ctx, &invoicesrpc.SettleInvoiceMsg{
+	_, errr = carol.SettleInvoice(ctx, &invoicesrpc_pb.SettleInvoiceMsg{
 		Preimage: preimage[:],
 	})
 	require.NoError(t.t, errr)
@@ -289,7 +289,7 @@ func testMultiHopHtlcLocalChainClaim(net *lntest.NetworkHarness, t *harnessTest,
 	// succeeded.
 	ctxt, _ = context.WithTimeout(ctxt, defaultTimeout)
 	err = checkPaymentStatus(
-		ctxt, alice, preimage, lnrpc.Payment_SUCCEEDED,
+		ctxt, alice, preimage, rpc_pb.Payment_SUCCEEDED,
 	)
 	util.RequireNoErr(t.t, err)
 }

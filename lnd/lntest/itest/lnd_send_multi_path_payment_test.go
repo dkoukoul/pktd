@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 
 	"github.com/pkt-cash/pktd/btcutil"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/routerrpc"
+	"github.com/pkt-cash/pktd/generated/proto/routerrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 )
 
@@ -46,8 +46,8 @@ func testSendMultiPathPayment(net *lntest.NetworkHarness, t *harnessTest) {
 	// or Dave for the first shard.
 	_, errr := ctx.dave.UpdateChannelPolicy(
 		context.Background(),
-		&lnrpc.PolicyUpdateRequest{
-			Scope:         &lnrpc.PolicyUpdateRequest_Global{Global: true},
+		&rpc_pb.PolicyUpdateRequest{
+			Scope:         &rpc_pb.PolicyUpdateRequest_Global{Global: true},
 			BaseFeeMsat:   500000,
 			FeeRate:       0.001,
 			TimeLockDelta: 40,
@@ -70,7 +70,7 @@ func testSendMultiPathPayment(net *lntest.NetworkHarness, t *harnessTest) {
 
 	payment := sendAndAssertSuccess(
 		t, net.Alice,
-		&routerrpc.SendPaymentRequest{
+		&routerrpc_pb.SendPaymentRequest{
 			PaymentRequest: payReq,
 			MaxParts:       10,
 			TimeoutSeconds: 60,
@@ -92,7 +92,7 @@ func testSendMultiPathPayment(net *lntest.NetworkHarness, t *harnessTest) {
 	// minimum.
 	succeeded := 0
 	for _, htlc := range payment.Htlcs {
-		if htlc.Status == lnrpc.HTLCAttempt_SUCCEEDED {
+		if htlc.Status == rpc_pb.HTLCAttempt_SUCCEEDED {
 			succeeded++
 		}
 	}
@@ -107,7 +107,7 @@ func testSendMultiPathPayment(net *lntest.NetworkHarness, t *harnessTest) {
 	// amount.
 	ctxt, _ := context.WithTimeout(ctxb, defaultTimeout)
 	inv, errr := ctx.bob.LookupInvoice(
-		ctxt, &lnrpc.PaymentHash{
+		ctxt, &rpc_pb.PaymentHash{
 			RHash: rHash,
 		},
 	)
@@ -121,13 +121,13 @@ func testSendMultiPathPayment(net *lntest.NetworkHarness, t *harnessTest) {
 			paymentAmt, inv.AmtPaidSat)
 	}
 
-	if inv.State != lnrpc.Invoice_SETTLED {
+	if inv.State != rpc_pb.Invoice_SETTLED {
 		t.Fatalf("Invoice not settled: %v", inv.State)
 	}
 
 	settled := 0
 	for _, htlc := range inv.Htlcs {
-		if htlc.State == lnrpc.InvoiceHTLCState_SETTLED {
+		if htlc.State == rpc_pb.InvoiceHTLCState_SETTLED {
 			settled++
 		}
 

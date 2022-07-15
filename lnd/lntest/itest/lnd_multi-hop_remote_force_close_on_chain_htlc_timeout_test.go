@@ -6,7 +6,7 @@ import (
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/btcutil/util"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/routerrpc"
+	"github.com/pkt-cash/pktd/generated/proto/routerrpc_pb"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 	"github.com/pkt-cash/pktd/lnd/lntest/wait"
 	"github.com/stretchr/testify/require"
@@ -47,7 +47,7 @@ func testMultiHopRemoteForceCloseOnChainHtlcTimeout(net *lntest.NetworkHarness,
 	carolPubKey := carol.PubKey[:]
 	payHash := makeFakePayHash(t)
 	_, errr := alice.RouterClient.SendPaymentV2(
-		ctx, &routerrpc.SendPaymentRequest{
+		ctx, &routerrpc_pb.SendPaymentRequest{
 			Dest:           carolPubKey,
 			Amt:            int64(htlcAmt),
 			PaymentHash:    payHash,

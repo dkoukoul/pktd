@@ -20,12 +20,13 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/btcutil/util"
+	"github.com/pkt-cash/pktd/generated/proto/autopilotrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/chainrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/routerrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/verrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/walletrpc_pb"
 	"github.com/pkt-cash/pktd/lnd/lnrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/autopilotrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/chainrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/routerrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/verrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/walletrpc"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -62,7 +63,7 @@ func testRestAPI(net *lntest.NetworkHarness, ht *harnessTest) {
 		run: func(t *testing.T, a, b *lntest.HarnessNode) {
 			// Check that the parsing into the response proto
 			// message works.
-			resp := &lnrpc.GetInfoResponse{}
+			resp := &rpc_pb.GetInfoResponse{}
 			err := invokeGET(a, "/v1/getinfo", resp)
 			require.Nil(t, err, "getinfo")
 			assert.Equal(t, "#3399ff", resp.Color, "node color")
@@ -82,8 +83,8 @@ func testRestAPI(net *lntest.NetworkHarness, ht *harnessTest) {
 		name: "simple POST and GET with query param",
 		run: func(t *testing.T, a, b *lntest.HarnessNode) {
 			// Add an invoice, testing POST in the process.
-			req := &lnrpc.Invoice{Value: 1234}
-			resp := &lnrpc.AddInvoiceResponse{}
+			req := &rpc_pb.Invoice{Value: 1234}
+			resp := &rpc_pb.AddInvoiceResponse{}
 			err := invokePOST(a, "/v1/invoices", req, resp)
 			require.Nil(t, err, "add invoice")
 			assert.Equal(t, 32, len(resp.RHash), "invoice rhash")
@@ -91,7 +92,7 @@ func testRestAPI(net *lntest.NetworkHarness, ht *harnessTest) {
 			// Make sure we can call a GET endpoint with a hex
 			// encoded URL part.
 			url := fmt.Sprintf("/v1/invoice/%x", resp.RHash)
-			resp2 := &lnrpc.Invoice{}
+			resp2 := &rpc_pb.Invoice{}
 			err = invokeGET(a, url, resp2)
 			require.Nil(t, err, "query invoice")
 			assert.Equal(t, int64(1234), resp2.Value, "invoice amt")
@@ -104,7 +105,7 @@ func testRestAPI(net *lntest.NetworkHarness, ht *harnessTest) {
 				url, urlEnc.EncodeToString(a.PubKey[:]),
 				urlEnc.EncodeToString(b.PubKey[:]), 1234,
 			)
-			resp := &routerrpc.QueryProbabilityResponse{}
+			resp := &routerrpc_pb.QueryProbabilityResponse{}
 			err := invokeGET(a, url, resp)
 			require.Nil(t, err, "query probability")
 			assert.Greater(t, resp.Probability, 0.5, "probability")
@@ -114,8 +115,8 @@ func testRestAPI(net *lntest.NetworkHarness, ht *harnessTest) {
 		run: func(t *testing.T, a, b *lntest.HarnessNode) {
 			// Get a new wallet address from Alice.
 			ctxb := context.Background()
-			newAddrReq := &lnrpc.NewAddressRequest{
-				Type: lnrpc.AddressType_WITNESS_PUBKEY_HASH,
+			newAddrReq := &rpc_pb.NewAddressRequest{
+				Type: rpc_pb.AddressType_WITNESS_PUBKEY_HASH,
 			}
 			addrRes, errr := a.NewAddress(ctxb, newAddrReq)
 			require.Nil(t, errr, "get address")
@@ -124,7 +125,7 @@ func testRestAPI(net *lntest.NetworkHarness, ht *harnessTest) {
 			url := "/v1/transactions/fee?target_conf=%d&" +
 				"AddrToAmount[%s]=%d"
 			url = fmt.Sprintf(url, 2, addrRes.Address, 50000)
-			resp := &lnrpc.EstimateFeeResponse{}
+			resp := &rpc_pb.EstimateFeeResponse{}
 			err := invokeGET(a, url, resp)
 			require.Nil(t, err, "estimate fee")
 			assert.Greater(t, resp.FeeSat, int64(253), "fee")
@@ -133,13 +134,13 @@ func testRestAPI(net *lntest.NetworkHarness, ht *harnessTest) {
 		name: "sub RPC servers REST support",
 		run: func(t *testing.T, a, b *lntest.HarnessNode) {
 			// Query autopilot status.
-			res1 := &autopilotrpc.StatusResponse{}
+			res1 := &autopilotrpc_pb.StatusResponse{}
 			err := invokeGET(a, "/v2/autopilot/status", res1)
 			require.Nil(t, err, "autopilot status")
 			assert.Equal(t, false, res1.Active, "autopilot status")
 
 			// Query the version RPC.
-			res2 := &verrpc.Version{}
+			res2 := &verrpc_pb.Version{}
 			err = invokeGET(a, "/v2/versioner/version", res2)
 			require.Nil(t, err, "version")
 			assert.Greater(
@@ -147,8 +148,8 @@ func testRestAPI(net *lntest.NetworkHarness, ht *harnessTest) {
 			)
 
 			// Request a new external address from the wallet kit.
-			req1 := &walletrpc.AddrRequest{}
-			res3 := &walletrpc.AddrResponse{}
+			req1 := &walletrpc_pb.AddrRequest{}
+			res3 := &walletrpc_pb.AddrResponse{}
 			err = invokePOST(
 				a, "/v2/wallet/address/next", req1, res3,
 			)
@@ -196,7 +197,7 @@ func testRestAPI(net *lntest.NetworkHarness, ht *harnessTest) {
 			require.Nil(t, err, "get best block")
 
 			// Create a new subscription to get block epoch events.
-			req := &chainrpc.BlockEpoch{
+			req := &chainrpc_pb.BlockEpoch{
 				Hash:   hash.CloneBytes(),
 				Height: uint32(height),
 			}
@@ -214,7 +215,7 @@ func testRestAPI(net *lntest.NetworkHarness, ht *harnessTest) {
 				_ = c.Close()
 			}()
 
-			msgChan := make(chan *chainrpc.BlockEpoch)
+			msgChan := make(chan *chainrpc_pb.BlockEpoch)
 			errChan := make(chan er.R)
 			timeout := time.After(defaultTimeout)
 
@@ -243,7 +244,7 @@ func testRestAPI(net *lntest.NetworkHarness, ht *harnessTest) {
 
 				// Make sure we can parse the unwrapped message
 				// into the expected proto message.
-				protoMsg := &chainrpc.BlockEpoch{}
+				protoMsg := &chainrpc_pb.BlockEpoch{}
 				err = jsonpb.UnmarshalString(
 					msgStr, protoMsg,
 				)
@@ -285,7 +286,7 @@ func testRestAPI(net *lntest.NetworkHarness, ht *harnessTest) {
 			require.Nil(t, err, "get best block")
 
 			// Create a new subscription to get block epoch events.
-			req := &chainrpc.BlockEpoch{
+			req := &chainrpc_pb.BlockEpoch{
 				Hash:   hash.CloneBytes(),
 				Height: uint32(height),
 			}
@@ -323,7 +324,7 @@ func testRestAPI(net *lntest.NetworkHarness, ht *harnessTest) {
 				_ = c.Close()
 			}()
 
-			msgChan := make(chan *chainrpc.BlockEpoch)
+			msgChan := make(chan *chainrpc_pb.BlockEpoch)
 			errChan := make(chan er.R)
 			timeout := time.After(defaultTimeout)
 
@@ -352,7 +353,7 @@ func testRestAPI(net *lntest.NetworkHarness, ht *harnessTest) {
 
 				// Make sure we can parse the unwrapped message
 				// into the expected proto message.
-				protoMsg := &chainrpc.BlockEpoch{}
+				protoMsg := &chainrpc_pb.BlockEpoch{}
 				err = jsonpb.UnmarshalString(
 					msgStr, protoMsg,
 				)

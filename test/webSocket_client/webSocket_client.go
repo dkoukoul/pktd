@@ -16,7 +16,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
+	"github.com/pkt-cash/pktd/generated/proto/meta_pb"
+	"github.com/pkt-cash/pktd/generated/proto/restrpc_pb/rest_pb"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd/lnrpc/restrpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -120,11 +122,11 @@ func main() {
 
 func sendJSonDebugLevelCommand(conn *websocket.Conn, verbose bool) error {
 
-	var debugLevelReq = &lnrpc.DebugLevelRequest{
+	var debugLevelReq = &rpc_pb.DebugLevelRequest{
 		Show:      true,
 		LevelSpec: "debug",
 	}
-	var debugLevelResp = &lnrpc.DebugLevelResponse{}
+	var debugLevelResp = &rpc_pb.DebugLevelResponse{}
 
 	err := sendJSonCommand(conn, "/api/v1/meta/debuglevel", debugLevelReq, debugLevelResp, verbose)
 	if err != nil {
@@ -138,7 +140,7 @@ func sendJSonDebugLevelCommand(conn *websocket.Conn, verbose bool) error {
 
 func sendJSonGetInfoCommand(conn *websocket.Conn, verbose bool) error {
 
-	var getInfoResp = &lnrpc.GetInfo2Response{}
+	var getInfoResp = &meta_pb.GetInfo2Response{}
 
 	err := sendJSonCommand(conn, "/api/v1/meta/getinfo", nil, getInfoResp, verbose)
 	if err != nil {
@@ -153,7 +155,7 @@ func sendJSonGetInfoCommand(conn *websocket.Conn, verbose bool) error {
 
 func sendJSonGetWalletBalance(conn *websocket.Conn, verbose bool) error {
 
-	var walletBalanceResp = &lnrpc.WalletBalanceResponse{}
+	var walletBalanceResp = &rpc_pb.WalletBalanceResponse{}
 
 	err := sendJSonCommand(conn, "/api/v1/wallet/balance", nil, walletBalanceResp, verbose)
 	if err != nil {
@@ -168,7 +170,7 @@ func sendJSonGetWalletBalance(conn *websocket.Conn, verbose bool) error {
 
 func sendJSonWrongEndpoint(conn *websocket.Conn, verbose bool) error {
 
-	var walletBalanceResp = &lnrpc.WalletBalanceResponse{}
+	var walletBalanceResp = &rpc_pb.WalletBalanceResponse{}
 
 	err := sendJSonCommand(conn, "/api/v1/wallet/balance/wrongURI", nil, walletBalanceResp, verbose)
 	if err != nil {
@@ -180,7 +182,7 @@ func sendJSonWrongEndpoint(conn *websocket.Conn, verbose bool) error {
 
 func sendJSonMissingRequestPayload(conn *websocket.Conn, verbose bool) error {
 
-	var transactionDetailsResp = &lnrpc.TransactionDetails{}
+	var transactionDetailsResp = &rpc_pb.TransactionDetails{}
 
 	err := sendJSonCommand(conn, "/api/v1/wallet/transaction/query", nil, transactionDetailsResp, verbose)
 	if err != nil {
@@ -265,11 +267,11 @@ func sendJSonCommand(conn *websocket.Conn, endpoint string, requestPayload inter
 func sendProtobufDebugLevelCommand(conn *websocket.Conn, verbose bool) error {
 
 	//	create and marshal a debugLevel payload
-	var debugLevelReq = &lnrpc.DebugLevelRequest{
+	var debugLevelReq = &rpc_pb.DebugLevelRequest{
 		Show:      true,
 		LevelSpec: "info",
 	}
-	var debugLevelResp = &lnrpc.DebugLevelResponse{}
+	var debugLevelResp = &rpc_pb.DebugLevelResponse{}
 
 	err := sendProtocCommand(conn, "/api/v1/meta/debuglevel", debugLevelReq, debugLevelResp, verbose)
 	if err != nil {
@@ -283,7 +285,7 @@ func sendProtobufDebugLevelCommand(conn *websocket.Conn, verbose bool) error {
 
 func sendProtobufGetInfoCommand(conn *websocket.Conn, verbose bool) error {
 
-	var getInfoResp = &lnrpc.GetInfo2Response{}
+	var getInfoResp = &meta_pb.GetInfo2Response{}
 
 	err := sendProtocCommand(conn, "/api/v1/meta/getinfo", nil, getInfoResp, verbose)
 	if err != nil {
@@ -298,7 +300,7 @@ func sendProtobufGetInfoCommand(conn *websocket.Conn, verbose bool) error {
 
 func sendProtobufGetWalletBalance(conn *websocket.Conn, verbose bool) error {
 
-	var walletBalanceResp = &lnrpc.WalletBalanceResponse{}
+	var walletBalanceResp = &rpc_pb.WalletBalanceResponse{}
 
 	err := sendProtocCommand(conn, "/api/v1/wallet/balance", nil, walletBalanceResp, verbose)
 	if err != nil {
@@ -313,7 +315,7 @@ func sendProtobufGetWalletBalance(conn *websocket.Conn, verbose bool) error {
 
 func sendProtobufWrongEndpoint(conn *websocket.Conn, verbose bool) error {
 
-	var walletBalanceResp = &lnrpc.WalletBalanceResponse{}
+	var walletBalanceResp = &rpc_pb.WalletBalanceResponse{}
 
 	err := sendProtocCommand(conn, "/api/v1/wallet/balance/wrongURI", nil, walletBalanceResp, verbose)
 	if err != nil {
@@ -338,7 +340,7 @@ func sendProtocCommand(conn *websocket.Conn, endpoint string, requestPayload pro
 
 	//	marshal the request message to a Protobuf
 	var requestId = uuid.New().String()
-	var req = restrpc.WebSocketProtobufRequest{
+	var req = rest_pb.WebSocketProtobufRequest{
 		Endpoint:  endpoint,
 		RequestId: requestId,
 	}
@@ -381,7 +383,7 @@ func sendProtocCommand(conn *websocket.Conn, endpoint string, requestPayload pro
 	}
 
 	//	unmarshal the response message
-	var webSocketResp = &restrpc.WebSocketProtobufResponse{}
+	var webSocketResp = &rest_pb.WebSocketProtobufResponse{}
 
 	err = proto.Unmarshal(message, webSocketResp)
 	if err != nil {

@@ -5,11 +5,11 @@ import (
 
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/btcutil/util"
+	"github.com/pkt-cash/pktd/generated/proto/invoicesrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/routerrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd"
 	"github.com/pkt-cash/pktd/lnd/lncfg"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/invoicesrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/routerrpc"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 	"github.com/pkt-cash/pktd/lnd/lntest/wait"
 	"github.com/pkt-cash/pktd/lnd/lntypes"
@@ -43,7 +43,7 @@ func testMultiHopHtlcRemoteChainClaim(net *lntest.NetworkHarness, t *harnessTest
 	const invoiceAmt = 100000
 	preimage := lntypes.Preimage{1, 2, 5}
 	payHash := preimage.Hash()
-	invoiceReq := &invoicesrpc.AddHoldInvoiceRequest{
+	invoiceReq := &invoicesrpc_pb.AddHoldInvoiceRequest{
 		Value:      invoiceAmt,
 		CltvExpiry: 40,
 		Hash:       payHash[:],
@@ -60,7 +60,7 @@ func testMultiHopHtlcRemoteChainClaim(net *lntest.NetworkHarness, t *harnessTest
 	defer cancel()
 
 	_, errr = alice.RouterClient.SendPaymentV2(
-		ctx, &routerrpc.SendPaymentRequest{
+		ctx, &routerrpc_pb.SendPaymentRequest{
 			PaymentRequest: carolInvoice.PaymentRequest,
 			TimeoutSeconds: 60,
 			FeeLimitMsat:   noFeeLimitMsat,
@@ -137,7 +137,7 @@ func testMultiHopHtlcRemoteChainClaim(net *lntest.NetworkHarness, t *harnessTest
 	// channel arbitrator won't go to chain.
 	ctx, cancel = context.WithTimeout(ctxb, defaultTimeout)
 	defer cancel()
-	_, errr = carol.SettleInvoice(ctx, &invoicesrpc.SettleInvoiceMsg{
+	_, errr = carol.SettleInvoice(ctx, &invoicesrpc_pb.SettleInvoiceMsg{
 		Preimage: preimage[:],
 	})
 	require.NoError(t.t, errr)
@@ -260,19 +260,19 @@ func testMultiHopHtlcRemoteChainClaim(net *lntest.NetworkHarness, t *harnessTest
 
 	// The invoice should show as settled for Carol, indicating that it was
 	// swept on-chain.
-	invoicesReq := &lnrpc.ListInvoiceRequest{}
+	invoicesReq := &rpc_pb.ListInvoiceRequest{}
 	invoicesResp, errr := carol.ListInvoices(ctxb, invoicesReq)
 	require.NoError(t.t, errr)
 	require.Len(t.t, invoicesResp.Invoices, 1)
 	invoice := invoicesResp.Invoices[0]
-	require.Equal(t.t, lnrpc.Invoice_SETTLED, invoice.State)
+	require.Equal(t.t, rpc_pb.Invoice_SETTLED, invoice.State)
 	require.Equal(t.t, int64(invoiceAmt), invoice.AmtPaidSat)
 
 	// Finally, check that the Alice's payment is correctly marked
 	// succeeded.
 	ctxt, _ = context.WithTimeout(ctxt, defaultTimeout)
 	err = checkPaymentStatus(
-		ctxt, alice, preimage, lnrpc.Payment_SUCCEEDED,
+		ctxt, alice, preimage, rpc_pb.Payment_SUCCEEDED,
 	)
 	util.RequireNoErr(t.t, err)
 }

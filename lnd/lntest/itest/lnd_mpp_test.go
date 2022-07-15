@@ -7,10 +7,10 @@ import (
 
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/generated/proto/routerrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd"
 	"github.com/pkt-cash/pktd/lnd/chainreg"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/routerrpc"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 	"github.com/pkt-cash/pktd/lnd/routing/route"
 	"github.com/pkt-cash/pktd/wire"
@@ -67,7 +67,7 @@ func testSendToRouteMultiPath(net *lntest.NetworkHarness, t *harnessTest) {
 
 	ctxt, _ := context.WithTimeout(ctxb, defaultTimeout)
 	decodeResp, errr := net.Bob.DecodePayReq(
-		ctxt, &lnrpc.PayReqString{PayReq: payReq},
+		ctxt, &rpc_pb.PayReqString{PayReq: payReq},
 	)
 	if errr != nil {
 		t.Fatalf("decode pay req: %v", errr)
@@ -77,7 +77,7 @@ func testSendToRouteMultiPath(net *lntest.NetworkHarness, t *harnessTest) {
 
 	// Helper function for Alice to build a route from pubkeys.
 	buildRoute := func(amt btcutil.Amount, hops []*lntest.HarnessNode) (
-		*lnrpc.Route, er.R) {
+		*rpc_pb.Route, er.R) {
 
 		rpcHops := make([][]byte, 0, len(hops))
 		for _, hop := range hops {
@@ -90,7 +90,7 @@ func testSendToRouteMultiPath(net *lntest.NetworkHarness, t *harnessTest) {
 			rpcHops = append(rpcHops, pubkey[:])
 		}
 
-		req := &routerrpc.BuildRouteRequest{
+		req := &routerrpc_pb.BuildRouteRequest{
 			AmtMsat:        int64(amt * 1000),
 			FinalCltvDelta: chainreg.DefaultBitcoinTimeLockDelta,
 			HopPubkeys:     rpcHops,
@@ -112,7 +112,7 @@ func testSendToRouteMultiPath(net *lntest.NetworkHarness, t *harnessTest) {
 		{ctx.carol, ctx.eve, ctx.bob},
 	}
 
-	responses := make(chan *lnrpc.HTLCAttempt, len(sendRoutes))
+	responses := make(chan *rpc_pb.HTLCAttempt, len(sendRoutes))
 	for _, hops := range sendRoutes {
 		// Build a route for the specified hops.
 		r, err := buildRoute(shardAmt, hops)
@@ -123,13 +123,13 @@ func testSendToRouteMultiPath(net *lntest.NetworkHarness, t *harnessTest) {
 		// Set the MPP records to indicate this is a payment shard.
 		hop := r.Hops[len(r.Hops)-1]
 		hop.TlvPayload = true
-		hop.MppRecord = &lnrpc.MPPRecord{
+		hop.MppRecord = &rpc_pb.MPPRecord{
 			PaymentAddr:  payAddr,
 			TotalAmtMsat: int64(paymentAmt * 1000),
 		}
 
 		// Send the shard.
-		sendReq := &routerrpc.SendToRouteRequest{
+		sendReq := &routerrpc_pb.SendToRouteRequest{
 			PaymentHash: rHash,
 			Route:       r,
 		}
@@ -150,7 +150,7 @@ func testSendToRouteMultiPath(net *lntest.NetworkHarness, t *harnessTest) {
 	// Wait for all responses to be back, and check that they all
 	// succeeded.
 	for range sendRoutes {
-		var resp *lnrpc.HTLCAttempt
+		var resp *rpc_pb.HTLCAttempt
 		select {
 		case resp = <-responses:
 		case <-time.After(defaultTimeout):
@@ -170,7 +170,7 @@ func testSendToRouteMultiPath(net *lntest.NetworkHarness, t *harnessTest) {
 	// assertNumHtlcs is a helper that checks the node's latest payment,
 	// and asserts it was split into num shards.
 	assertNumHtlcs := func(node *lntest.HarnessNode, num int) {
-		req := &lnrpc.ListPaymentsRequest{
+		req := &rpc_pb.ListPaymentsRequest{
 			IncludeIncomplete: true,
 		}
 		ctxt, _ := context.WithTimeout(ctxb, defaultTimeout)
@@ -193,7 +193,7 @@ func testSendToRouteMultiPath(net *lntest.NetworkHarness, t *harnessTest) {
 
 		succeeded := 0
 		for _, htlc := range htlcs {
-			if htlc.Status == lnrpc.HTLCAttempt_SUCCEEDED {
+			if htlc.Status == rpc_pb.HTLCAttempt_SUCCEEDED {
 				succeeded++
 			}
 		}
@@ -214,7 +214,7 @@ func testSendToRouteMultiPath(net *lntest.NetworkHarness, t *harnessTest) {
 		for !found {
 			ctxt, _ := context.WithTimeout(ctxb, defaultTimeout)
 			invoicesResp, err := node.ListInvoices(
-				ctxt, &lnrpc.ListInvoiceRequest{
+				ctxt, &rpc_pb.ListInvoiceRequest{
 					IndexOffset: offset,
 				},
 			)
@@ -240,7 +240,7 @@ func testSendToRouteMultiPath(net *lntest.NetworkHarness, t *harnessTest) {
 						paymentAmt, inv.AmtPaidSat)
 				}
 
-				if inv.State != lnrpc.Invoice_SETTLED {
+				if inv.State != rpc_pb.Invoice_SETTLED {
 					t.Fatalf("Invoice not settled: %v",
 						inv.State)
 				}
@@ -276,7 +276,7 @@ type mppTestContext struct {
 	net *lntest.NetworkHarness
 
 	// Keep a list of all our active channels.
-	networkChans      []*lnrpc.ChannelPoint
+	networkChans      []*rpc_pb.ChannelPoint
 	closeChannelFuncs []func()
 
 	alice, bob, carol, dave, eve *lntest.HarnessNode

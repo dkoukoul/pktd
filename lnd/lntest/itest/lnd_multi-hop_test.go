@@ -8,8 +8,8 @@ import (
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/invoicesrpc"
+	"github.com/pkt-cash/pktd/generated/proto/invoicesrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 	"github.com/pkt-cash/pktd/lnd/lntypes"
 	"github.com/pkt-cash/pktd/wire"
@@ -126,7 +126,7 @@ func waitForInvoiceAccepted(t *harnessTest, node *lntest.HarnessNode,
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 	invoiceUpdates, err := node.SubscribeSingleInvoice(ctx,
-		&invoicesrpc.SubscribeSingleInvoiceRequest{
+		&invoicesrpc_pb.SubscribeSingleInvoiceRequest{
 			RHash: payHash[:],
 		},
 	)
@@ -139,7 +139,7 @@ func waitForInvoiceAccepted(t *harnessTest, node *lntest.HarnessNode,
 		if err != nil {
 			t.Fatalf("invoice update err: %v", err)
 		}
-		if update.State == lnrpc.Invoice_ACCEPTED {
+		if update.State == rpc_pb.Invoice_ACCEPTED {
 			break
 		}
 	}
@@ -148,9 +148,9 @@ func waitForInvoiceAccepted(t *harnessTest, node *lntest.HarnessNode,
 // checkPaymentStatus asserts that the given node list a payment with the given
 // preimage has the expected status.
 func checkPaymentStatus(ctxt context.Context, node *lntest.HarnessNode,
-	preimage lntypes.Preimage, status lnrpc.Payment_PaymentStatus) er.R {
+	preimage lntypes.Preimage, status rpc_pb.Payment_PaymentStatus) er.R {
 
-	req := &lnrpc.ListPaymentsRequest{
+	req := &rpc_pb.ListPaymentsRequest{
 		IncludeIncomplete: true,
 	}
 	paymentsResp, err := node.ListPayments(ctxt, req)
@@ -175,7 +175,7 @@ func checkPaymentStatus(ctxt context.Context, node *lntest.HarnessNode,
 		switch status {
 
 		// If this expected status is SUCCEEDED, we expect the final preimage.
-		case lnrpc.Payment_SUCCEEDED:
+		case rpc_pb.Payment_SUCCEEDED:
 			if string(p.PaymentPreimage) != preimage.String() {
 				return er.Errorf("preimage doesn't match: %v vs %v",
 					p.PaymentPreimage, preimage.String())
@@ -201,7 +201,7 @@ func checkPaymentStatus(ctxt context.Context, node *lntest.HarnessNode,
 
 func createThreeHopNetwork(t *harnessTest, net *lntest.NetworkHarness,
 	alice, bob *lntest.HarnessNode, carolHodl bool, c commitType) (
-	*lnrpc.ChannelPoint, *lnrpc.ChannelPoint, *lntest.HarnessNode) {
+	*rpc_pb.ChannelPoint, *rpc_pb.ChannelPoint, *lntest.HarnessNode) {
 
 	ctxb := context.Background()
 

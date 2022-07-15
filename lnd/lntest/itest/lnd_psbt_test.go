@@ -8,9 +8,9 @@ import (
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/btcutil/util"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/walletrpc_pb"
 	"github.com/pkt-cash/pktd/lnd"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/walletrpc"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 	"github.com/pkt-cash/pktd/wire"
 	"github.com/stretchr/testify/require"
@@ -67,9 +67,9 @@ func testPsbtChanFunding(net *lntest.NetworkHarness, t *harnessTest) {
 	chanUpdates, tempPsbt, err := openChannelPsbt(
 		ctxt, carol, dave, lntest.OpenChannelParams{
 			Amt: chanSize,
-			FundingShim: &lnrpc.FundingShim{
-				Shim: &lnrpc.FundingShim_PsbtShim{
-					PsbtShim: &lnrpc.PsbtShim{
+			FundingShim: &rpc_pb.FundingShim{
+				Shim: &rpc_pb.FundingShim_PsbtShim{
+					PsbtShim: &rpc_pb.PsbtShim{
 						PendingChanId: pendingChanID[:],
 						NoPublish:     true,
 					},
@@ -87,9 +87,9 @@ func testPsbtChanFunding(net *lntest.NetworkHarness, t *harnessTest) {
 	chanUpdates2, psbtBytes2, err := openChannelPsbt(
 		ctxt, carol, net.Alice, lntest.OpenChannelParams{
 			Amt: chanSize,
-			FundingShim: &lnrpc.FundingShim{
-				Shim: &lnrpc.FundingShim_PsbtShim{
-					PsbtShim: &lnrpc.PsbtShim{
+			FundingShim: &rpc_pb.FundingShim{
+				Shim: &rpc_pb.FundingShim_PsbtShim{
+					PsbtShim: &rpc_pb.PsbtShim{
 						PendingChanId: pendingChanID2[:],
 						NoPublish:     false,
 						BasePsbt:      tempPsbt,
@@ -105,11 +105,11 @@ func testPsbtChanFunding(net *lntest.NetworkHarness, t *harnessTest) {
 	// This is exactly what we need for the next step.
 	ctxt, cancel = context.WithTimeout(ctxb, defaultTimeout)
 	defer cancel()
-	fundReq := &walletrpc.FundPsbtRequest{
-		Template: &walletrpc.FundPsbtRequest_Psbt{
+	fundReq := &walletrpc_pb.FundPsbtRequest{
+		Template: &walletrpc_pb.FundPsbtRequest_Psbt{
 			Psbt: psbtBytes2,
 		},
-		Fees: &walletrpc.FundPsbtRequest_SatPerVbyte{
+		Fees: &walletrpc_pb.FundPsbtRequest_SatPerVbyte{
 			SatPerVbyte: 2,
 		},
 	}
@@ -118,18 +118,18 @@ func testPsbtChanFunding(net *lntest.NetworkHarness, t *harnessTest) {
 
 	// We have a PSBT that has no witness data yet, which is exactly what we
 	// need for the next step: Verify the PSBT with the funding intents.
-	_, errr = carol.FundingStateStep(ctxb, &lnrpc.FundingTransitionMsg{
-		Trigger: &lnrpc.FundingTransitionMsg_PsbtVerify{
-			PsbtVerify: &lnrpc.FundingPsbtVerify{
+	_, errr = carol.FundingStateStep(ctxb, &rpc_pb.FundingTransitionMsg{
+		Trigger: &rpc_pb.FundingTransitionMsg_PsbtVerify{
+			PsbtVerify: &rpc_pb.FundingPsbtVerify{
 				PendingChanId: pendingChanID[:],
 				FundedPsbt:    fundResp.FundedPsbt,
 			},
 		},
 	})
 	require.NoError(t.t, errr)
-	_, errr = carol.FundingStateStep(ctxb, &lnrpc.FundingTransitionMsg{
-		Trigger: &lnrpc.FundingTransitionMsg_PsbtVerify{
-			PsbtVerify: &lnrpc.FundingPsbtVerify{
+	_, errr = carol.FundingStateStep(ctxb, &rpc_pb.FundingTransitionMsg{
+		Trigger: &rpc_pb.FundingTransitionMsg_PsbtVerify{
+			PsbtVerify: &rpc_pb.FundingPsbtVerify{
 				PendingChanId: pendingChanID2[:],
 				FundedPsbt:    fundResp.FundedPsbt,
 			},
@@ -141,16 +141,16 @@ func testPsbtChanFunding(net *lntest.NetworkHarness, t *harnessTest) {
 	// funding flow.
 	ctxt, cancel = context.WithTimeout(ctxb, defaultTimeout)
 	defer cancel()
-	finalizeReq := &walletrpc.FinalizePsbtRequest{
+	finalizeReq := &walletrpc_pb.FinalizePsbtRequest{
 		FundedPsbt: fundResp.FundedPsbt,
 	}
 	finalizeRes, errr := dave.WalletKitClient.FinalizePsbt(ctxt, finalizeReq)
 	require.NoError(t.t, errr)
 
 	// We've signed our PSBT now, let's pass it to the intent again.
-	_, errr = carol.FundingStateStep(ctxb, &lnrpc.FundingTransitionMsg{
-		Trigger: &lnrpc.FundingTransitionMsg_PsbtFinalize{
-			PsbtFinalize: &lnrpc.FundingPsbtFinalize{
+	_, errr = carol.FundingStateStep(ctxb, &rpc_pb.FundingTransitionMsg{
+		Trigger: &rpc_pb.FundingTransitionMsg_PsbtFinalize{
+			PsbtFinalize: &rpc_pb.FundingPsbtFinalize{
 				PendingChanId: pendingChanID[:],
 				SignedPsbt:    finalizeRes.SignedPsbt,
 			},
@@ -164,10 +164,10 @@ func testPsbtChanFunding(net *lntest.NetworkHarness, t *harnessTest) {
 	defer cancel()
 	updateResp, err := receiveChanUpdate(ctxt, chanUpdates)
 	util.RequireNoErr(t.t, err)
-	upd, ok := updateResp.Update.(*lnrpc.OpenStatusUpdate_ChanPending)
+	upd, ok := updateResp.Update.(*rpc_pb.OpenStatusUpdate_ChanPending)
 	require.True(t.t, ok)
-	chanPoint := &lnrpc.ChannelPoint{
-		FundingTxid: &lnrpc.ChannelPoint_FundingTxidBytes{
+	chanPoint := &rpc_pb.ChannelPoint{
+		FundingTxid: &rpc_pb.ChannelPoint_FundingTxidBytes{
 			FundingTxidBytes: upd.ChanPending.Txid,
 		},
 		OutputIndex: upd.ChanPending.OutputIndex,
@@ -181,9 +181,9 @@ func testPsbtChanFunding(net *lntest.NetworkHarness, t *harnessTest) {
 	// Let's progress the second channel now. This time we'll use the raw
 	// wire format transaction directly.
 	util.RequireNoErr(t.t, err)
-	_, errr = carol.FundingStateStep(ctxb, &lnrpc.FundingTransitionMsg{
-		Trigger: &lnrpc.FundingTransitionMsg_PsbtFinalize{
-			PsbtFinalize: &lnrpc.FundingPsbtFinalize{
+	_, errr = carol.FundingStateStep(ctxb, &rpc_pb.FundingTransitionMsg{
+		Trigger: &rpc_pb.FundingTransitionMsg_PsbtFinalize{
+			PsbtFinalize: &rpc_pb.FundingPsbtFinalize{
 				PendingChanId: pendingChanID2[:],
 				FinalRawTx:    finalizeRes.RawFinalTx,
 			},
@@ -198,10 +198,10 @@ func testPsbtChanFunding(net *lntest.NetworkHarness, t *harnessTest) {
 	defer cancel()
 	updateResp2, err := receiveChanUpdate(ctxt, chanUpdates2)
 	util.RequireNoErr(t.t, err)
-	upd2, ok := updateResp2.Update.(*lnrpc.OpenStatusUpdate_ChanPending)
+	upd2, ok := updateResp2.Update.(*rpc_pb.OpenStatusUpdate_ChanPending)
 	require.True(t.t, ok)
-	chanPoint2 := &lnrpc.ChannelPoint{
-		FundingTxid: &lnrpc.ChannelPoint_FundingTxidBytes{
+	chanPoint2 := &rpc_pb.ChannelPoint{
+		FundingTxid: &rpc_pb.ChannelPoint_FundingTxidBytes{
 			FundingTxidBytes: upd2.ChanPending.Txid,
 		},
 		OutputIndex: upd2.ChanPending.OutputIndex,
@@ -225,7 +225,7 @@ func testPsbtChanFunding(net *lntest.NetworkHarness, t *harnessTest) {
 
 	// With the channel open, ensure that it is counted towards Carol's
 	// total channel balance.
-	balReq := &lnrpc.ChannelBalanceRequest{}
+	balReq := &rpc_pb.ChannelBalanceRequest{}
 	ctxt, cancel = context.WithTimeout(ctxb, defaultTimeout)
 	defer cancel()
 	balRes, errr := carol.ChannelBalance(ctxt, balReq)
@@ -235,7 +235,7 @@ func testPsbtChanFunding(net *lntest.NetworkHarness, t *harnessTest) {
 	// Next, to make sure the channel functions as normal, we'll make some
 	// payments within the channel.
 	payAmt := btcutil.Amount(100000)
-	invoice := &lnrpc.Invoice{
+	invoice := &rpc_pb.Invoice{
 		Memo:  "new chans",
 		Value: int64(payAmt),
 	}
@@ -264,7 +264,7 @@ func testPsbtChanFunding(net *lntest.NetworkHarness, t *harnessTest) {
 // received, an error is returned. An error is returned if the expected step
 // of funding the PSBT is not received from the source node.
 func openChannelPsbt(ctx context.Context, srcNode, destNode *lntest.HarnessNode,
-	p lntest.OpenChannelParams) (lnrpc.Lightning_OpenChannelClient, []byte,
+	p lntest.OpenChannelParams) (rpc_pb.Lightning_OpenChannelClient, []byte,
 	er.R) {
 
 	// Wait until srcNode and destNode have the latest chain synced.
@@ -283,7 +283,7 @@ func openChannelPsbt(ctx context.Context, srcNode, destNode *lntest.HarnessNode,
 	// Send the request to open a channel to the source node now. This will
 	// open a long-lived stream where we'll receive status updates about the
 	// progress of the channel.
-	respStream, errr := srcNode.OpenChannel(ctx, &lnrpc.OpenChannelRequest{
+	respStream, errr := srcNode.OpenChannel(ctx, &rpc_pb.OpenChannelRequest{
 		NodePubkey:         destNode.PubKey[:],
 		LocalFundingAmount: int64(p.Amt),
 		PushSat:            int64(p.PushAmt),
@@ -304,7 +304,7 @@ func openChannelPsbt(ctx context.Context, srcNode, destNode *lntest.HarnessNode,
 		return nil, nil, er.Errorf("unable to consume channel update "+
 			"message: %v", err)
 	}
-	upd, ok := resp.Update.(*lnrpc.OpenStatusUpdate_PsbtFund)
+	upd, ok := resp.Update.(*rpc_pb.OpenStatusUpdate_PsbtFund)
 	if !ok {
 		return nil, nil, er.Errorf("expected PSBT funding update, "+
 			"instead got %v", resp)
@@ -316,10 +316,10 @@ func openChannelPsbt(ctx context.Context, srcNode, destNode *lntest.HarnessNode,
 // context is canceled. The context must have a timeout or must be canceled
 // in case no message is received, otherwise this function will block forever.
 func receiveChanUpdate(ctx context.Context,
-	stream lnrpc.Lightning_OpenChannelClient) (*lnrpc.OpenStatusUpdate,
+	stream rpc_pb.Lightning_OpenChannelClient) (*rpc_pb.OpenStatusUpdate,
 	er.R) {
 
-	chanMsg := make(chan *lnrpc.OpenStatusUpdate)
+	chanMsg := make(chan *rpc_pb.OpenStatusUpdate)
 	errChan := make(chan er.R)
 	go func() {
 		// Consume one message. This will block until the message is

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkt-cash/pktd/generated/proto/routerrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/routerrpc"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 	"github.com/pkt-cash/pktd/lnd/lnwire"
 )
@@ -44,18 +44,18 @@ func testHtlcErrorPropagation(net *lntest.NetworkHarness, t *harnessTest) {
 	assertBaseBalance := func() {
 		// Alice has opened a channel with Bob with zero push amount, so
 		// it's remote balance is zero.
-		expBalanceAlice := &lnrpc.ChannelBalanceResponse{
-			LocalBalance: &lnrpc.Amount{
+		expBalanceAlice := &rpc_pb.ChannelBalanceResponse{
+			LocalBalance: &rpc_pb.Amount{
 				Sat: uint64(chanAmt - commitFee),
 				Msat: uint64(lnwire.NewMSatFromSatoshis(
 					chanAmt - commitFee,
 				)),
 			},
-			RemoteBalance:            &lnrpc.Amount{},
-			UnsettledLocalBalance:    &lnrpc.Amount{},
-			UnsettledRemoteBalance:   &lnrpc.Amount{},
-			PendingOpenLocalBalance:  &lnrpc.Amount{},
-			PendingOpenRemoteBalance: &lnrpc.Amount{},
+			RemoteBalance:            &rpc_pb.Amount{},
+			UnsettledLocalBalance:    &rpc_pb.Amount{},
+			UnsettledRemoteBalance:   &rpc_pb.Amount{},
+			PendingOpenLocalBalance:  &rpc_pb.Amount{},
+			PendingOpenRemoteBalance: &rpc_pb.Amount{},
 			// Deprecated fields.
 			Balance: int64(chanAmt - commitFee),
 		}
@@ -63,23 +63,23 @@ func testHtlcErrorPropagation(net *lntest.NetworkHarness, t *harnessTest) {
 
 		// Bob has a channel with Alice and another with Carol, so it's
 		// local and remote balances are both chanAmt - commitFee.
-		expBalanceBob := &lnrpc.ChannelBalanceResponse{
-			LocalBalance: &lnrpc.Amount{
+		expBalanceBob := &rpc_pb.ChannelBalanceResponse{
+			LocalBalance: &rpc_pb.Amount{
 				Sat: uint64(chanAmt - commitFee),
 				Msat: uint64(lnwire.NewMSatFromSatoshis(
 					chanAmt - commitFee,
 				)),
 			},
-			RemoteBalance: &lnrpc.Amount{
+			RemoteBalance: &rpc_pb.Amount{
 				Sat: uint64(chanAmt - commitFee),
 				Msat: uint64(lnwire.NewMSatFromSatoshis(
 					chanAmt - commitFee,
 				)),
 			},
-			UnsettledLocalBalance:    &lnrpc.Amount{},
-			UnsettledRemoteBalance:   &lnrpc.Amount{},
-			PendingOpenLocalBalance:  &lnrpc.Amount{},
-			PendingOpenRemoteBalance: &lnrpc.Amount{},
+			UnsettledLocalBalance:    &rpc_pb.Amount{},
+			UnsettledRemoteBalance:   &rpc_pb.Amount{},
+			PendingOpenLocalBalance:  &rpc_pb.Amount{},
+			PendingOpenRemoteBalance: &rpc_pb.Amount{},
 			// Deprecated fields.
 			Balance: int64(chanAmt - commitFee),
 		}
@@ -111,7 +111,7 @@ func testHtlcErrorPropagation(net *lntest.NetworkHarness, t *harnessTest) {
 	)
 
 	// Ensure that Alice has Carol in her routing table before proceeding.
-	nodeInfoReq := &lnrpc.NodeInfoRequest{
+	nodeInfoReq := &rpc_pb.NodeInfoRequest{
 		PubKey: carol.PubKey[:],
 	}
 	checkTableTimeout := time.After(time.Second * 10)
@@ -142,7 +142,7 @@ out:
 	// scenarios. First, we'll generate an invoice from carol that we'll
 	// use to test some error cases.
 	const payAmt = 10000
-	invoiceReq := &lnrpc.Invoice{
+	invoiceReq := &rpc_pb.Invoice{
 		Memo:  "kek99",
 		Value: payAmt,
 	}
@@ -153,7 +153,7 @@ out:
 	}
 
 	carolPayReq, errr := carol.DecodePayReq(ctxb,
-		&lnrpc.PayReqString{
+		&rpc_pb.PayReqString{
 			PayReq: carolInvoice.PaymentRequest,
 		})
 	if errr != nil {
@@ -173,21 +173,21 @@ out:
 	defer cancel()
 
 	aliceEvents, errr := net.Alice.RouterClient.SubscribeHtlcEvents(
-		ctxt, &routerrpc.SubscribeHtlcEventsRequest{},
+		ctxt, &routerrpc_pb.SubscribeHtlcEventsRequest{},
 	)
 	if errr != nil {
 		t.Fatalf("could not subscribe events: %v", errr)
 	}
 
 	bobEvents, errr := net.Bob.RouterClient.SubscribeHtlcEvents(
-		ctxt, &routerrpc.SubscribeHtlcEventsRequest{},
+		ctxt, &routerrpc_pb.SubscribeHtlcEventsRequest{},
 	)
 	if errr != nil {
 		t.Fatalf("could not subscribe events: %v", errr)
 	}
 
 	carolEvents, errr := carol.RouterClient.SubscribeHtlcEvents(
-		ctxt, &routerrpc.SubscribeHtlcEventsRequest{},
+		ctxt, &routerrpc_pb.SubscribeHtlcEventsRequest{},
 	)
 	if errr != nil {
 		t.Fatalf("could not subscribe events: %v", errr)
@@ -197,7 +197,7 @@ out:
 	// an unknown payment hash.
 	// TODO(roasbeef): return failure response rather than failing entire
 	// stream on payment error.
-	sendReq := &routerrpc.SendPaymentRequest{
+	sendReq := &routerrpc_pb.SendPaymentRequest{
 		PaymentHash:    makeFakePayHash(t),
 		Dest:           carol.PubKey[:],
 		Amt:            payAmt,
@@ -207,23 +207,23 @@ out:
 	}
 	sendAndAssertFailure(
 		t, net.Alice,
-		sendReq, lnrpc.PaymentFailureReason_FAILURE_REASON_INCORRECT_PAYMENT_DETAILS,
+		sendReq, rpc_pb.PaymentFailureReason_FAILURE_REASON_INCORRECT_PAYMENT_DETAILS,
 	)
 	assertLastHTLCError(
 		t, net.Alice,
-		lnrpc.Failure_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS,
+		rpc_pb.Failure_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS,
 	)
 
 	// We expect alice and bob to each have one forward and one forward
 	// fail event at this stage.
-	assertHtlcEvents(t, 1, 1, 0, routerrpc.HtlcEvent_SEND, aliceEvents)
-	assertHtlcEvents(t, 1, 1, 0, routerrpc.HtlcEvent_FORWARD, bobEvents)
+	assertHtlcEvents(t, 1, 1, 0, routerrpc_pb.HtlcEvent_SEND, aliceEvents)
+	assertHtlcEvents(t, 1, 1, 0, routerrpc_pb.HtlcEvent_FORWARD, bobEvents)
 
 	// Carol should have a link failure because the htlc failed on her
 	// incoming link.
 	assertLinkFailure(
-		t, routerrpc.HtlcEvent_RECEIVE,
-		routerrpc.FailureDetail_UNKNOWN_INVOICE, carolEvents,
+		t, routerrpc_pb.HtlcEvent_RECEIVE,
+		routerrpc_pb.FailureDetail_UNKNOWN_INVOICE, carolEvents,
 	)
 
 	// The balances of all parties should be the same as initially since
@@ -233,7 +233,7 @@ out:
 	// Next, we'll test the case of a recognized payHash but, an incorrect
 	// value on the extended HTLC.
 	htlcAmt := lnwire.NewMSatFromSatoshis(1000)
-	sendReq = &routerrpc.SendPaymentRequest{
+	sendReq = &routerrpc_pb.SendPaymentRequest{
 		PaymentHash:    carolInvoice.RHash,
 		Dest:           carol.PubKey[:],
 		Amt:            int64(htlcAmt.ToSatoshis()), // 10k satoshis are expected.
@@ -243,23 +243,23 @@ out:
 	}
 	sendAndAssertFailure(
 		t, net.Alice,
-		sendReq, lnrpc.PaymentFailureReason_FAILURE_REASON_INCORRECT_PAYMENT_DETAILS,
+		sendReq, rpc_pb.PaymentFailureReason_FAILURE_REASON_INCORRECT_PAYMENT_DETAILS,
 	)
 	assertLastHTLCError(
 		t, net.Alice,
-		lnrpc.Failure_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS,
+		rpc_pb.Failure_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS,
 	)
 
 	// We expect alice and bob to each have one forward and one forward
 	// fail event at this stage.
-	assertHtlcEvents(t, 1, 1, 0, routerrpc.HtlcEvent_SEND, aliceEvents)
-	assertHtlcEvents(t, 1, 1, 0, routerrpc.HtlcEvent_FORWARD, bobEvents)
+	assertHtlcEvents(t, 1, 1, 0, routerrpc_pb.HtlcEvent_SEND, aliceEvents)
+	assertHtlcEvents(t, 1, 1, 0, routerrpc_pb.HtlcEvent_FORWARD, bobEvents)
 
 	// Carol should have a link failure because the htlc failed on her
 	// incoming link.
 	assertLinkFailure(
-		t, routerrpc.HtlcEvent_RECEIVE,
-		routerrpc.FailureDetail_INVOICE_UNDERPAID, carolEvents,
+		t, routerrpc_pb.HtlcEvent_RECEIVE,
+		routerrpc_pb.FailureDetail_INVOICE_UNDERPAID, carolEvents,
 	)
 
 	// The balances of all parties should be the same as initially since
@@ -286,7 +286,7 @@ out:
 			toSend = amtToSend - amtSent
 		}
 
-		invoiceReq = &lnrpc.Invoice{
+		invoiceReq = &rpc_pb.Invoice{
 			Value: toSend,
 		}
 		ctxt, _ = context.WithTimeout(ctxb, defaultTimeout)
@@ -296,7 +296,7 @@ out:
 		}
 		sendAndAssertSuccess(
 			t, net.Bob,
-			&routerrpc.SendPaymentRequest{
+			&routerrpc_pb.SendPaymentRequest{
 				PaymentRequest: carolInvoice2.PaymentRequest,
 				TimeoutSeconds: 60,
 				FeeLimitMsat:   noFeeLimitMsat,
@@ -307,10 +307,10 @@ out:
 		// forward and settle event for his send, and carol has a
 		// settle event for her receive.
 		assertHtlcEvents(
-			t, 1, 0, 1, routerrpc.HtlcEvent_SEND, bobEvents,
+			t, 1, 0, 1, routerrpc_pb.HtlcEvent_SEND, bobEvents,
 		)
 		assertHtlcEvents(
-			t, 0, 0, 1, routerrpc.HtlcEvent_RECEIVE, carolEvents,
+			t, 0, 0, 1, routerrpc_pb.HtlcEvent_RECEIVE, carolEvents,
 		)
 
 		amtSent += toSend
@@ -319,7 +319,7 @@ out:
 	// At this point, Alice has 50mil satoshis on her side of the channel,
 	// but Bob only has 10k available on his side of the channel. So a
 	// payment from Alice to Carol worth 100k satoshis should fail.
-	invoiceReq = &lnrpc.Invoice{
+	invoiceReq = &rpc_pb.Invoice{
 		Value: 100000,
 	}
 	ctxt, _ = context.WithTimeout(ctxb, defaultTimeout)
@@ -328,27 +328,27 @@ out:
 		t.Fatalf("unable to generate carol invoice: %v", errr)
 	}
 
-	sendReq = &routerrpc.SendPaymentRequest{
+	sendReq = &routerrpc_pb.SendPaymentRequest{
 		PaymentRequest: carolInvoice3.PaymentRequest,
 		TimeoutSeconds: 60,
 		FeeLimitMsat:   noFeeLimitMsat,
 	}
 	sendAndAssertFailure(
 		t, net.Alice,
-		sendReq, lnrpc.PaymentFailureReason_FAILURE_REASON_NO_ROUTE,
+		sendReq, rpc_pb.PaymentFailureReason_FAILURE_REASON_NO_ROUTE,
 	)
 	assertLastHTLCError(
-		t, net.Alice, lnrpc.Failure_TEMPORARY_CHANNEL_FAILURE,
+		t, net.Alice, rpc_pb.Failure_TEMPORARY_CHANNEL_FAILURE,
 	)
 
 	// Alice should have a forwarding event and a forwarding failure.
-	assertHtlcEvents(t, 1, 1, 0, routerrpc.HtlcEvent_SEND, aliceEvents)
+	assertHtlcEvents(t, 1, 1, 0, routerrpc_pb.HtlcEvent_SEND, aliceEvents)
 
 	// Bob should have a link failure because the htlc failed on his
 	// outgoing link.
 	assertLinkFailure(
-		t, routerrpc.HtlcEvent_FORWARD,
-		routerrpc.FailureDetail_INSUFFICIENT_BALANCE, bobEvents,
+		t, routerrpc_pb.HtlcEvent_FORWARD,
+		routerrpc_pb.FailureDetail_INSUFFICIENT_BALANCE, bobEvents,
 	)
 
 	// Generate new invoice to not pay same invoice twice.
@@ -369,7 +369,7 @@ out:
 	// Reset mission control to forget the temporary channel failure above.
 	ctxt, _ = context.WithTimeout(ctxb, defaultTimeout)
 	_, errr = net.Alice.RouterClient.ResetMissionControl(
-		ctxt, &routerrpc.ResetMissionControlRequest{},
+		ctxt, &routerrpc_pb.ResetMissionControlRequest{},
 	)
 	if errr != nil {
 		t.Fatalf("unable to reset mission control: %v", errr)
@@ -377,23 +377,23 @@ out:
 
 	sendAndAssertFailure(
 		t, net.Alice,
-		&routerrpc.SendPaymentRequest{
+		&routerrpc_pb.SendPaymentRequest{
 			PaymentRequest: carolInvoice.PaymentRequest,
 			TimeoutSeconds: 60,
 			FeeLimitMsat:   noFeeLimitMsat,
 		},
-		lnrpc.PaymentFailureReason_FAILURE_REASON_NO_ROUTE,
+		rpc_pb.PaymentFailureReason_FAILURE_REASON_NO_ROUTE,
 	)
-	assertLastHTLCError(t, net.Alice, lnrpc.Failure_UNKNOWN_NEXT_PEER)
+	assertLastHTLCError(t, net.Alice, rpc_pb.Failure_UNKNOWN_NEXT_PEER)
 
 	// Alice should have a forwarding event and subsequent fail.
-	assertHtlcEvents(t, 1, 1, 0, routerrpc.HtlcEvent_SEND, aliceEvents)
+	assertHtlcEvents(t, 1, 1, 0, routerrpc_pb.HtlcEvent_SEND, aliceEvents)
 
 	// Bob should have a link failure because he could not find the next
 	// peer.
 	assertLinkFailure(
-		t, routerrpc.HtlcEvent_FORWARD,
-		routerrpc.FailureDetail_NO_DETAIL, bobEvents,
+		t, routerrpc_pb.HtlcEvent_FORWARD,
+		routerrpc_pb.FailureDetail_NO_DETAIL, bobEvents,
 	)
 
 	// Finally, immediately close the channel. This function will also
@@ -413,13 +413,13 @@ out:
 // assertLinkFailure checks that the stream provided has a single link failure
 // the the failure detail provided.
 func assertLinkFailure(t *harnessTest,
-	eventType routerrpc.HtlcEvent_EventType,
-	failureDetail routerrpc.FailureDetail,
-	client routerrpc.Router_SubscribeHtlcEventsClient) {
+	eventType routerrpc_pb.HtlcEvent_EventType,
+	failureDetail routerrpc_pb.FailureDetail,
+	client routerrpc_pb.Router_SubscribeHtlcEventsClient) {
 
 	event := assertEventAndType(t, eventType, client)
 
-	linkFail, ok := event.Event.(*routerrpc.HtlcEvent_LinkFailEvent)
+	linkFail, ok := event.Event.(*routerrpc_pb.HtlcEvent_LinkFailEvent)
 	if !ok {
 		t.Fatalf("expected forwarding failure, got: %T", linkFail)
 	}

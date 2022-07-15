@@ -22,15 +22,17 @@ import (
 	"github.com/pkt-cash/pktd/btcutil/util"
 	"github.com/pkt-cash/pktd/chaincfg"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
+	"github.com/pkt-cash/pktd/generated/proto/invoicesrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/meta_pb"
+	"github.com/pkt-cash/pktd/generated/proto/routerrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/signrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/walletrpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/walletunlocker_pb"
+	"github.com/pkt-cash/pktd/generated/proto/watchtower_pb"
+	"github.com/pkt-cash/pktd/generated/proto/wtclientrpc_pb"
 	"github.com/pkt-cash/pktd/integration/rpctest"
 	"github.com/pkt-cash/pktd/lnd/chanbackup"
-	"github.com/pkt-cash/pktd/lnd/lnrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/invoicesrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/routerrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/signrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/walletrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/watchtowerrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/wtclientrpc"
 	"github.com/pkt-cash/pktd/lnd/lntest/wait"
 	"github.com/pkt-cash/pktd/rpcclient"
 	"github.com/pkt-cash/pktd/wire"
@@ -317,34 +319,34 @@ type HarnessNode struct {
 	quit chan struct{}
 	wg   sync.WaitGroup
 
-	lnrpc.LightningClient
+	rpc_pb.LightningClient
 
-	lnrpc.WalletUnlockerClient
+	walletunlocker_pb.WalletUnlockerClient
 
-	lnrpc.MetaServiceClient
+	meta_pb.MetaServiceClient
 
-	invoicesrpc.InvoicesClient
+	invoicesrpc_pb.InvoicesClient
 
 	// SignerClient cannot be embedded because the name collisions of the
 	// methods SignMessage and VerifyMessage.
-	SignerClient signrpc.SignerClient
+	SignerClient signrpc_pb.SignerClient
 
 	// conn is the underlying connection to the grpc endpoint of the node.
 	conn *grpc.ClientConn
 
 	// RouterClient, WalletKitClient, WatchtowerClient cannot be embedded,
 	// because a name collision would occur with LightningClient.
-	RouterClient     routerrpc.RouterClient
-	WalletKitClient  walletrpc.WalletKitClient
-	Watchtower       watchtowerrpc.WatchtowerClient
-	WatchtowerClient wtclientrpc.WatchtowerClientClient
+	RouterClient     routerrpc_pb.RouterClient
+	WalletKitClient  walletrpc_pb.WalletKitClient
+	Watchtower       watchtower_pb.WatchtowerClient
+	WatchtowerClient wtclientrpc_pb.WatchtowerClientClient
 }
 
 // Assert *HarnessNode implements all 4 interfaces it declares
-var _ lnrpc.LightningClient = (*HarnessNode)(nil)
-var _ lnrpc.WalletUnlockerClient = (*HarnessNode)(nil)
-var _ lnrpc.MetaServiceClient = (*HarnessNode)(nil)
-var _ invoicesrpc.InvoicesClient = (*HarnessNode)(nil)
+var _ rpc_pb.LightningClient = (*HarnessNode)(nil)
+var _ walletunlocker_pb.WalletUnlockerClient = (*HarnessNode)(nil)
+var _ meta_pb.MetaServiceClient = (*HarnessNode)(nil)
+var _ invoicesrpc_pb.InvoicesClient = (*HarnessNode)(nil)
 
 // newNode creates a new test lightning node instance from the passed config.
 func newNode(cfg NodeConfig) (*HarnessNode, er.R) {
@@ -617,7 +619,7 @@ func (hn *HarnessNode) start(lndBinary string, lndError chan<- er.R) er.R {
 	// only use the TLS certs, and can only perform operations necessary to
 	// unlock the daemon.
 	if hn.Cfg.HasSeed {
-		hn.WalletUnlockerClient = lnrpc.NewWalletUnlockerClient(conn)
+		hn.WalletUnlockerClient = walletunlocker_pb.NewWalletUnlockerClient(conn)
 		return nil
 	}
 
@@ -648,7 +650,7 @@ func (hn *HarnessNode) initClientWhenReady() er.R {
 // Once established, the new connection is used to initialize the
 // LightningClient and subscribes the HarnessNode to topology changes.
 func (hn *HarnessNode) Init(ctx context.Context,
-	initReq *lnrpc.InitWalletRequest) (*lnrpc.InitWalletResponse, er.R) {
+	initReq *walletunlocker_pb.InitWalletRequest) (*walletunlocker_pb.InitWalletResponse, er.R) {
 
 	ctxt, cancel := context.WithTimeout(ctx, DefaultTimeout)
 	defer cancel()
@@ -680,7 +682,7 @@ func (hn *HarnessNode) Init(ctx context.Context,
 // node. Once established, the new connection is used to initialize the
 // LightningClient and subscribes the HarnessNode to topology changes.
 func (hn *HarnessNode) InitChangePassword(ctx context.Context,
-	chngPwReq *lnrpc.ChangePasswordRequest) (*lnrpc.ChangePasswordResponse,
+	chngPwReq *meta_pb.ChangePasswordRequest) (*meta_pb.ChangePasswordResponse,
 	er.R) {
 
 	ctxt, cancel := context.WithTimeout(ctx, DefaultTimeout)
@@ -712,7 +714,7 @@ func (hn *HarnessNode) InitChangePassword(ctx context.Context,
 // seed+password. Once this method returns, the HarnessNode will be ready to
 // accept normal gRPC requests and harness command.
 func (hn *HarnessNode) Unlock(ctx context.Context,
-	unlockReq *lnrpc.UnlockWalletRequest) er.R {
+	unlockReq *walletunlocker_pb.UnlockWalletRequest) er.R {
 
 	ctxt, _ := context.WithTimeout(ctx, DefaultTimeout)
 
@@ -735,13 +737,13 @@ func (hn *HarnessNode) initLightningClient(conn *grpc.ClientConn) er.R {
 	// Construct the LightningClient that will allow us to use the
 	// HarnessNode directly for normal rpc operations.
 	hn.conn = conn
-	hn.LightningClient = lnrpc.NewLightningClient(conn)
-	hn.InvoicesClient = invoicesrpc.NewInvoicesClient(conn)
-	hn.RouterClient = routerrpc.NewRouterClient(conn)
-	hn.WalletKitClient = walletrpc.NewWalletKitClient(conn)
-	hn.Watchtower = watchtowerrpc.NewWatchtowerClient(conn)
-	hn.WatchtowerClient = wtclientrpc.NewWatchtowerClientClient(conn)
-	hn.SignerClient = signrpc.NewSignerClient(conn)
+	hn.LightningClient = rpc_pb.NewLightningClient(conn)
+	hn.InvoicesClient = invoicesrpc_pb.NewInvoicesClient(conn)
+	hn.RouterClient = routerrpc_pb.NewRouterClient(conn)
+	hn.WalletKitClient = walletrpc_pb.NewWalletKitClient(conn)
+	hn.Watchtower = watchtower_pb.NewWatchtowerClient(conn)
+	hn.WatchtowerClient = wtclientrpc_pb.NewWatchtowerClientClient(conn)
+	hn.SignerClient = signrpc_pb.NewSignerClient(conn)
 
 	// Set the harness node's pubkey to what the node claims in GetInfo.
 	err := hn.FetchNodeInfo()
@@ -756,7 +758,7 @@ func (hn *HarnessNode) initLightningClient(conn *grpc.ClientConn) er.R {
 	// successfully before proceeding. We use a dummy subscription in order
 	// to not consume an update from the real one.
 	err = wait.NoError(func() er.R {
-		req := &lnrpc.GraphTopologySubscription{}
+		req := &rpc_pb.GraphTopologySubscription{}
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		topologyClient, errr := hn.SubscribeChannelGraph(ctx, req)
 		if errr != nil {
@@ -799,7 +801,7 @@ func (hn *HarnessNode) initLightningClient(conn *grpc.ClientConn) er.R {
 func (hn *HarnessNode) FetchNodeInfo() er.R {
 	// Obtain the lnid of this node for quick identification purposes.
 	ctxb := context.Background()
-	info, errr := hn.GetInfo(ctxb, &lnrpc.GetInfoRequest{})
+	info, errr := hn.GetInfo(ctxb, &rpc_pb.GetInfoRequest{})
 	if errr != nil {
 		return er.E(errr)
 	}
@@ -947,7 +949,7 @@ func (hn *HarnessNode) stop() er.R {
 	if hn.LightningClient != nil {
 		// Don't watch for error because sometimes the RPC connection gets
 		// closed before a response is returned.
-		req := lnrpc.StopRequest{}
+		req := rpc_pb.StopRequest{}
 		ctx := context.Background()
 		hn.LightningClient.StopDaemon(ctx, &req)
 	}
@@ -1005,15 +1007,15 @@ type chanWatchRequest struct {
 
 // getChanPointFundingTxid returns the given channel point's funding txid in
 // raw bytes.
-func getChanPointFundingTxid(chanPoint *lnrpc.ChannelPoint) ([]byte, er.R) {
+func getChanPointFundingTxid(chanPoint *rpc_pb.ChannelPoint) ([]byte, er.R) {
 	var txid []byte
 
 	// A channel point's funding txid can be get/set as a byte slice or a
 	// string. In the case it is a string, decode it.
 	switch chanPoint.GetFundingTxid().(type) {
-	case *lnrpc.ChannelPoint_FundingTxidBytes:
+	case *rpc_pb.ChannelPoint_FundingTxidBytes:
 		txid = chanPoint.GetFundingTxidBytes()
-	case *lnrpc.ChannelPoint_FundingTxidStr:
+	case *rpc_pb.ChannelPoint_FundingTxidStr:
 		s := chanPoint.GetFundingTxidStr()
 		h, err := chainhash.NewHashFromStr(s)
 		if err != nil {
@@ -1034,12 +1036,12 @@ func getChanPointFundingTxid(chanPoint *lnrpc.ChannelPoint) ([]byte, er.R) {
 func (hn *HarnessNode) lightningNetworkWatcher(subscribed chan er.R) {
 	defer hn.wg.Done()
 
-	graphUpdates := make(chan *lnrpc.GraphTopologyUpdate)
+	graphUpdates := make(chan *rpc_pb.GraphTopologyUpdate)
 	hn.wg.Add(1)
 	go func() {
 		defer hn.wg.Done()
 
-		req := &lnrpc.GraphTopologySubscription{}
+		req := &rpc_pb.GraphTopologySubscription{}
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		defer cancelFunc()
 		topologyClient, err := hn.SubscribeChannelGraph(ctx, req)
@@ -1173,7 +1175,7 @@ func (hn *HarnessNode) lightningNetworkWatcher(subscribed chan er.R) {
 // considered "fully advertised" once both of its directional edges has been
 // advertised within the test Lightning Network.
 func (hn *HarnessNode) WaitForNetworkChannelOpen(ctx context.Context,
-	op *lnrpc.ChannelPoint) er.R {
+	op *rpc_pb.ChannelPoint) er.R {
 
 	eventChan := make(chan struct{})
 
@@ -1208,7 +1210,7 @@ func (hn *HarnessNode) WaitForNetworkChannelOpen(ctx context.Context,
 // closed once a transaction spending the funding outpoint is seen within a
 // confirmed block.
 func (hn *HarnessNode) WaitForNetworkChannelClose(ctx context.Context,
-	op *lnrpc.ChannelPoint) er.R {
+	op *rpc_pb.ChannelPoint) er.R {
 
 	eventChan := make(chan struct{})
 
@@ -1256,7 +1258,7 @@ func (hn *HarnessNode) WaitForBlockchainSync(ctx context.Context) er.R {
 			default:
 			}
 
-			getInfoReq := &lnrpc.GetInfoRequest{}
+			getInfoReq := &rpc_pb.GetInfoRequest{}
 			getInfoResp, err := hn.GetInfo(ctx, getInfoReq)
 			if err != nil {
 				errChan <- er.E(err)
@@ -1289,7 +1291,7 @@ func (hn *HarnessNode) WaitForBlockchainSync(ctx context.Context) er.R {
 // balance within their wallet.
 func (hn *HarnessNode) WaitForBalance(expectedBalance btcutil.Amount, confirmed bool) er.R {
 	ctx := context.Background()
-	req := &lnrpc.WalletBalanceRequest{}
+	req := &rpc_pb.WalletBalanceRequest{}
 
 	var lastBalance btcutil.Amount
 	doesBalanceMatch := func() bool {
