@@ -202,10 +202,36 @@ func test() {
 	exe(exeNoRedirect, "go", "test", "-count=1", "-cover", "-parallel=1", "./...", "-tags=dev")
 }
 
+func checkProtoc() {
+	cmd := exec.Command("protoc", "--version")
+	err := cmd.Run()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "In order to compile pktd, you must have `protoc` installed\n")
+		if runtime.GOOS == "darwin" {
+			fmt.Fprintf(os.Stderr,
+				"Since you seem to be using a Mac, you can use homebrew to install it\n"+
+					"See: https://formulae.brew.sh/formula/protobuf\n",
+			)
+		} else if runtime.GOOS == "windows" {
+			fmt.Fprintf(os.Stderr,
+				"Since you seem to be using Windows, you can install it from github\n"+
+					"See: https://www.geeksforgeeks.org/how-to-install-protocol-buffers-on-windows/\n",
+			)
+		} else if runtime.GOOS == "linux" {
+			fmt.Fprintf(os.Stderr,
+				"Since you seem to be using Linux, you can install it with your package manager\n"+
+					"See: https://command-not-found.com/protoc\n",
+			)
+		}
+		os.Exit(100)
+	}
+}
+
 var regex = regexp.MustCompile("[A-Z0-9_]+=.*")
 
 func main() {
 	chkdir()
+	checkProtoc()
 	genproto()
 	conf := config{}
 	conf.bindir = "./bin"
@@ -226,7 +252,7 @@ func main() {
 	build("pktd", ".", &conf)
 	build("pktwallet", "./pktwallet", &conf)
 	build("pktctl", "./cmd/pktctl", &conf)
-	build("checksig", "./cmd/checksig", &conf)
+	//build("checksig", "./cmd/checksig", &conf)
 	build("pld", "./lnd/cmd/lnd", &conf)
 	//	no need to compile and build the old version of pldctl
 	//		build("pldctl", "./lnd/cmd/lncli", &conf)
