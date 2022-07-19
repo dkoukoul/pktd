@@ -274,12 +274,6 @@ func TestInitWallet(t *testing.T) {
 	_, errr = service.InitWallet(ctx, req)
 	require.Error(t, errr)
 	require.Contains(t, errr.Error(), "wallet already exists")
-
-	// Similarly, if we try to do GenSeed again, we should get an error as
-	// the wallet already exists.
-	_, errr = service.GenSeed(ctx, &walletunlocker_pb.GenSeedRequest{})
-	require.Error(t, errr)
-	require.Contains(t, errr.Error(), "wallet already exists")
 }
 
 // TestInitWalletInvalidCipherSeed tests that if we attempt to create a wallet
