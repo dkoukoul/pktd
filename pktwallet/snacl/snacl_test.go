@@ -19,9 +19,15 @@ var (
 	blob     []byte
 )
 
+func init() {
+	key, _ = NewSecretKey(&password, DefaultN, DefaultR, DefaultP)
+	params = key.Marshal()
+	blob, _ = key.Encrypt(message)
+}
+
 func TestNewSecretKey(t *testing.T) {
 	var err er.R
-	key, err = NewSecretKey(&password, DefaultN, DefaultR, DefaultP)
+	_, err = NewSecretKey(&password, DefaultN, DefaultR, DefaultP)
 	if err != nil {
 		t.Error(err)
 		return
@@ -29,7 +35,7 @@ func TestNewSecretKey(t *testing.T) {
 }
 
 func TestMarshalSecretKey(t *testing.T) {
-	params = key.Marshal()
+	_ = key.Marshal()
 }
 
 func TestUnmarshalSecretKey(t *testing.T) {
@@ -66,7 +72,7 @@ func TestUnmarshalSecretKeyInvalid(t *testing.T) {
 func TestEncrypt(t *testing.T) {
 	var err er.R
 
-	blob, err = key.Encrypt(message)
+	_, err = key.Encrypt(message)
 	if err != nil {
 		t.Error(err)
 		return

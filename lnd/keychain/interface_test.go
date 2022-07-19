@@ -128,149 +128,151 @@ type keyRingConstructor func() (string, func(), KeyRing, er.R)
 
 // TestKeyRingDerivation tests that each known KeyRing implementation properly
 // adheres to the expected behavior of the set of interfaces.
-func TestKeyRingDerivation(t *testing.T) {
+func testKeyRingDerivation(t *testing.T, impl keyRingConstructor) {
 	t.Parallel()
-
-	keyRingImplementations := []keyRingConstructor{
-		func() (string, func(), KeyRing, er.R) {
-			cleanUp, wallet, err := createTestBtcWallet(
-				CoinTypeBitcoin,
-			)
-			if err != nil {
-				t.Fatalf("unable to create wallet: %v", err)
-			}
-
-			keyRing := NewBtcWalletKeyRing(wallet, CoinTypeBitcoin)
-
-			return "btcwallet", cleanUp, keyRing, nil
-		},
-		func() (string, func(), KeyRing, er.R) {
-			cleanUp, wallet, err := createTestBtcWallet(
-				CoinTypeLitecoin,
-			)
-			if err != nil {
-				t.Fatalf("unable to create wallet: %v", err)
-			}
-
-			keyRing := NewBtcWalletKeyRing(wallet, CoinTypeLitecoin)
-
-			return "ltcwallet", cleanUp, keyRing, nil
-		},
-		func() (string, func(), KeyRing, er.R) {
-			cleanUp, wallet, err := createTestBtcWallet(
-				CoinTypeTestnet,
-			)
-			if err != nil {
-				t.Fatalf("unable to create wallet: %v", err)
-			}
-
-			keyRing := NewBtcWalletKeyRing(wallet, CoinTypeTestnet)
-
-			return "testwallet", cleanUp, keyRing, nil
-		},
-	}
 
 	const numKeysToDerive = 10
 
 	// For each implementation constructor registered above, we'll execute
 	// an identical set of tests in order to ensure that the interface
 	// adheres to our nominal specification.
-	for _, keyRingConstructor := range keyRingImplementations {
-		keyRingName, cleanUp, keyRing, err := keyRingConstructor()
-		if err != nil {
-			t.Fatalf("unable to create key ring %v: %v", keyRingName,
-				err)
-		}
-		defer cleanUp()
+	//for _, keyRingConstructor := range keyRingImplementations {
+	keyRingName, cleanUp, keyRing, err := impl()
+	if err != nil {
+		t.Fatalf("unable to create key ring %v: %v", keyRingName,
+			err)
+	}
+	defer cleanUp()
 
-		success := t.Run(fmt.Sprintf("%v", keyRingName), func(t *testing.T) {
-			// First, we'll ensure that we're able to derive keys
-			// from each of the known key families.
-			for _, keyFam := range versionZeroKeyFamilies {
-				// First, we'll ensure that we can derive the
-				// *next* key in the keychain.
-				keyDesc, err := keyRing.DeriveNextKey(keyFam)
-				if err != nil {
-					t.Fatalf("unable to derive next for "+
-						"keyFam=%v: %v", keyFam, err)
-				}
-				assertEqualKeyLocator(t,
-					KeyLocator{
-						Family: keyFam,
-						Index:  0,
-					}, keyDesc.KeyLocator,
-				)
-
-				// We'll now re-derive that key to ensure that
-				// we're able to properly access the key via
-				// the random access derivation methods.
-				keyLoc := KeyLocator{
+	t.Run(fmt.Sprintf("%v", keyRingName), func(t *testing.T) {
+		// First, we'll ensure that we're able to derive keys
+		// from each of the known key families.
+		for _, keyFam := range versionZeroKeyFamilies {
+			// First, we'll ensure that we can derive the
+			// *next* key in the keychain.
+			keyDesc, err := keyRing.DeriveNextKey(keyFam)
+			if err != nil {
+				t.Fatalf("unable to derive next for "+
+					"keyFam=%v: %v", keyFam, err)
+			}
+			assertEqualKeyLocator(t,
+				KeyLocator{
 					Family: keyFam,
 					Index:  0,
+				}, keyDesc.KeyLocator,
+			)
+
+			// We'll now re-derive that key to ensure that
+			// we're able to properly access the key via
+			// the random access derivation methods.
+			keyLoc := KeyLocator{
+				Family: keyFam,
+				Index:  0,
+			}
+			firstKeyDesc, err := keyRing.DeriveKey(keyLoc)
+			if err != nil {
+				t.Fatalf("unable to derive first key for "+
+					"keyFam=%v: %v", keyFam, err)
+			}
+			if !keyDesc.PubKey.IsEqual(firstKeyDesc.PubKey) {
+				t.Fatalf("mismatched keys: expected %x, "+
+					"got %x",
+					keyDesc.PubKey.SerializeCompressed(),
+					firstKeyDesc.PubKey.SerializeCompressed())
+			}
+			assertEqualKeyLocator(t,
+				KeyLocator{
+					Family: keyFam,
+					Index:  0,
+				}, firstKeyDesc.KeyLocator,
+			)
+
+			// If we now try to manually derive the next 10
+			// keys (including the original key), then we
+			// should get an identical public key back and
+			// their KeyLocator information
+			// should be set properly.
+			for i := 0; i < numKeysToDerive+1; i++ {
+				keyLoc := KeyLocator{
+					Family: keyFam,
+					Index:  uint32(i),
 				}
-				firstKeyDesc, err := keyRing.DeriveKey(keyLoc)
+				keyDesc, err := keyRing.DeriveKey(keyLoc)
 				if err != nil {
 					t.Fatalf("unable to derive first key for "+
 						"keyFam=%v: %v", keyFam, err)
 				}
-				if !keyDesc.PubKey.IsEqual(firstKeyDesc.PubKey) {
-					t.Fatalf("mismatched keys: expected %x, "+
-						"got %x",
-						keyDesc.PubKey.SerializeCompressed(),
-						firstKeyDesc.PubKey.SerializeCompressed())
-				}
-				assertEqualKeyLocator(t,
-					KeyLocator{
-						Family: keyFam,
-						Index:  0,
-					}, firstKeyDesc.KeyLocator,
-				)
 
-				// If we now try to manually derive the next 10
-				// keys (including the original key), then we
-				// should get an identical public key back and
-				// their KeyLocator information
-				// should be set properly.
-				for i := 0; i < numKeysToDerive+1; i++ {
-					keyLoc := KeyLocator{
-						Family: keyFam,
-						Index:  uint32(i),
-					}
-					keyDesc, err := keyRing.DeriveKey(keyLoc)
-					if err != nil {
-						t.Fatalf("unable to derive first key for "+
-							"keyFam=%v: %v", keyFam, err)
-					}
-
-					// Ensure that the key locator matches
-					// up as well.
-					assertEqualKeyLocator(
-						t, keyLoc, keyDesc.KeyLocator,
-					)
-				}
-
-				// If this succeeds, then we'll also try to
-				// derive a random index within the range.
-				randKeyIndex := uint32(rand.Int31())
-				keyLoc = KeyLocator{
-					Family: keyFam,
-					Index:  randKeyIndex,
-				}
-				keyDesc, err = keyRing.DeriveKey(keyLoc)
-				if err != nil {
-					t.Fatalf("unable to derive key_index=%v "+
-						"for keyFam=%v: %v",
-						randKeyIndex, keyFam, err)
-				}
+				// Ensure that the key locator matches
+				// up as well.
 				assertEqualKeyLocator(
 					t, keyLoc, keyDesc.KeyLocator,
 				)
 			}
-		})
-		if !success {
-			break
+
+			// If this succeeds, then we'll also try to
+			// derive a random index within the range.
+			randKeyIndex := uint32(rand.Int31())
+			keyLoc = KeyLocator{
+				Family: keyFam,
+				Index:  randKeyIndex,
+			}
+			keyDesc, err = keyRing.DeriveKey(keyLoc)
+			if err != nil {
+				t.Fatalf("unable to derive key_index=%v "+
+					"for keyFam=%v: %v",
+					randKeyIndex, keyFam, err)
+			}
+			assertEqualKeyLocator(
+				t, keyLoc, keyDesc.KeyLocator,
+			)
 		}
-	}
+	})
+}
+
+func TestKeyRingDerivationBTC(t *testing.T) {
+	testKeyRingDerivation(t, func() (string, func(), KeyRing, er.R) {
+		cleanUp, wallet, err := createTestBtcWallet(
+			CoinTypeBitcoin,
+		)
+		if err != nil {
+			t.Fatalf("unable to create wallet: %v", err)
+		}
+
+		keyRing := NewBtcWalletKeyRing(wallet, CoinTypeBitcoin)
+
+		return "btcwallet", cleanUp, keyRing, nil
+	})
+}
+
+func TestKeyRingDerivationLTC(t *testing.T) {
+	testKeyRingDerivation(t, func() (string, func(), KeyRing, er.R) {
+		cleanUp, wallet, err := createTestBtcWallet(
+			CoinTypeLitecoin,
+		)
+		if err != nil {
+			t.Fatalf("unable to create wallet: %v", err)
+		}
+
+		keyRing := NewBtcWalletKeyRing(wallet, CoinTypeLitecoin)
+
+		return "ltcwallet", cleanUp, keyRing, nil
+	})
+}
+
+func TestKeyRingDerivationTestnet(t *testing.T) {
+	testKeyRingDerivation(t, func() (string, func(), KeyRing, er.R) {
+		cleanUp, wallet, err := createTestBtcWallet(
+			CoinTypeTestnet,
+		)
+		if err != nil {
+			t.Fatalf("unable to create wallet: %v", err)
+		}
+
+		keyRing := NewBtcWalletKeyRing(wallet, CoinTypeTestnet)
+
+		return "testwallet", cleanUp, keyRing, nil
+	})
 }
 
 // secretKeyRingConstructor is a function signature that's used as a generic

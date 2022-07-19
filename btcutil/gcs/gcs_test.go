@@ -8,6 +8,7 @@ package gcs_test
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -76,14 +77,25 @@ var (
 	}
 )
 
-// TestGCSFilterBuild builds a test filter with a randomized key. For Bitcoin
-// use, deterministic filter generation is desired. Therefore, a key that's
-// derived deterministically would be required.
-func TestGCSFilterBuild(t *testing.T) {
+func buildGCSFilter() er.R {
 	for i := 0; i < gcs.KeySize; i += 4 {
 		binary.BigEndian.PutUint32(key[i:], rand.Uint32())
 	}
 	filter, err = gcs.BuildGCSFilter(P, M, key, contents)
+	fmt.Printf("%v\n", filter)
+	return err
+}
+
+func init() {
+	buildGCSFilter()
+	copyGCSFilter()
+}
+
+// TestGCSFilterBuild builds a test filter with a randomized key. For Bitcoin
+// use, deterministic filter generation is desired. Therefore, a key that's
+// derived deterministically would be required.
+func TestGCSFilterBuild(t *testing.T) {
+	err := buildGCSFilter()
 	if err != nil {
 		t.Fatalf("Filter build failed: %s", err.String())
 	}
@@ -168,23 +180,31 @@ func testGCSMatchZeroHash(t *testing.T, includeZeroHash bool) {
 	}
 }
 
-// TestGCSFilterCopy deserializes and serializes a filter to create a copy.
-func TestGCSFilterCopy(t *testing.T) {
+func copyGCSFilter() er.R {
 	serialized2, err := filter.Bytes()
 	if err != nil {
-		t.Fatalf("Filter Bytes() failed: %v", err)
+		return er.Errorf("Filter Bytes() failed: %v", err)
 	}
 	filter2, err = gcs.FromBytes(filter.N(), P, M, serialized2)
 	if err != nil {
-		t.Fatalf("Filter copy failed: %s", err.String())
+		return er.Errorf("Filter copy failed: %s", err.String())
 	}
 	serialized3, err := filter.NBytes()
 	if err != nil {
-		t.Fatalf("Filter NBytes() failed: %v", err)
+		return er.Errorf("Filter NBytes() failed: %v", err)
 	}
 	filter3, err = gcs.FromNBytes(filter.P(), M, serialized3)
 	if err != nil {
-		t.Fatalf("Filter copy failed: %s", err.String())
+		return er.Errorf("Filter copy failed: %s", err.String())
+	}
+	return nil
+}
+
+// TestGCSFilterCopy deserializes and serializes a filter to create a copy.
+func TestGCSFilterCopy(t *testing.T) {
+	err := copyGCSFilter()
+	if err != nil {
+		t.Fatalf("%v", err)
 	}
 }
 
