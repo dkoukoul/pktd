@@ -44,8 +44,6 @@ const (
 	defaultChainSubDirname = "chain"
 	defaultGraphSubDirname = "graph"
 	defaultTowerSubDirname = "watchtower"
-	defaultTLSCertFilename = "tls.cert"
-	defaultTLSKeyFilename  = "tls.key"
 	defaultLogLevel        = "info"
 	defaultLogDirname      = "logs"
 	defaultLogFilename     = "lnd.log"
@@ -182,31 +180,23 @@ type Config struct {
 	WalletFile   string `long:"wallet" description:"Wallet file name or path, if a simple word such as 'personal' then pktwallet will look for wallet_personal.db, if prefixed with a / then pktwallet will consider it an absolute path. (default: wallet.db)"`
 	SyncFreelist bool   `long:"sync-freelist" description:"Whether the databases used within pld should sync their freelist to disk. This is disabled by default resulting in improved memory performance during operation, but with an increase in startup time."`
 
-	LogDir          string        `long:"logdir" description:"Directory to log output."`
-	MaxLogFiles     int           `long:"maxlogfiles" description:"Maximum logfiles to keep (0 for no rotation)"`
-	MaxLogFileSize  int           `long:"maxlogfilesize" description:"Maximum logfile size in MB"`
-	AcceptorTimeout time.Duration `long:"acceptortimeout" description:"Time after which an RPCAcceptor will time out and return false if it hasn't yet received a response"`
-
-	LetsEncryptDir    string `long:"letsencryptdir" description:"The directory to store Let's Encrypt certificates within"`
-	LetsEncryptListen string `long:"letsencryptlisten" description:"The IP:port on which pld will listen for Let's Encrypt challenges. Let's Encrypt will always try to contact on port 80. Often non-root processes are not allowed to bind to ports lower than 1024. This configuration option allows a different port to be used, but must be used in combination with port forwarding from port 80. This configuration can also be used to specify another IP address to listen on, for example an IPv6 address."`
-	LetsEncryptDomain string `long:"letsencryptdomain" description:"Request a Let's Encrypt certificate for this domain. Note that the certicate is only requested and stored when the first rpc connection comes in."`
+	LogDir         string `long:"logdir" description:"Directory to log output."`
+	MaxLogFiles    int    `long:"maxlogfiles" description:"Maximum logfiles to keep (0 for no rotation)"`
+	MaxLogFileSize int    `long:"maxlogfilesize" description:"Maximum logfile size in MB"`
 
 	// We'll parse these 'raw' string arguments into real net.Addrs in the
 	// loadConfig function. We need to expose the 'raw' strings so the
 	// command line library can access them.
 	// Only the parsed net.Addrs should be used!
-	RawRPCListeners   []string `long:"rpclisten" description:"Add an interface/port/socket to listen for RPC connections"`
 	RawRESTListeners  []string `long:"restlisten" description:"Add an interface/port/socket to listen for REST connections"`
 	RawListeners      []string `long:"listen" description:"Add an interface/port to listen for peer connections"`
 	RawExternalIPs    []string `long:"externalip" description:"Add an ip:port to the list of local addresses we claim to listen on to peers. If a port is not specified, the default (9735) will be used regardless of other parameters"`
 	ExternalHosts     []string `long:"externalhosts" description:"A set of hosts that should be periodically resolved to announce IPs for"`
-	RPCListeners      []net.Addr
 	RESTListeners     []net.Addr
 	RestCORS          []string `long:"restcors" description:"Add an ip:port/hostname to allow cross origin access from. To allow all origins, set as \"*\"."`
 	Listeners         []net.Addr
 	ExternalIPs       []net.Addr
 	DisableListen     bool          `long:"nolisten" description:"Disable listening for incoming peer connections"`
-	DisableRest       bool          `long:"norest" description:"Disable REST API"`
 	NAT               bool          `long:"nat" description:"Toggle NAT traversal support (using either UPnP or NAT-PMP) to automatically advertise your external IP address to the network -- NOTE this does not support devices behind multiple NATs"`
 	MinBackoff        time.Duration `long:"minbackoff" description:"Shortest backoff when reconnecting to persistent peers. Valid time units are {s, m, h}."`
 	MaxBackoff        time.Duration `long:"maxbackoff" description:"Longest backoff when reconnecting to persistent peers. Valid time units are {s, m, h}."`
@@ -298,8 +288,6 @@ type Config struct {
 
 	Caches *lncfg.Caches `group:"caches" namespace:"caches"`
 
-	Prometheus lncfg.Prometheus `group:"prometheus" namespace:"prometheus"`
-
 	WtClient *lncfg.WtClient `group:"wtclient" namespace:"wtclient"`
 
 	Watchtower *lncfg.Watchtower `group:"watchtower" namespace:"watchtower"`
@@ -328,18 +316,15 @@ type Config struct {
 // DefaultConfig returns all default values for the Config struct.
 func DefaultConfig() Config {
 	return Config{
-		LndDir:            DefaultLndDir,
-		PktDir:            defaultPktWalletDir,
-		ConfigFile:        DefaultConfigFile,
-		DataDir:           defaultDataDir,
-		WalletFile:        defaultWalletFile,
-		DebugLevel:        defaultLogLevel,
-		LetsEncryptDir:    defaultLetsEncryptDir,
-		LetsEncryptListen: defaultLetsEncryptListen,
-		LogDir:            defaultLogDir,
-		MaxLogFiles:       defaultMaxLogFiles,
-		MaxLogFileSize:    defaultMaxLogFileSize,
-		AcceptorTimeout:   defaultAcceptorTimeout,
+		LndDir:         DefaultLndDir,
+		PktDir:         defaultPktWalletDir,
+		ConfigFile:     DefaultConfigFile,
+		DataDir:        defaultDataDir,
+		WalletFile:     defaultWalletFile,
+		DebugLevel:     defaultLogLevel,
+		LogDir:         defaultLogDir,
+		MaxLogFiles:    defaultMaxLogFiles,
+		MaxLogFileSize: defaultMaxLogFileSize,
 		Bitcoin: &lncfg.Chain{
 			MinHTLCIn:     chainreg.DefaultBitcoinMinHTLCInMSat,
 			MinHTLCOut:    chainreg.DefaultBitcoinMinHTLCOutMSat,
@@ -445,7 +430,6 @@ func DefaultConfig() Config {
 			RejectCacheSize:  channeldb.DefaultRejectCacheSize,
 			ChannelCacheSize: channeldb.DefaultChannelCacheSize,
 		},
-		Prometheus: lncfg.DefaultPrometheus(),
 		Watchtower: &lncfg.Watchtower{
 			TowerDir: defaultTowerDir,
 		},
@@ -558,9 +542,6 @@ func ValidateConfig(cfg Config, usageMessage string) (*Config, er.R) {
 	lndDir := CleanAndExpandPath(cfg.LndDir)
 	if lndDir != DefaultLndDir {
 		cfg.DataDir = filepath.Join(lndDir, defaultDataDirname)
-		cfg.LetsEncryptDir = filepath.Join(
-			lndDir, defaultLetsEncryptDirname,
-		)
 		cfg.LogDir = filepath.Join(lndDir, defaultLogDirname)
 
 		// If the watchtower's directory is set to the default, i.e. the
@@ -604,7 +585,6 @@ func ValidateConfig(cfg Config, usageMessage string) (*Config, er.R) {
 	// to use them later on.
 	cfg.DataDir = CleanAndExpandPath(cfg.DataDir)
 	cfg.PktDir = CleanAndExpandPath(cfg.PktDir)
-	cfg.LetsEncryptDir = CleanAndExpandPath(cfg.LetsEncryptDir)
 	cfg.LogDir = CleanAndExpandPath(cfg.LogDir)
 	cfg.BtcdMode.Dir = CleanAndExpandPath(cfg.BtcdMode.Dir)
 	cfg.LtcdMode.Dir = CleanAndExpandPath(cfg.LtcdMode.Dir)
@@ -620,7 +600,7 @@ func ValidateConfig(cfg Config, usageMessage string) (*Config, er.R) {
 	dirs := []string{
 		lndDir, cfg.DataDir,
 		cfg.PktDir,
-		cfg.LetsEncryptDir, cfg.Watchtower.TowerDir,
+		cfg.Watchtower.TowerDir,
 		filepath.Dir(cfg.Tor.PrivateKeyPath),
 		filepath.Dir(cfg.Tor.WatchtowerKeyPath),
 	}
@@ -1105,13 +1085,6 @@ func ValidateConfig(cfg Config, usageMessage string) (*Config, er.R) {
 		return nil, err
 	}
 
-	// At least one RPCListener is required. So listen on localhost per
-	// default.
-	if len(cfg.RawRPCListeners) == 0 {
-		addr := fmt.Sprintf("localhost:%d", defaultRPCPort)
-		cfg.RawRPCListeners = append(cfg.RawRPCListeners, addr)
-	}
-
 	// Listen on localhost if no REST listeners were specified.
 	if len(cfg.RawRESTListeners) == 0 {
 		addr := fmt.Sprintf("localhost:%d", defaultRESTPort)
@@ -1129,16 +1102,6 @@ func ValidateConfig(cfg Config, usageMessage string) (*Config, er.R) {
 			addr = fmt.Sprintf("localhost:%d", defaultPeerPort)
 		}
 		cfg.RawListeners = append(cfg.RawListeners, addr)
-	}
-
-	// Add default port to all RPC listener addresses if needed and remove
-	// duplicate addresses.
-	cfg.RPCListeners, err = lncfg.NormalizeAddresses(
-		cfg.RawRPCListeners, strconv.Itoa(defaultRPCPort),
-		cfg.net.ResolveTCPAddr,
-	)
-	if err != nil {
-		return nil, err
 	}
 
 	// Add default port to all REST listener addresses if needed and remove

@@ -68,7 +68,7 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 	}
 
 	log.Infof("Active chain: %v (network=%v)",
-		strings.Title(cfg.registeredChains.PrimaryChain().String()),
+		strings.ToTitle(cfg.registeredChains.PrimaryChain().String()),
 		network,
 	)
 

@@ -5663,33 +5663,6 @@ func (r *LightningRPCServer) SubscribeChannelBackups0(req *rpc_pb.ChannelBackupS
 	}
 }
 
-// ChannelAcceptor dispatches a bi-directional streaming RPC in which
-// OpenChannel requests are sent to the client and the client responds with
-// a boolean that tells LND whether or not to accept the channel. This allows
-// node operators to specify their own criteria for accepting inbound channels
-// through a single persistent connection.
-func (r *LightningRPCServer) ChannelAcceptor(stream rpc_pb.Lightning_ChannelAcceptorServer) error {
-	chainedAcceptor := r.chanPredicate
-
-	// Create a new RPCAcceptor which will send requests into the
-	// newRequests channel when it receives them.
-	rpcAcceptor := chanacceptor.NewRPCAcceptor(
-		stream.Recv, stream.Send, r.cfg.AcceptorTimeout,
-		r.cfg.ActiveNetParams.Params, r.quit,
-	)
-
-	// Add the RPCAcceptor to the ChainedAcceptor and defer its removal.
-	id := chainedAcceptor.AddAcceptor(rpcAcceptor)
-	defer chainedAcceptor.RemoveAcceptor(id)
-
-	// Run the rpc acceptor, which will accept requests for channel
-	// acceptance decisions from our chained acceptor, send them to the
-	// channel acceptor and listen for and report responses. This function
-	// blocks, and will exit if the rpcserver receives the instruction to
-	// shutdown, or the client cancels.
-	return er.Native(rpcAcceptor.Run())
-}
-
 func (r *LightningRPCServer) FundingStateStep(ctx context.Context,
 	in *rpc_pb.FundingTransitionMsg) (*rpc_pb.FundingStateStepResp, error) {
 	res, err := r.FundingStateStep0(ctx, in)
