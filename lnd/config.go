@@ -45,9 +45,6 @@ const (
 	defaultGraphSubDirname = "graph"
 	defaultTowerSubDirname = "watchtower"
 	defaultLogLevel        = "info"
-	defaultLogDirname      = "logs"
-	defaultLogFilename     = "lnd.log"
-	defaultRPCPort         = 10009
 	defaultRESTPort        = 8080
 	defaultPeerPort        = 9735
 	defaultRPCHost         = "localhost"
@@ -59,12 +56,8 @@ const (
 	defaultChanEnableTimeout             = 19 * time.Minute
 	defaultChanDisableTimeout            = 20 * time.Minute
 	defaultHeightHintCacheQueryDisable   = false
-	defaultMaxLogFiles                   = 3
-	defaultMaxLogFileSize                = 10
 	defaultMinBackoff                    = time.Second
 	defaultMaxBackoff                    = time.Hour
-	defaultLetsEncryptDirname            = "letsencrypt"
-	defaultLetsEncryptListen             = ":80"
 
 	defaultTorSOCKSPort            = 9050
 	defaultTorDNSHost              = "soa.nodes.lightning.directory"
@@ -76,10 +69,6 @@ const (
 	// minTimeLockDelta is the minimum timelock we require for incoming
 	// HTLCs on our channels.
 	minTimeLockDelta = routing.MinCLTVDelta
-
-	// defaultAcceptorTimeout is the time after which an RPCAcceptor will time
-	// out and return false if it hasn't yet received a response.
-	defaultAcceptorTimeout = 15 * time.Second
 
 	defaultAlias = ""
 	defaultColor = "#3399FF"
@@ -138,12 +127,8 @@ var (
 	// file.
 	DefaultConfigFile = filepath.Join(DefaultLndDir, lncfg.DefaultConfigFilename)
 
-	defaultDataDir = filepath.Join(DefaultLndDir, defaultDataDirname)
-	defaultLogDir  = filepath.Join(DefaultLndDir, defaultLogDirname)
-
+	defaultDataDir  = filepath.Join(DefaultLndDir, defaultDataDirname)
 	defaultTowerDir = filepath.Join(defaultDataDir, defaultTowerSubDirname)
-
-	defaultLetsEncryptDir = filepath.Join(DefaultLndDir, defaultLetsEncryptDirname)
 
 	defaultBtcdDir         = btcutil.AppDataDir("btcd", false)
 	defaultBtcdRPCCertFile = filepath.Join(defaultBtcdDir, "rpc.cert")
@@ -179,10 +164,6 @@ type Config struct {
 	DataDir      string `short:"b" long:"datadir" description:"The directory to store pld's data within"`
 	WalletFile   string `long:"wallet" description:"Wallet file name or path, if a simple word such as 'personal' then pktwallet will look for wallet_personal.db, if prefixed with a / then pktwallet will consider it an absolute path. (default: wallet.db)"`
 	SyncFreelist bool   `long:"sync-freelist" description:"Whether the databases used within pld should sync their freelist to disk. This is disabled by default resulting in improved memory performance during operation, but with an increase in startup time."`
-
-	LogDir         string `long:"logdir" description:"Directory to log output."`
-	MaxLogFiles    int    `long:"maxlogfiles" description:"Maximum logfiles to keep (0 for no rotation)"`
-	MaxLogFileSize int    `long:"maxlogfilesize" description:"Maximum logfile size in MB"`
 
 	// We'll parse these 'raw' string arguments into real net.Addrs in the
 	// loadConfig function. We need to expose the 'raw' strings so the
@@ -316,15 +297,12 @@ type Config struct {
 // DefaultConfig returns all default values for the Config struct.
 func DefaultConfig() Config {
 	return Config{
-		LndDir:         DefaultLndDir,
-		PktDir:         defaultPktWalletDir,
-		ConfigFile:     DefaultConfigFile,
-		DataDir:        defaultDataDir,
-		WalletFile:     defaultWalletFile,
-		DebugLevel:     defaultLogLevel,
-		LogDir:         defaultLogDir,
-		MaxLogFiles:    defaultMaxLogFiles,
-		MaxLogFileSize: defaultMaxLogFileSize,
+		LndDir:     DefaultLndDir,
+		PktDir:     defaultPktWalletDir,
+		ConfigFile: DefaultConfigFile,
+		DataDir:    defaultDataDir,
+		WalletFile: defaultWalletFile,
+		DebugLevel: defaultLogLevel,
 		Bitcoin: &lncfg.Chain{
 			MinHTLCIn:     chainreg.DefaultBitcoinMinHTLCInMSat,
 			MinHTLCOut:    chainreg.DefaultBitcoinMinHTLCOutMSat,
@@ -542,7 +520,6 @@ func ValidateConfig(cfg Config, usageMessage string) (*Config, er.R) {
 	lndDir := CleanAndExpandPath(cfg.LndDir)
 	if lndDir != DefaultLndDir {
 		cfg.DataDir = filepath.Join(lndDir, defaultDataDirname)
-		cfg.LogDir = filepath.Join(lndDir, defaultLogDirname)
 
 		// If the watchtower's directory is set to the default, i.e. the
 		// user has not requested a different location, we'll move the
@@ -585,7 +562,6 @@ func ValidateConfig(cfg Config, usageMessage string) (*Config, er.R) {
 	// to use them later on.
 	cfg.DataDir = CleanAndExpandPath(cfg.DataDir)
 	cfg.PktDir = CleanAndExpandPath(cfg.PktDir)
-	cfg.LogDir = CleanAndExpandPath(cfg.LogDir)
 	cfg.BtcdMode.Dir = CleanAndExpandPath(cfg.BtcdMode.Dir)
 	cfg.LtcdMode.Dir = CleanAndExpandPath(cfg.LtcdMode.Dir)
 	cfg.BitcoindMode.Dir = CleanAndExpandPath(cfg.BitcoindMode.Dir)
@@ -1069,12 +1045,6 @@ func ValidateConfig(cfg Config, usageMessage string) (*Config, er.R) {
 			cfg.networkDir, chanbackup.DefaultBackupFileName,
 		)
 	}
-
-	// Append the network type to the log directory so it is "namespaced"
-	// per network in the same fashion as the data directory.
-	cfg.LogDir = filepath.Join(cfg.LogDir,
-		cfg.registeredChains.PrimaryChain().String(),
-		lncfg.NormalizeNetwork(cfg.ActiveNetParams.Name))
 
 	// Parse, validate, and set debug log level(s).
 	err = log.SetLogLevels(cfg.DebugLevel)
