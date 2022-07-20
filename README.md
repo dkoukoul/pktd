@@ -1,41 +1,33 @@
-pktd
-====
+# pktd
 
 [![ISC License](http://img.shields.io/badge/license-ISC-blue.svg)](http://Copyfree.org)
 ![Master branch build Status](https://github.com/pkt-cash/pktd/actions/workflows/go.yml/badge.svg?branch=master)
 ![Develop branch build Status](https://github.com/pkt-cash/pktd/actions/workflows/go.yml/badge.svg?branch=develop)
 
-`pktd` is the primary full node *PKT Cash* implementation, written in Go.
-
-The PKT Cash project is currently under active development and considered 
-to be beta quality software.
-
-In particular, the development branch of `pktd` is highly experimental, 
-and should generally not be used in a production environment or on the
-PKT Cash mainnet.
+This repository contains **pktd**, **pktwallet**, and **pld**, the PKT
+Lightning Daemon.
 
 `pktd` is the primary mainnet node software for the PKT blockchain.
 It is known to correctly download, validate, and serve the chain,
 using rules for block acceptance based on Bitcoin Core, with the
 addition of PacketCrypt Proofs. 
 
-It relays newly mined blocks, and individual transactions that have 
-not yet made it into a block, as well as maintaining a transaction pool.
-All individual transactions admitted to the pool follow rules defined by 
-the network operators, which include strict checks to filter transactions
-based on miner requirements ("standard" vs "non-standard" transactions).
+`pktwallet` is the **old** wallet software which is used for managing
+PKT coins. It does not support Lightning Network and it will be phased
+out over time.
 
-Unlike other similar software, `pktd` does *NOT* directly include wallet
-functionality - this was an intentional design decision.  You will not be
-able to make or receive payments with `pktd` directly.
+`pld` is the PKT Lightning Daemon, lightning network enabled wallet.
+All new effort is focused on pld and this will be the main wallet going
+forward.
 
-Example wallet functionality is provided in the included, separate,
-[pktwallet](https://github.com/pkt-cash/pktd/tree/master/pktwallet) package.
+`pktctl` is a management app for controlling pktd and pktwallet.
+
+`pldctl` is a management app for controlling pld.
 
 ## Requirements
 
-* Google [Go](http://golang.org) (Golang) version 1.14 or higher.
-* A somewhat recent release of Git.
+* [Golang compiler](https://command-not-found.com/go)
+* [Protocol buffers](https://command-not-found.com/protoc)
 
 ## Issue Tracker
 
@@ -45,27 +37,65 @@ Example wallet functionality is provided in the included, separate,
 
 Using `git`, clone the project from the repository:
 
-`git clone https://github.com/pkt-cash/pktd`
+```bash
+$ git clone https://github.com/pkt-cash/pktd
+$ cd pktd
+$ ./do
+```
 
-Use the `./do` shell script to build `pktd`, `pktwallet`, and `pktctl`.
+This will build `pktd`, `pktwallet`, `pktctl`, `pld`, and `pldctl` inside of the `./bin` sub-folder.
 
-NOTE: It is highly recommended to use only the toolchain Google distributes
-at the [official Go homepage](https://golang.org/dl). Go toolchains provided
-by Linux distributions often use different defaults or apply non-standard
-patches to the official sources, usually to meet distribution-specific
-requirements (for example, Red Hat backports, security fixes, and provides
-a different default linker configuration vs. the upstream Google Go package.)
+### Advanced building
 
-Support can only be provided for binaries compiled from unmodified sources,
-using the official (upstream) Google Golang toolchain. We unfortunately are
-unable to test and support every distribution specific combination. 
+The `./do` build script invokes golang code to build golang code, so using normal environment
+variables will affect the build code as well as the final code. To use environment variables and
+affect the final code without the build code, place them *after* the `./do` command, not before.
 
-The official Google Golang installer for Linux is always available 
-for download [here](https://storage.googleapis.com/golang/getgo/installer_linux).
+
+Cross-compiling for windows on a Mac:
+
+```bash
+$ ./do GOOS=windows GOARCH=amd64
+```
+
+The script will only accept env vars if they begin with CAPITAL letters, numbers and the underscore
+before an equal sign. So `MY_ENV_VAR=value` will be passed through as an environment variable, but
+`my_env_var=value` will not.
+
+Whatever does not match the env var pattern is treated as a command line flag for the go build.
+For example `./do -tags dev` will run `go build` with `-tags dev` argument.
+
+Finally, you can run the build manually, but you must run ./do first because some code is generated.
+But generated code does not depend on the OS or architecture, so you can safely compile using
+whatever tool you prefer, after you have run `./do` once.
+
+## Testing
+
+To run the tests, run `./test.sh`. Each test will be run individually and the output will be written
+to a file inside of the folder `./testout`.
+
+Please note that some of the tests have bugs or are very slow, and so the following tests are known
+to fail. TIP: A good first contribution is to adopt a failing test and get it working again.
+
+```
+FAIL /Users/user/wrk/pktd/testout/blockchain/TestCheckConnectBlockTemplate.fail.txt
+FAIL /Users/user/wrk/pktd/testout/lnd/contractcourt/TestChainWatcherLocalForceCloseDetect.fail.txt
+FAIL /Users/user/wrk/pktd/testout/lnd/htlcswitch/TestChannelLinkAcceptDuplicatePayment.fail.txt
+FAIL /Users/user/wrk/pktd/testout/lnd/htlcswitch/TestChannelLinkCancelFullCommitment.fail.txt
+FAIL /Users/user/wrk/pktd/testout/lnd/htlcswitch/TestChannelLinkMultiHopUnknownPaymentHash.fail.txt
+FAIL /Users/user/wrk/pktd/testout/lnd/htlcswitch/TestChannelLinkUpdateCommitFee.fail.txt
+FAIL /Users/user/wrk/pktd/testout/lnd/htlcswitch/TestHtlcNotifier.fail.txt
+FAIL /Users/user/wrk/pktd/testout/lnd/htlcswitch/TestMultiHopPaymentForwardingEvents.fail.txt
+FAIL /Users/user/wrk/pktd/testout/lnd/lnwallet/TestCommitmentAndHTLCTransactions.fail.txt
+FAIL /Users/user/wrk/pktd/testout/lnd/lnwallet/TestLightningWallet.fail.txt
+FAIL /Users/user/wrk/pktd/testout/lnd/walletunlocker/TestGenSeedInvalidEntropy.fail.txt
+FAIL /Users/user/wrk/pktd/testout/neutrino/TestBlockManagerInvalidInterval.fail.txt
+FAIL /Users/user/wrk/pktd/testout/pktwallet/wtxmgr/TestStoreQueries.fail.txt
+```
 
 ## Documentation
 
-The documentation for `pktd` is work-in-progress, and available in the [docs](https://github.com/pkt-cash/pktd/tree/master/docs) folder.
+The documentation for `pktd` is available in the [docs.pkt.cash](https://docs.pkt.cash) site.
 
 ## License
 
