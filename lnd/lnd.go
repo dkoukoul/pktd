@@ -644,7 +644,7 @@ func waitForWalletPassword(
 		)
 
 		newWallet, err := loader.CreateNewWallet(
-			[]byte(wallet.InsecurePubPassphrase), password, nil, time.Time{}, cipherSeed,
+			[]byte(wallet.InsecurePubPassphrase), password, initMsg.LegacySeed, time.Time{}, cipherSeed,
 		)
 		if err != nil {
 			// Don't leave the file open in case the new wallet
@@ -662,9 +662,14 @@ func waitForWalletPassword(
 				"flag for new wallet as it has no effect")
 		}
 
+		birthday := time.Time{}
+		if cipherSeed != nil {
+			birthday = cipherSeed.Birthday()
+		}
+
 		return &WalletUnlockParams{
 			Password:       password,
-			Birthday:       cipherSeed.Birthday(),
+			Birthday:       birthday,
 			RecoveryWindow: recoveryWindow,
 			Wallet:         newWallet,
 			ChansToRestore: initMsg.ChanBackups,

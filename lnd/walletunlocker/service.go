@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/btcutil/util"
 	"github.com/pkt-cash/pktd/chaincfg"
 	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/generated/proto/walletunlocker_pb"
@@ -47,6 +48,8 @@ type WalletInitMsg struct {
 	// WalletSeed is the deciphered cipher seed that the wallet should use
 	// to initialize itself.
 	Seed *seedwords.Seed
+
+	LegacySeed []byte
 
 	// RecoveryWindow is the address look-ahead used when restoring a seed
 	// with existing funds. A recovery window zero indicates that no
@@ -290,26 +293,40 @@ func (u *UnlockerService) InitWallet0(ctx context.Context,
 		return nil, er.Errorf("wallet already exists")
 	}
 
-	mnemonic := strings.Join(in.WalletSeed, " ")
-	seedEnc, err := seedwords.SeedFromWords(mnemonic)
-	if err != nil {
-		return nil, err
-	}
-
-	//	fetch seed passphrase from request
-	var seedPassphrase []byte
-
-	if len(in.SeedPassphraseBin) > 0 {
-		seedPassphrase = in.SeedPassphraseBin
-	} else {
-		if len(in.SeedPassphrase) > 0 {
-			seedPassphrase = []byte(in.SeedPassphrase)
+	var seed *seedwords.Seed
+	var legacySeed []byte
+	if len(in.WalletSeed) == 1 {
+		ls, err := util.DecodeHex(in.WalletSeed[0])
+		if err != nil {
+			return nil, err
+		} else if len(ls) != 32 {
+			return nil, er.New("Legacy seed should be 32 bytes long")
+		} else {
+			// Direct cast the string to bytes because it is hex decoded in the wallet later.
+			legacySeed = []byte(in.WalletSeed[0])
 		}
-	}
+	} else {
+		mnemonic := strings.Join(in.WalletSeed, " ")
+		seedEnc, err := seedwords.SeedFromWords(mnemonic)
+		if err != nil {
+			return nil, err
+		}
 
-	seed, err := seedEnc.Decrypt(seedPassphrase, false)
-	if err != nil {
-		return nil, err
+		//	fetch seed passphrase from request
+		var seedPassphrase []byte
+
+		if len(in.SeedPassphraseBin) > 0 {
+			seedPassphrase = in.SeedPassphraseBin
+		} else {
+			if len(in.SeedPassphrase) > 0 {
+				seedPassphrase = []byte(in.SeedPassphrase)
+			}
+		}
+
+		seed, err = seedEnc.Decrypt(seedPassphrase, false)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// With the cipher seed deciphered, and the auth service created, we'll
@@ -318,6 +335,7 @@ func (u *UnlockerService) InitWallet0(ctx context.Context,
 	initMsg := &WalletInitMsg{
 		Passphrase:     walletPassphrase,
 		Seed:           seed,
+		LegacySeed:     legacySeed,
 		RecoveryWindow: uint32(recoveryWindow),
 		WalletName:     walletFile,
 		Complete:       make(chan struct{}),
