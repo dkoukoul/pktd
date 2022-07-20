@@ -130,7 +130,24 @@ func processProto(inPath string, e *execer) bool {
 	return false
 }
 
-func genproto() {
+func writeFile(file, content string) {
+	os.Remove(file)
+	dir, _ := filepath.Split(file)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		panic(err)
+	}
+	os.WriteFile(file, []byte(content), 0664)
+}
+func writeVersion(file, version string) {
+	writeFile(file, `
+	package version
+	func Version() string {
+		return "`+version+`"
+	}
+	`)
+}
+
+func genproto(version string) {
 	e := execer{"PATH=" + os.Getenv("PATH") + ":./builder/buildpkt/bin"}
 	didUpdate := false
 	err := filepath.Walk("proto", func(path string, info os.FileInfo, err error) error {
@@ -153,6 +170,7 @@ func genproto() {
 		}
 		ioutil.WriteFile(helpFile, []byte(out), 0755)
 	}
+	writeVersion("generated/version/version.go", version)
 	fmt.Println("Protobufs generated")
 }
 
@@ -163,11 +181,20 @@ type config struct {
 	bindir    string
 }
 
+func isWindowsBuild() bool {
+	if os.Getenv("GOOS") == "windows" {
+		return true
+	} else if runtime.GOOS == "windows" && os.Getenv("GOOS") == "" {
+		return true
+	}
+	return false
+}
+
 func build(name string, pkg string, conf *config) {
-	if runtime.GOOS == "windows" {
+	if isWindowsBuild() {
 		name = name + ".exe"
 	}
-	fmt.Printf("Building %s\n", name)
+	fmt.Printf("# Building %s\n", name)
 	args := append([]string{"build", "-o", conf.bindir + "/" + name}, conf.buildargs...)
 	args = append(args, pkg)
 	exe(exeNoRedirect|exeEcho, "go", args...)
@@ -191,15 +218,6 @@ func buildStr() string {
 		return id + "-dirty"
 	}
 	return id
-}
-
-func ldflags() string {
-	return "-X github.com/pkt-cash/pktd/pktconfig/version.appBuild=" + buildStr()
-}
-
-func test() {
-	fmt.Println("Running tests")
-	exe(exeNoRedirect, "go", "test", "-count=1", "-cover", "-parallel=1", "./...", "-tags=dev")
 }
 
 func checkProtoc() {
@@ -229,24 +247,38 @@ func checkProtoc() {
 
 var regex = regexp.MustCompile("[A-Z0-9_]+=.*")
 
+func setEnv(k, v string) {
+	fmt.Printf("env %s=%s\n", k, v)
+	os.Setenv(k, v)
+}
+
 func main() {
 	chkdir()
 	checkProtoc()
-	genproto()
+	genproto(buildStr())
 	conf := config{}
 	conf.bindir = "./bin"
 	conf.buildargs = append(conf.buildargs, "-trimpath")
-	conf.buildargs = append(conf.buildargs, "-ldflags="+ldflags())
 
 	assertNil(os.MkdirAll(conf.bindir, 0755), "mkdir bin")
 
-	for _, a := range os.Args {
+	defaultEnv := make(map[string]string)
+	defaultEnv["CGO_ENABLED"] = "0"
+
+	for i, a := range os.Args {
+		if i == 0 {
+			continue
+		}
 		if !regex.MatchString(a) {
+			conf.buildargs = append(conf.buildargs, a)
 			continue
 		}
 		i := strings.IndexRune(a, '=')
-		fmt.Printf("env %s=%s\n", a[0:i], a[i+1:])
-		os.Setenv(a[0:i], a[i+1:])
+		setEnv(a[0:i], a[i+1:])
+		delete(defaultEnv, a[0:i])
+	}
+	for k, v := range defaultEnv {
+		setEnv(k, v)
 	}
 
 	build("pktd", ".", &conf)
@@ -257,10 +289,5 @@ func main() {
 	//	no need to compile and build the old version of pldctl
 	//		build("pldctl", "./lnd/cmd/lncli", &conf)
 	build("pldctl", "./lnd/cmd/lndcli", &conf)
-	if strings.Contains(strings.Join(os.Args, "|"), "--test") {
-		test()
-	} else {
-		fmt.Println("Pass the --test flag if you want to run the tests as well")
-	}
 	fmt.Println("Everything looks good, type `./bin/pktwallet --create` to make a wallet")
 }

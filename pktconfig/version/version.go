@@ -8,12 +8,9 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-)
 
-// appBuild is defined as a variable so it can be overridden during the build
-// process with '-ldflags "-X main.appBuild foo' if needed.  It MUST only
-// contain characters from semanticAlphabet per the semantic versioning spec.
-var appBuild string
+	genversion "github.com/pkt-cash/pktd/generated/version"
+)
 
 var userAgentName = "unknown" // pktd, pktwallet, pktctl...
 var appMajor uint = 0
@@ -25,20 +22,21 @@ var prerelease = false
 var dirty = false
 
 func init() {
-	if len(appBuild) == 0 {
+	ver := genversion.Version()
+	if len(ver) == 0 {
 		// custom build
 		return
 	}
 	tag := "-custom"
 	// pktd-v1.1.0-beta-19-gfa3ba767
-	if _, err := fmt.Sscanf(appBuild, "pktd-v%d.%d.%d", &appMajor, &appMinor, &appPatch); err == nil {
+	if _, err := fmt.Sscanf(ver, "pktd-v%d.%d.%d", &appMajor, &appMinor, &appPatch); err == nil {
 		tag = ""
 		custom = false
-		if x := regexp.MustCompile(`-[0-9]+-g[0-9a-f]{8}`).FindString(appBuild); len(x) > 0 {
+		if x := regexp.MustCompile(`-[0-9]+-g[0-9a-f]{8}`).FindString(ver); len(x) > 0 {
 			tag += "-" + x[strings.LastIndex(x, "-")+2:]
 			prerelease = true
 		}
-		if strings.Contains(appBuild, "-dirty") {
+		if strings.Contains(ver, "-dirty") {
 			tag += "-dirty"
 			dirty = true
 		}

@@ -1,11 +1,8 @@
 package main
 
-import "C"
-
 import (
 	"fmt"
 	"os"
-	"unsafe"
 
 	"github.com/jessevdk/go-flags"
 	"github.com/pkt-cash/pktd/btcutil/er"
@@ -41,22 +38,4 @@ func main() {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-}
-
-//export startService
-func startService(numParams C.int, params **C.char) {
-	fmt.Println("startService()")
-	length := int(numParams)
-	tmpslice := (*[(1 << 29) - 1]*C.char)(unsafe.Pointer(params))[:length:length]
-	parameters := make([]string, length)
-	for i, s := range tmpslice {
-		parameters[i] = C.GoString(s)
-	}
-
-	for i := 0; i < len(parameters); i++ {
-		parameter := parameters[i]
-		fmt.Println(parameters[i])
-		os.Args = append(os.Args, parameter)
-	}
-	main()
 }
