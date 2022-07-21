@@ -106,6 +106,7 @@ func chainSetup(dbName string, params *chaincfg.Params) (*BlockChain, func(), er
 		// Create a new database to store the accepted blocks into.
 		dbPath := filepath.Join(testDbRoot, dbName)
 		_ = os.RemoveAll(dbPath)
+		_ = os.MkdirAll(dbPath, 0755)
 		ndb, err := database.Create(testDbType, dbPath, blockDataNet)
 		if err != nil {
 			return nil, nil, er.Errorf("error creating db: %v", err)
