@@ -143,21 +143,18 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 	if cfg.registeredChains.PrimaryChain() == chainreg.PktChain {
 		mainChain = cfg.Pkt
 	}
-	var neutrinoCS *neutrino.ChainService
-	if mainChain.Node == "neutrino" {
-		neutrinoBackend, neutrinoCleanUp, err := initNeutrinoBackend(
-			cfg, cfg.PktDir,
-		)
-		if err != nil {
-			err := er.Errorf("unable to initialize neutrino "+
-				"backend: %v", err)
-			log.Error(err)
-			return err
-		}
-		defer neutrinoCleanUp()
-		neutrinoCS = neutrinoBackend
-		restContext.MaybeNeutrino = neutrinoCS
+
+	neutrinoCS, neutrinoCleanUp, err := initNeutrinoBackend(
+		cfg, cfg.PktDir,
+	)
+	if err != nil {
+		err := er.Errorf("unable to initialize neutrino "+
+			"backend: %v", err)
+		log.Error(err)
+		return err
 	}
+	defer neutrinoCleanUp()
+	restContext.MaybeNeutrino = neutrinoCS
 
 	var (
 		walletInitParams WalletUnlockParams
@@ -178,9 +175,6 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 	walletPath, walletFilename := WalletFilename(cfg.WalletFile)
 	//Get default pkt dir ~/.pktwallet/pkt
 	if walletPath == "" {
-		walletPath = cfg.Pktmode.WalletDir
-	}
-	if cfg.PktDir != "" {
 		walletPath = cfg.PktDir
 	}
 	//Initialize the metaservice with params needed for change password
@@ -233,10 +227,6 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 		PrimaryChain:                cfg.registeredChains.PrimaryChain,
 		HeightHintCacheQueryDisable: cfg.HeightHintCacheQueryDisable,
 		NeutrinoMode:                cfg.NeutrinoMode,
-		BitcoindMode:                cfg.BitcoindMode,
-		LitecoindMode:               cfg.LitecoindMode,
-		BtcdMode:                    cfg.BtcdMode,
-		LtcdMode:                    cfg.LtcdMode,
 		LocalChanDB:                 localChanDB,
 		RemoteChanDB:                remoteChanDB,
 		PrivateWalletPw:             privateWalletPw,
@@ -603,9 +593,6 @@ func waitForWalletPassword(
 	walletPath, walletFilename := WalletFilename(cfg.WalletFile)
 	//Get default pkt dir ~/.pktwallet/pkt
 	if walletPath == "" {
-		walletPath = cfg.Pktmode.WalletDir
-	}
-	if cfg.PktDir != "" {
 		walletPath = cfg.PktDir
 	}
 	pwService := walletunlocker.New(

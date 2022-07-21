@@ -1,20 +1,14 @@
 package chainreg
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
-	"github.com/pkt-cash/pktd/btcutil/util"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
 	"github.com/pkt-cash/pktd/lnd/chainntnfs"
-	"github.com/pkt-cash/pktd/lnd/chainntnfs/btcdnotify"
 	"github.com/pkt-cash/pktd/lnd/chainntnfs/neutrinonotify"
 	"github.com/pkt-cash/pktd/lnd/channeldb"
 	"github.com/pkt-cash/pktd/lnd/htlcswitch"
@@ -30,7 +24,6 @@ import (
 	"github.com/pkt-cash/pktd/pktlog/log"
 	"github.com/pkt-cash/pktd/pktwallet/chain"
 	"github.com/pkt-cash/pktd/pktwallet/wallet"
-	"github.com/pkt-cash/pktd/rpcclient"
 )
 
 // Config houses necessary fields that a chainControl instance needs to
@@ -54,18 +47,6 @@ type Config struct {
 
 	// NeutrinoMode defines settings for connecting to a neutrino light-client.
 	NeutrinoMode *lncfg.Neutrino
-
-	// BitcoindMode defines settings for connecting to a bitcoind node.
-	BitcoindMode *lncfg.Bitcoind
-
-	// LitecoindMode defines settings for connecting to a litecoind node.
-	LitecoindMode *lncfg.Bitcoind
-
-	// BtcdMode defines settings for connecting to a btcd node.
-	BtcdMode *lncfg.Btcd
-
-	// LtcdMode defines settings for connecting to an ltcd node.
-	LtcdMode *lncfg.Btcd
 
 	// LocalChanDB is a pointer to the local backing channel database.
 	LocalChanDB *channeldb.DB
@@ -316,155 +297,39 @@ func NewChainControl(cfg *Config) (*ChainControl, er.R) {
 			"cache: %v", err)
 	}
 
-	// If spv mode is active, then we'll be using a distinct set of
-	// chainControl interfaces that interface directly with the p2p network
-	// of the selected chain.
-	switch homeChainConfig.Node {
-	case "neutrino":
-		// We'll create ChainNotifier and FilteredChainView instances,
-		// along with the wallet's ChainSource, which are all backed by
-		// the neutrino light client.
-		cc.ChainNotifier = neutrinonotify.New(
-			cfg.NeutrinoCS, hintCache, hintCache,
-		)
-		cc.ChainView, err = chainview.NewCfFilteredChainView(cfg.NeutrinoCS)
-		if err != nil {
-			return nil, err
-		}
-
-		// Map the deprecated neutrino feeurl flag to the general fee
-		// url.
-		if cfg.NeutrinoMode.FeeURL != "" {
-			if cfg.FeeURL != "" {
-				return nil, er.New("feeurl and " +
-					"neutrino.feeurl are mutually exclusive")
-			}
-
-			cfg.FeeURL = cfg.NeutrinoMode.FeeURL
-		}
-
-		walletConfig.ChainSource = chain.NewNeutrinoClient(
-			cfg.ActiveNetParams.Params, cfg.NeutrinoCS,
-		)
-
-		// Get our best block as a health check.
-		cc.HealthCheck = func() er.R {
-			_, _, err := walletConfig.ChainSource.GetBestBlock()
-			return err
-		}
-
-	case "btcd", "ltcd":
-		// Otherwise, we'll be speaking directly via RPC to a node.
-		//
-		// So first we'll load btcd/ltcd's TLS cert for the RPC
-		// connection. If a raw cert was specified in the config, then
-		// we'll set that directly. Otherwise, we attempt to read the
-		// cert from the path specified in the config.
-		var btcdMode *lncfg.Btcd
-		switch {
-		case cfg.Bitcoin.Active:
-			btcdMode = cfg.BtcdMode
-		case cfg.Litecoin.Active:
-			btcdMode = cfg.LtcdMode
-		}
-		var rpcCert []byte
-		if btcdMode.RawRPCCert != "" {
-			rpcCert, err = util.DecodeHex(btcdMode.RawRPCCert)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			certFile, err := os.Open(btcdMode.RPCCert)
-			if err != nil {
-				return nil, er.E(err)
-			}
-			rpcCert, err = ioutil.ReadAll(certFile)
-			if err != nil {
-				return nil, er.E(err)
-			}
-			if err := certFile.Close(); err != nil {
-				return nil, er.E(err)
-			}
-		}
-
-		// If the specified host for the btcd/ltcd RPC server already
-		// has a port specified, then we use that directly. Otherwise,
-		// we assume the default port according to the selected chain
-		// parameters.
-		var btcdHost string
-		if strings.Contains(btcdMode.RPCHost, ":") {
-			btcdHost = btcdMode.RPCHost
-		} else {
-			btcdHost = fmt.Sprintf("%v:%v", btcdMode.RPCHost,
-				cfg.ActiveNetParams.RPCPort)
-		}
-
-		btcdUser := btcdMode.RPCUser
-		btcdPass := btcdMode.RPCPass
-		rpcConfig := &rpcclient.ConnConfig{
-			Host:                 btcdHost,
-			Endpoint:             "ws",
-			User:                 btcdUser,
-			Pass:                 btcdPass,
-			Certificates:         rpcCert,
-			DisableTLS:           false,
-			DisableConnectOnNew:  true,
-			DisableAutoReconnect: false,
-		}
-		cc.ChainNotifier, err = btcdnotify.New(
-			rpcConfig, cfg.ActiveNetParams.Params, hintCache, hintCache,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		// Finally, we'll create an instance of the default chain view to be
-		// used within the routing layer.
-		cc.ChainView, err = chainview.NewBtcdFilteredChainView(*rpcConfig)
-		if err != nil {
-			log.Errorf("unable to create chain view: %v", err)
-			return nil, err
-		}
-
-		// Create a special websockets rpc client for btcd which will be used
-		// by the wallet for notifications, calls, etc.
-		chainRPC, err := chain.NewRPCClient(cfg.ActiveNetParams.Params, btcdHost,
-			btcdUser, btcdPass, rpcCert, false, 20)
-		if err != nil {
-			return nil, err
-		}
-
-		walletConfig.ChainSource = chainRPC
-
-		// Use a query for our best block as a health check.
-		cc.HealthCheck = func() er.R {
-			_, _, err := walletConfig.ChainSource.GetBestBlock()
-			return err
-		}
-
-		// If we're not in simnet or regtest mode, then we'll attempt
-		// to use a proper fee estimator for testnet.
-		if !cfg.Bitcoin.SimNet && !cfg.Litecoin.SimNet &&
-			!cfg.Bitcoin.RegTest && !cfg.Litecoin.RegTest {
-
-			log.Info("Initializing btcd backed fee estimator")
-
-			// Finally, we'll re-initialize the fee estimator, as
-			// if we're using btcd as a backend, then we can use
-			// live fee estimates, rather than a statically coded
-			// value.
-			fallBackFeeRate := chainfee.SatPerKVByte(25 * 1000)
-			cc.FeeEstimator, err = chainfee.NewBtcdEstimator(
-				*rpcConfig, fallBackFeeRate.FeePerKWeight(),
-			)
-			if err != nil {
-				return nil, err
-			}
-		}
-	default:
-		return nil, er.Errorf("unknown node type: %s",
-			homeChainConfig.Node)
+	// Setup neutrino
+	// We'll create ChainNotifier and FilteredChainView instances,
+	// along with the wallet's ChainSource, which are all backed by
+	// the neutrino light client.
+	cc.ChainNotifier = neutrinonotify.New(
+		cfg.NeutrinoCS, hintCache, hintCache,
+	)
+	cc.ChainView, err = chainview.NewCfFilteredChainView(cfg.NeutrinoCS)
+	if err != nil {
+		return nil, err
 	}
+
+	// Map the deprecated neutrino feeurl flag to the general fee
+	// url.
+	if cfg.NeutrinoMode.FeeURL != "" {
+		if cfg.FeeURL != "" {
+			return nil, er.New("feeurl and " +
+				"neutrino.feeurl are mutually exclusive")
+		}
+
+		cfg.FeeURL = cfg.NeutrinoMode.FeeURL
+	}
+
+	walletConfig.ChainSource = chain.NewNeutrinoClient(
+		cfg.ActiveNetParams.Params, cfg.NeutrinoCS,
+	)
+
+	// Get our best block as a health check.
+	cc.HealthCheck = func() er.R {
+		_, _, err := walletConfig.ChainSource.GetBestBlock()
+		return err
+	}
+	// End setup neutrino
 
 	// Override default fee estimator if an external service is specified.
 	if cfg.FeeURL != "" {
@@ -538,39 +403,6 @@ func NewChainControl(cfg *Config) (*ChainControl, er.R) {
 	cc.Wallet = lnWallet
 
 	return cc, nil
-}
-
-// getBitcoindHealthCheckCmd queries bitcoind for its version to decide which
-// api we should use for our health check. We prefer to use the uptime
-// command, because it has no locking and is an inexpensive call, which was
-// added in version 0.15. If we are on an earlier version, we fallback to using
-// getblockchaininfo.
-func getBitcoindHealthCheckCmd(client *rpcclient.Client) (string, er.R) {
-	// Query bitcoind to get our current version.
-	resp, err := client.RawRequest("getnetworkinfo", nil)
-	if err != nil {
-		return "", err
-	}
-
-	// Parse the response to retrieve bitcoind's version.
-	info := struct {
-		Version int64 `json:"version"`
-	}{}
-	if err := json.Unmarshal(resp, &info); err != nil {
-		return "", er.E(err)
-	}
-
-	// Bitcoind returns a single value representing the semantic version:
-	// 1000000 * CLIENT_VERSION_MAJOR + 10000 * CLIENT_VERSION_MINOR
-	// + 100 * CLIENT_VERSION_REVISION + 1 * CLIENT_VERSION_BUILD
-	//
-	// The uptime call was added in version 0.15.0, so we return it for
-	// any version value >= 150000, as per the above calculation.
-	if info.Version >= 150000 {
-		return "uptime", nil
-	}
-
-	return "getblockchaininfo", nil
 }
 
 var (

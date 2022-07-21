@@ -812,17 +812,6 @@ var interfaceImpls = []struct {
 			return cleanUp, chainView, nil
 		},
 	},
-	{
-		name: "btcd_websockets",
-		chainViewInit: func(config rpcclient.ConnConfig, _ string) (func(), FilteredChainView, er.R) {
-			chainView, err := NewBtcdFilteredChainView(config)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			return nil, chainView, err
-		},
-	},
 }
 
 // TODO(cjd): DISABLED TEST - our Neutrino doesn't support sha256 coins yet

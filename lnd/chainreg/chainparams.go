@@ -4,7 +4,6 @@ import (
 	litecoinCfg "github.com/ltcsuite/ltcd/chaincfg"
 	litecoinWire "github.com/ltcsuite/ltcd/wire"
 	"github.com/pkt-cash/pktd/chaincfg"
-	bitcoinCfg "github.com/pkt-cash/pktd/chaincfg"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
 	"github.com/pkt-cash/pktd/lnd/keychain"
 	"github.com/pkt-cash/pktd/wire/protocol"
@@ -13,7 +12,7 @@ import (
 // BitcoinNetParams couples the p2p parameters of a network with the
 // corresponding RPC port of a daemon running on the particular network.
 type BitcoinNetParams struct {
-	*bitcoinCfg.Params
+	*chaincfg.Params
 	RPCPort  string
 	CoinType uint32
 }
@@ -29,7 +28,7 @@ type LitecoinNetParams struct {
 // BitcoinTestNetParams contains parameters specific to the 3rd version of the
 // test network.
 var BitcoinTestNetParams = BitcoinNetParams{
-	Params:   &bitcoinCfg.TestNet3Params,
+	Params:   &chaincfg.TestNet3Params,
 	RPCPort:  "18334",
 	CoinType: keychain.CoinTypeTestnet,
 }
@@ -37,7 +36,7 @@ var BitcoinTestNetParams = BitcoinNetParams{
 // BitcoinMainNetParams contains parameters specific to the current Bitcoin
 // mainnet.
 var BitcoinMainNetParams = BitcoinNetParams{
-	Params:   &bitcoinCfg.MainNetParams,
+	Params:   &chaincfg.MainNetParams,
 	RPCPort:  "8334",
 	CoinType: keychain.CoinTypeBitcoin,
 }
@@ -45,7 +44,7 @@ var BitcoinMainNetParams = BitcoinNetParams{
 // BitcoinSimNetParams contains parameters specific to the simulation test
 // network.
 var BitcoinSimNetParams = BitcoinNetParams{
-	Params:   &bitcoinCfg.SimNetParams,
+	Params:   &chaincfg.SimNetParams,
 	RPCPort:  "18556",
 	CoinType: keychain.CoinTypeTestnet,
 }
@@ -85,7 +84,7 @@ var LitecoinRegTestNetParams = LitecoinNetParams{
 // BitcoinRegTestNetParams contains parameters specific to a local bitcoin
 // regtest network.
 var BitcoinRegTestNetParams = BitcoinNetParams{
-	Params:   &bitcoinCfg.RegressionNetParams,
+	Params:   &chaincfg.RegressionNetParams,
 	RPCPort:  "18334",
 	CoinType: keychain.CoinTypeTestnet,
 }
@@ -93,7 +92,7 @@ var BitcoinRegTestNetParams = BitcoinNetParams{
 // BitcoinMainNetParams contains parameters specific to the current Bitcoin
 // mainnet.
 var PktMainNetParams = BitcoinNetParams{
-	Params:   &bitcoinCfg.PktMainNetParams,
+	Params:   &chaincfg.PktMainNetParams,
 	RPCPort:  "8334",
 	CoinType: keychain.CoinTypeBitcoin,
 }
