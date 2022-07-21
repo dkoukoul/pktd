@@ -1,5 +1,9 @@
 #!/usr/bin/env sh
 
+if ! ls ./generated 2>&1 >/dev/null; then
+    echo "Building natively in order to generate code"
+    ./do
+fi
 mkdir -p lib
 
 echo "Building for arm64..."
