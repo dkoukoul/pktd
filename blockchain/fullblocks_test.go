@@ -30,9 +30,6 @@ const (
 	// testDbType is the database backend type to use for the tests.
 	testDbType = "ffldb"
 
-	// testDbRoot is the root directory used to create all test databases.
-	testDbRoot = "testdbs"
-
 	// blockDataNet is the expected network in the test block data.
 	blockDataNet = protocol.MainNet
 )
@@ -86,8 +83,8 @@ func chainSetup(dbName string, params *chaincfg.Params) (*blockchain.BlockChain,
 		}
 	} else {
 		// Create the root directory for test databases.
-		if !fileExists(testDbRoot) {
-			if err := os.MkdirAll(testDbRoot, 0700); err != nil {
+		if !fileExists(blockchain.TestDbRoot) {
+			if err := os.MkdirAll(blockchain.TestDbRoot, 0700); err != nil {
 				err := er.Errorf("unable to create test db "+
 					"root: %v", err)
 				return nil, nil, err
@@ -95,7 +92,7 @@ func chainSetup(dbName string, params *chaincfg.Params) (*blockchain.BlockChain,
 		}
 
 		// Create a new database to store the accepted blocks into.
-		dbPath := filepath.Join(testDbRoot, dbName)
+		dbPath := filepath.Join(blockchain.TestDbRoot, dbName)
 		_ = os.RemoveAll(dbPath)
 		ndb, err := database.Create(testDbType, dbPath, blockDataNet)
 		if err != nil {
@@ -108,7 +105,7 @@ func chainSetup(dbName string, params *chaincfg.Params) (*blockchain.BlockChain,
 		teardown = func() {
 			db.Close()
 			os.RemoveAll(dbPath)
-			os.RemoveAll(testDbRoot)
+			os.RemoveAll(blockchain.TestDbRoot)
 		}
 	}
 

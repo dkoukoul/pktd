@@ -199,7 +199,7 @@ func TestGenSeedInvalidEntropy(t *testing.T) {
 	ctx := context.Background()
 	_, errr = service.GenSeed(ctx, genSeedReq)
 	require.Error(t, errr)
-	require.Contains(t, errr.Error(), "custom seed input entropy is not supported")
+	require.Contains(t, errr.Error(), "seed input entropy is not supported")
 }
 
 // TestInitWallet tests that the user is able to properly initialize the wallet

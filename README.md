@@ -74,25 +74,6 @@ whatever tool you prefer, after you have run `./do` once.
 To run the tests, run `./test.sh`. Each test will be run individually and the output will be written
 to a file inside of the folder `./testout`.
 
-Please note that some of the tests have bugs or are very slow, and so the following tests are known
-to fail. TIP: A good first contribution is to adopt a failing test and get it working again.
-
-```
-FAIL /Users/user/wrk/pktd/testout/blockchain/TestCheckConnectBlockTemplate.fail.txt
-FAIL /Users/user/wrk/pktd/testout/lnd/contractcourt/TestChainWatcherLocalForceCloseDetect.fail.txt
-FAIL /Users/user/wrk/pktd/testout/lnd/htlcswitch/TestChannelLinkAcceptDuplicatePayment.fail.txt
-FAIL /Users/user/wrk/pktd/testout/lnd/htlcswitch/TestChannelLinkCancelFullCommitment.fail.txt
-FAIL /Users/user/wrk/pktd/testout/lnd/htlcswitch/TestChannelLinkMultiHopUnknownPaymentHash.fail.txt
-FAIL /Users/user/wrk/pktd/testout/lnd/htlcswitch/TestChannelLinkUpdateCommitFee.fail.txt
-FAIL /Users/user/wrk/pktd/testout/lnd/htlcswitch/TestHtlcNotifier.fail.txt
-FAIL /Users/user/wrk/pktd/testout/lnd/htlcswitch/TestMultiHopPaymentForwardingEvents.fail.txt
-FAIL /Users/user/wrk/pktd/testout/lnd/lnwallet/TestCommitmentAndHTLCTransactions.fail.txt
-FAIL /Users/user/wrk/pktd/testout/lnd/lnwallet/TestLightningWallet.fail.txt
-FAIL /Users/user/wrk/pktd/testout/lnd/walletunlocker/TestGenSeedInvalidEntropy.fail.txt
-FAIL /Users/user/wrk/pktd/testout/neutrino/TestBlockManagerInvalidInterval.fail.txt
-FAIL /Users/user/wrk/pktd/testout/pktwallet/wtxmgr/TestStoreQueries.fail.txt
-```
-
 ## Documentation
 
 The documentation for `pktd` is available in the [docs.pkt.cash](https://docs.pkt.cash) site.

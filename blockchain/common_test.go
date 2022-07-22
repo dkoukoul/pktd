@@ -8,7 +8,9 @@ package blockchain
 import (
 	"compress/bzip2"
 	"encoding/binary"
+	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,12 +34,16 @@ const (
 	// testDbType is the database backend type to use for the tests.
 	testDbType = "ffldb"
 
-	// testDbRoot is the root directory used to create all test databases.
-	testDbRoot = "testdbs"
-
 	// blockDataNet is the expected network in the test block data.
 	blockDataNet = protocol.MainNet
 )
+
+var TestDbRoot string
+
+// testDbRoot is the root directory used to create all test databases.
+func init() {
+	TestDbRoot = fmt.Sprintf("testdbs_%x", rand.Uint64())
+}
 
 // filesExists returns whether or not the named file or directory exists.
 func fileExists(name string) bool {
@@ -95,8 +101,8 @@ func chainSetup(dbName string, params *chaincfg.Params) (*BlockChain, func(), er
 		}
 	} else {
 		// Create the root directory for test databases.
-		if !fileExists(testDbRoot) {
-			if err := os.MkdirAll(testDbRoot, 0700); err != nil {
+		if !fileExists(TestDbRoot) {
+			if err := os.MkdirAll(TestDbRoot, 0700); err != nil {
 				err := er.Errorf("unable to create test db "+
 					"root: %v", err)
 				return nil, nil, err
@@ -104,7 +110,7 @@ func chainSetup(dbName string, params *chaincfg.Params) (*BlockChain, func(), er
 		}
 
 		// Create a new database to store the accepted blocks into.
-		dbPath := filepath.Join(testDbRoot, dbName)
+		dbPath := filepath.Join(TestDbRoot, dbName)
 		_ = os.RemoveAll(dbPath)
 		_ = os.MkdirAll(dbPath, 0755)
 		ndb, err := database.Create(testDbType, dbPath, blockDataNet)
@@ -118,7 +124,7 @@ func chainSetup(dbName string, params *chaincfg.Params) (*BlockChain, func(), er
 		teardown = func() {
 			db.Close()
 			os.RemoveAll(dbPath)
-			os.RemoveAll(testDbRoot)
+			os.RemoveAll(TestDbRoot)
 		}
 	}
 

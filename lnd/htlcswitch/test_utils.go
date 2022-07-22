@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"io/ioutil"
 	"math/big"
+	"math/rand"
 	"net"
 	"os"
 	"runtime"
@@ -149,6 +150,10 @@ func generateRandomBytes(n int) ([]byte, er.R) {
 type testLightningChannel struct {
 	channel *lnwallet.LightningChannel
 	restore func() (*lnwallet.LightningChannel, er.R)
+}
+
+func randPort() int {
+	return rand.Intn(65535-1500) + 1500
 }
 
 // createTestChannel creates the channel and returns our and remote channels
@@ -297,12 +302,12 @@ func createTestChannel(alicePrivKey, bobPrivKey []byte,
 	const broadcastHeight = 1
 	bobAddr := &net.TCPAddr{
 		IP:   net.ParseIP("127.0.0.1"),
-		Port: 18555,
+		Port: randPort(),
 	}
 
 	aliceAddr := &net.TCPAddr{
 		IP:   net.ParseIP("127.0.0.1"),
-		Port: 18556,
+		Port: randPort(),
 	}
 
 	aliceCommit := channeldb.ChannelCommitment{

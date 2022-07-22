@@ -1,3 +1,4 @@
+//go:build dev
 // +build dev
 
 package chainntnfs_test
@@ -1888,7 +1889,7 @@ var blockCatchupTests = []blockCatchupTestCase{
 // import should trigger an init() method within the package which registers
 // the interface. Second, an additional case in the switch within the main loop
 // below needs to be added which properly initializes the interface.
-// TODO(cjd): DISABLED TEST - our neutrino not working with sha256 chains yet
+// TODO(cjd): DISABLED TEST - times out
 func _TestInterfaces(t *testing.T) {
 	// Initialize the harness around a btcd node which will serve as our
 	// dedicated miner to generate blocks, cause re-orgs, etc. We'll set up

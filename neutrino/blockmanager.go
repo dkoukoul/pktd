@@ -2528,7 +2528,9 @@ func (b *blockManager) handleProvenHeadersMsg1(tx walletdb.ReadWriteTx, phmsg *p
 				thisHeaderIndex := int32(i)
 				newHeadersHeight := thisHeaderHeight - thisHeaderIndex
 				log.Tracef("Checking PacketCrypt proof add1")
-				if err := checkPacketCryptProof(
+				if globalcfg.GetProofOfWorkAlgorithm() != globalcfg.PowPacketCrypt {
+					// nothing to do, do not check
+				} else if err := checkPacketCryptProof(
 					blk, thisHeaderHeight, msg.Headers, newHeadersHeight, b.server,
 				); err != nil {
 					log.Warnf("Failed PacketCrypt proof check on block [%s @ %d]"+

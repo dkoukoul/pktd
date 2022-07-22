@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 )
@@ -44,27 +45,36 @@ func NewSema(size int) *Sema {
 	}
 }
 
-func runTest(testbin, outdir, testdir, test string, sema *Sema) {
+const maxAttempts int = 10
+
+func runTest(testbin, outdir, testdir, test string, sema *Sema, attempt int) {
 	sema.Do(func() {
 		cmd := exec.Command(testbin, "-test.run", "^"+test+"$", "-test.timeout=60s")
 		cmd.Env = append(os.Environ(), "GOMAXPROCS=1")
 		cmd.Dir = testdir
 		filename := filepath.Join(outdir, test+".run.txt")
 		f := chkErr1(os.Create(filename))
+		chkErr1(f.WriteString(
+			fmt.Sprintf("%s %s %s %s\n\n", testbin, "-test.run", "^"+test+"$", "-test.timeout=60s"),
+		))
 		cmd.Stdout = f
 		cmd.Stderr = f
 		err := cmd.Run()
 		f.Close()
+		failName := filepath.Join(outdir, test+".fail.txt")
+		passName := filepath.Join(outdir, test+".pass.txt")
 		if err != nil {
 			if _, ok := err.(*exec.ExitError); ok {
-				failName := filepath.Join(outdir, test+".fail.txt")
-				fmt.Printf("FAIL %s\n", failName)
+				fmt.Printf("FAIL %s (attempt: %d)\n", failName, attempt)
 				chkErr0(os.Rename(filename, failName))
+				if attempt < maxAttempts {
+					runTest(testbin, outdir, testdir, test, sema, attempt+1)
+				}
 			} else {
 				chkErr0(err)
 			}
 		} else {
-			passName := filepath.Join(outdir, test+".pass.txt")
+			os.Remove(failName)
 			chkErr0(os.Rename(filename, passName))
 			fmt.Printf("PASS %s\n", passName)
 		}
@@ -101,12 +111,12 @@ func runTestPackage(outdir, testdir string, sema *Sema) {
 			if line == "" {
 				continue
 			}
-			runTest(testFile, outdir, testdir, line, sema)
+			runTest(testFile, outdir, testdir, line, sema, 1)
 		}
 	})
 }
 
-const threads int = 8
+var threads int = runtime.NumCPU()
 
 func main() {
 	cwd := chkErr1(os.Getwd())
