@@ -38,4 +38,4 @@ jobs:
         shell: bash
         run: |
           cd ${HOME_PATH}
-          ./do --test
+          ./test
