@@ -30,7 +30,7 @@ jobs:
         run: echo "RELEASE_NAME=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
       - name: Install packages
-        run: sudo apt-get install rpm jq bash curl rubygems
+        run: sudo apt-get install rpm jq bash curl rubygems protobuf-compiler
 
       - name: Set up Ruby 2.6
         uses: ruby/setup-ruby@v1
@@ -125,7 +125,7 @@ jobs:
         run: echo "RELEASE_NAME=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
       - name: Install packages
-        run: sudo apt-get install rpm jq bash curl zip
+        run: sudo apt-get install rpm jq bash curl zip protobuf-compiler
 
       - name: Install Go
         uses: actions/setup-go@v2
