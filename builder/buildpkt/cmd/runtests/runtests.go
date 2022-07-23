@@ -126,9 +126,6 @@ func main() {
 	paths := make(map[string]struct{})
 	sema := NewSema(threads)
 
-	// this directory requires a special tag to compile
-	paths["lnd/channeldb/kvdb/etcd"] = struct{}{}
-
 	chkErr0(filepath.Walk(cwd, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
