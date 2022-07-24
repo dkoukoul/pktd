@@ -15,7 +15,7 @@ type emitterMut[T any] struct {
 // Emitter is an event emitter, it can be used to inform different event handlers
 // that something is going on, so they can react.
 type Emitter[T any] struct {
-	m    lock.GenMutex[*emitterMut[T]]
+	m    lock.GenMutex[emitterMut[T]]
 	name string
 }
 
@@ -23,10 +23,9 @@ type Emitter[T any] struct {
 // so it must be explicitly specified, e.g.  event.NewEmitter[MyObj]("My Emitter")
 // A name is requested which will appear in any errors.
 func NewEmitter[T any](name string) Emitter[T] {
-	em := emitterMut[T]{}
 	return Emitter[T]{
 		name: name,
-		m:    lock.NewGenMutex(&em, name),
+		m:    lock.NewGenMutex(emitterMut[T]{}, name),
 	}
 }
 
@@ -195,4 +194,14 @@ func (h *Handler) Cancel() er.R {
 		}
 	}
 	return er.New("No such handler is registered, was it cancelled already?")
+}
+
+// Quit cancels all awaiting listeners so that the loop will exit
+func (l *Loop) Quit() er.R {
+	for i := len(l.cases) - 1; i >= 0; i-- {
+		if err := l.dropCase(i); err != nil {
+			return err
+		}
+	}
+	return nil
 }

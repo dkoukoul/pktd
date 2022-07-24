@@ -1624,6 +1624,49 @@ var rpcFunctions []RpcFunc = []RpcFunc{
 
 	//	>>> wallet/unspent subCategory command
 
+	// URI /wallet/loosetxn/watch
+	{
+		command: "LooseTransactionsWatch",
+		req:     nil,
+		res:     nil,
+		f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
+			w, err := c.withWallet()
+			if err != nil {
+				return nil, err
+			}
+			w.WatchLooseTransactions()
+			return nil, nil
+		},
+	},
+	// URI /wallet/loosetxn/stopwatch
+	{
+		command: "LooseTransactionsStopWatch",
+		req:     nil,
+		res:     nil,
+		f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
+			w, err := c.withWallet()
+			if err != nil {
+				return nil, err
+			}
+			w.StopWatchLooseTransactions()
+			return nil, nil
+		},
+	},
+	// URI /wallet/loosetxn
+	{
+		command: "LooseTransactions",
+		req:     nil,
+		res:     (*rpc_pb.LooseTxnRes)(nil),
+		f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
+			w, err := c.withWallet()
+			if err != nil {
+				return nil, err
+			}
+			ret := w.WatchingLooseTransactions()
+			return &rpc_pb.LooseTxnRes{IsWatching: ret}, nil
+		},
+	},
+
 	//	service listunspent  -  URI /wallet/unspent
 	{
 		command: help.CommandListUnspent,

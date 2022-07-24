@@ -41,14 +41,13 @@ func testRead(to ...*testObj) er.R {
 
 func doInThreads(f func() er.R) func() er.R {
 	w := sync.WaitGroup{}
-	var err er.R
-	errl := lock.NewGenMutex(&err, "error lock")
+	errl := lock.NewGenMutex[er.R](nil, "error lock")
 	for i := 0; i < 10; i++ {
 		w.Add(1)
 		go func() {
 			for j := 0; j < 10; j++ {
 				if err := f(); err != nil {
-					lock.With1[*er.R](&errl, func(e *er.R) er.R {
+					lock.With1[er.R](&errl, func(e *er.R) er.R {
 						*e = err
 						w.Done()
 						return nil
@@ -80,14 +79,14 @@ func TestNoLock(t *testing.T) {
 }
 
 func TestLock(t *testing.T) {
-	l := lock.NewGenMutex(&testObj{}, "mylock")
+	l := lock.NewGenMutex(testObj{}, "mylock")
 	assert.NoError(t, er.Native(doInThreads(func() er.R {
-		return lock.With1[*testObj](&l, func(to *testObj) er.R { return testWrite(to) })
+		return lock.With1[testObj](&l, func(to *testObj) er.R { return testWrite(to) })
 	})()))
 }
 
 func TestRwLock(t *testing.T) {
-	l := lock.NewGenRwLock(&testObj{}, "myrwlock")
+	l := lock.NewGenRwLock(testObj{}, "myrwlock")
 	assert.NoError(t, er.Native(doInThreads(func() er.R {
 		switch rand.Int() % 2 {
 		case 0:
@@ -100,22 +99,22 @@ func TestRwLock(t *testing.T) {
 	})()))
 }
 
-func batch2(a, b *lock.GenMutex[*testObj]) er.R {
-	return lock.With2[*testObj, *testObj](a, b, func(a, b *testObj) er.R {
+func batch2(a, b *lock.GenMutex[testObj]) er.R {
+	return lock.With2[testObj, testObj](a, b, func(a, b *testObj) er.R {
 		return testWrite(a, b)
 	})
 }
 
-func batch3(a, b, c *lock.GenMutex[*testObj]) er.R {
-	return lock.With3[*testObj, *testObj, *testObj](a, b, c, func(a, b, c *testObj) er.R {
+func batch3(a, b, c *lock.GenMutex[testObj]) er.R {
+	return lock.With3[testObj, testObj, testObj](a, b, c, func(a, b, c *testObj) er.R {
 		return testWrite(a, b, c)
 	})
 }
 
 func TestBatchLock(t *testing.T) {
-	l1 := lock.NewGenMutex(&testObj{}, "l1")
-	l2 := lock.NewGenMutex(&testObj{}, "l2")
-	l3 := lock.NewGenMutex(&testObj{}, "l3")
+	l1 := lock.NewGenMutex(testObj{}, "l1")
+	l2 := lock.NewGenMutex(testObj{}, "l2")
+	l3 := lock.NewGenMutex(testObj{}, "l3")
 	assert.NoError(t, er.Native(doInThreads(func() er.R {
 		switch rand.Int() % 8 {
 		case 0:

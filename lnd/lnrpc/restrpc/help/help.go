@@ -268,6 +268,11 @@ var (
 		{Command: CommandGetTowerInfo, Path: "/wtclient/tower/getinfo"},
 		{Command: CommandGetTowerStats, Path: "/wtclient/tower/stats"},
 		{Command: CommandGetTowerPolicy, Path: "/wtclient/tower/policy"},
+
+		// watch txns
+		{Command: "LooseTransactionsWatch", Path: "/wallet/loosetxn/watch"},
+		{Command: "LooseTransactionsStopWatch", Path: "/wallet/loosetxn/stopwatch"},
+		{Command: "LooseTransactions", Path: "/wallet/loosetxn"},
 	}
 )
 
@@ -366,6 +371,10 @@ func init() {
 		pkthelp.WatchtowerClient_GetTowerInfo,
 		pkthelp.WatchtowerClient_Stats,
 		pkthelp.WatchtowerClient_Policy,
+
+		pkthelp.Lightning_LooseTransactionsWatch,
+		pkthelp.Lightning_LooseTransactionsStopWatch,
+		pkthelp.Lightning_LooseTransactions,
 	}
 
 	//	for each command help fuction set meta data to commandInfoData

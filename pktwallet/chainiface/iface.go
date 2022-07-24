@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/btcutil/event"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
 	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
 	"github.com/pkt-cash/pktd/pktwallet/wtxmgr"
@@ -54,12 +55,17 @@ type Interface interface {
 	SendRawTransaction(*wire.MsgTx, bool) (*chainhash.Hash, er.R)
 	BackEnd() string
 	GetBlockHeight(hash *chainhash.Hash) (int32, er.R)
+	LooseTransactionEmitter() *event.Emitter[wire.MsgTx]
 }
 
 type Mock struct {
 }
 
 var _ Interface = (*Mock)(nil)
+
+func (m *Mock) LooseTransactionEmitter() *event.Emitter[wire.MsgTx] {
+	return nil
+}
 
 func (m *Mock) Start() er.R {
 	return nil

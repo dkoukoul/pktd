@@ -21,6 +21,8 @@ option go_package = "github.com/pkt-cash/pktd/generated/proto/rpc_pb";
  * https://github.com/lightninglabs/lightning-api
  */
 
+message Null {}
+
 // Lightning is the main RPC server of the daemon.
 service Lightning {
     /*
@@ -710,6 +712,30 @@ service Lightning {
 
     DecodeRawTransaction returns a JSON object representing the provided serialized, hex-encoded transaction.*/
     rpc DecodeRawTransaction (DecodeRawTransactionRequest) returns (TransactionInfo);
+
+    // $pld.category: `Wallet`
+    // $pld.short_description: `Check if we are watching for "loose" (mempool) transactions`
+    //
+    // Transactions which are not (yet) in any block.
+    // Watching them requires extra resources but when we are expecting to get
+    // paid, we may enable watching of them.
+    // Enable watching for loose transactions.
+    rpc LooseTransactions (Null) returns (LooseTxnRes);
+
+    // $pld.category: `Wallet`
+    // $pld.short_description: `Enable watching for loose transactions.`
+    // Enable watching for loose transactions.
+    rpc LooseTransactionsWatch (Null) returns (Null);
+
+    // $pld.category: `Wallet`
+    // $pld.short_description: `Disable watching for loose transactions.`
+    // Disable watching for loose transactions.
+    rpc LooseTransactionsStopWatch (Null) returns (Null);
+}
+
+// Whether or not we are currently watching for loose transactions.
+message LooseTxnRes {
+    bool is_watching = 1;
 }
 
 message RestError {

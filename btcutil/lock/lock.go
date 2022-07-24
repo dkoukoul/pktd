@@ -11,11 +11,11 @@ import (
 /// internal iface
 
 type lockable[T any] interface {
-	lock() T
+	lock() *T
 	unlock()
 	id() uintptr
 	String() string
-	In(func(t T) er.R) er.R
+	In(func(t *T) er.R) er.R
 }
 
 /// id
@@ -53,9 +53,9 @@ func NewGenMutex[T any](t T, name string) GenMutex[T] {
 	return GenMutex[T]{t: t, withId: withId{n: name, i: mkId()}}
 }
 
-func (gm *GenMutex[T]) lock() T {
+func (gm *GenMutex[T]) lock() *T {
 	gm.m.Lock()
-	return gm.t
+	return &gm.t
 }
 func (gm *GenMutex[T]) unlock() {
 	gm.m.Unlock()
@@ -81,9 +81,9 @@ type GenRwLockR[T any] struct {
 
 var _ lockable[any] = GenRwLockR[any]{nil}
 
-func (gm GenRwLockR[T]) lock() T {
+func (gm GenRwLockR[T]) lock() *T {
 	gm.m.RLock()
-	return gm.t
+	return &gm.t
 }
 func (gm GenRwLockR[T]) unlock() {
 	gm.m.RUnlock()
@@ -97,9 +97,9 @@ type GenRwLockW[T any] struct {
 
 var _ lockable[any] = GenRwLockW[any]{nil}
 
-func (gm GenRwLockW[T]) lock() T {
+func (gm GenRwLockW[T]) lock() *T {
 	gm.m.Lock()
-	return gm.t
+	return &gm.t
 }
 func (gm GenRwLockW[T]) unlock() {
 	gm.m.Unlock()
@@ -114,7 +114,7 @@ type anyLock struct {
 	unlock func()
 }
 
-func mkAny[T any](l lockable[T], t *T) anyLock {
+func mkAny[T any](l lockable[T], t **T) anyLock {
 	return anyLock{
 		id:     l.id(),
 		name:   l.String(),
@@ -158,18 +158,18 @@ func (gm *GenRwLock[T]) W() GenRwLockW[T] {
 /// With1 performs an operation with one lock held.
 /// When using this function, you MUST specify the type.
 /// e.g.  lock.With1[MyObject](myLock, func(mo *MyObject) er.R { ... })
-func With1[T any](l lockable[T], f func(t T) er.R) er.R {
+func With1[T any](l lockable[T], f func(t *T) er.R) er.R {
 	ret := l.lock()
 	defer l.unlock()
 	return f(ret)
 }
-func (gm *GenMutex[T]) In(f func(t T) er.R) er.R {
+func (gm *GenMutex[T]) In(f func(t *T) er.R) er.R {
 	return With1[T](gm, f)
 }
-func (gm GenRwLockR[T]) In(f func(t T) er.R) er.R {
+func (gm GenRwLockR[T]) In(f func(t *T) er.R) er.R {
 	return With1[T](gm, f)
 }
-func (gm GenRwLockW[T]) In(f func(t T) er.R) er.R {
+func (gm GenRwLockW[T]) In(f func(t *T) er.R) er.R {
 	return With1[T](gm, f)
 }
 
@@ -181,12 +181,12 @@ func With2[T1, T2 any](
 	l1 lockable[T1],
 	l2 lockable[T2],
 	f func(
-		t1 T1,
-		t2 T2,
+		t1 *T1,
+		t2 *T2,
 	) er.R,
 ) er.R {
-	var r1 T1
-	var r2 T2
+	var r1 *T1
+	var r2 *T2
 	return anyLocks{
 		mkAny(l1, &r1),
 		mkAny(l2, &r2),
@@ -204,14 +204,14 @@ func With3[T1, T2, T3 any](
 	l2 lockable[T2],
 	l3 lockable[T3],
 	f func(
-		t1 T1,
-		t2 T2,
-		t3 T3,
+		t1 *T1,
+		t2 *T2,
+		t3 *T3,
 	) er.R,
 ) er.R {
-	var r1 T1
-	var r2 T2
-	var r3 T3
+	var r1 *T1
+	var r2 *T2
+	var r3 *T3
 	return anyLocks{
 		mkAny(l1, &r1),
 		mkAny(l2, &r2),
@@ -231,16 +231,16 @@ func With4[T1, T2, T3, T4 any](
 	l3 lockable[T3],
 	l4 lockable[T4],
 	f func(
-		t1 T1,
-		t2 T2,
-		t3 T3,
-		t4 T4,
+		t1 *T1,
+		t2 *T2,
+		t3 *T3,
+		t4 *T4,
 	) er.R,
 ) er.R {
-	var r1 T1
-	var r2 T2
-	var r3 T3
-	var r4 T4
+	var r1 *T1
+	var r2 *T2
+	var r3 *T3
+	var r4 *T4
 	return anyLocks{
 		mkAny(l1, &r1),
 		mkAny(l2, &r2),
@@ -262,18 +262,18 @@ func With5[T1, T2, T3, T4, T5 any](
 	l4 lockable[T4],
 	l5 lockable[T5],
 	f func(
-		t1 T1,
-		t2 T2,
-		t3 T3,
-		t4 T4,
-		t5 T5,
+		t1 *T1,
+		t2 *T2,
+		t3 *T3,
+		t4 *T4,
+		t5 *T5,
 	) er.R,
 ) er.R {
-	var r1 T1
-	var r2 T2
-	var r3 T3
-	var r4 T4
-	var r5 T5
+	var r1 *T1
+	var r2 *T2
+	var r3 *T3
+	var r4 *T4
+	var r5 *T5
 	return anyLocks{
 		mkAny(l1, &r1),
 		mkAny(l2, &r2),

@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -16,6 +17,8 @@ import (
 
 	"github.com/emirpasic/gods/utils"
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/btcutil/event"
+	"github.com/pkt-cash/pktd/btcutil/lock"
 	"github.com/pkt-cash/pktd/neutrino"
 	"github.com/pkt-cash/pktd/neutrino/pushtx"
 	"github.com/pkt-cash/pktd/pktlog/log"
@@ -28,6 +31,7 @@ import (
 	"github.com/pkt-cash/pktd/btcutil/hdkeychain"
 	"github.com/pkt-cash/pktd/chaincfg"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
+	"github.com/pkt-cash/pktd/pktwallet/chain"
 	"github.com/pkt-cash/pktd/pktwallet/chainiface"
 	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
 	"github.com/pkt-cash/pktd/pktwallet/wallet/seedwords"
@@ -140,6 +144,10 @@ type Wallet struct {
 
 	rescanJLock sync.Mutex
 	rescanJ     *rescanJob
+
+	looseTransactions       lock.GenMutex[[]wire.MsgTx]
+	looseTransactionsStop   event.Emitter[struct{}]
+	looseTransactionsActive lock.AtomicBool
 }
 
 type rescanJob struct {
@@ -3254,6 +3262,42 @@ func (w *Wallet) checkBlock() bool {
 	return true
 }
 
+func (w *Wallet) checkTxns() {
+	var txns []wire.MsgTx
+	w.looseTransactions.In(func(lt *[]wire.MsgTx) er.R {
+		txns = *lt
+		*lt = nil
+		return nil
+	})
+	if len(txns) == 0 {
+		return
+	}
+	filterReq := w.watch.FilterReq(math.MaxInt32)
+	f := chain.NewBlockFilterer(w.chainParams, filterReq)
+	resp := make([]*wire.MsgTx, 0, len(txns))
+	for _, tx := range txns {
+		if f.FilterTx(&tx) {
+			resp = append(resp, &tx)
+		}
+	}
+	if len(resp) == 0 {
+		return
+	}
+	now := time.Now()
+	if err := walletdb.Update(w.db, func(dbtx walletdb.ReadWriteTx) er.R {
+		for _, tx := range resp {
+			if txRecord, err := wtxmgr.NewTxRecordFromMsgTx(tx, now); err != nil {
+				return err
+			} else if err := w.addRelevantTx(dbtx, txRecord, nil); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		log.Warnf("Unable to store loose transaction: [%v]", err)
+	}
+}
+
 func (w *Wallet) walletInit() {
 	birthdayStore := &walletBirthdayStore{
 		db:      w.db,
@@ -3286,6 +3330,7 @@ func (w *Wallet) goMainLoop() {
 	for {
 		rapidCycle := w.rescan()
 		rapidCycle = w.checkBlock() || rapidCycle
+		w.checkTxns()
 		if w.ShuttingDown() {
 			break
 		}
@@ -3296,6 +3341,35 @@ func (w *Wallet) goMainLoop() {
 		time.Sleep(sleepTime)
 	}
 	w.wg.Done()
+}
+
+func (w *Wallet) WatchLooseTransactions() {
+	if w.looseTransactionsActive.Swap(true) {
+		return
+	}
+	event.Go(func(loop *event.Loop) {
+		w.chainClient.LooseTransactionEmitter().On(loop, func(tx wire.MsgTx) {
+			w.looseTransactions.In(func(lt *[]wire.MsgTx) er.R {
+				*lt = append(*lt, tx)
+				return nil
+			})
+		})
+		w.looseTransactionsStop.On(loop, func(_ struct{}) {
+			w.looseTransactionsActive.Store(false)
+			loop.Quit()
+		})
+	})
+}
+
+func (w *Wallet) StopWatchLooseTransactions() er.R {
+	if !w.looseTransactionsActive.Load() {
+		return nil
+	}
+	return w.looseTransactionsStop.TryEmit(struct{}{})
+}
+
+func (w *Wallet) WatchingLooseTransactions() bool {
+	return w.looseTransactionsActive.Load()
 }
 
 // Open loads an already-created wallet from the passed database and namespaces.
@@ -3363,6 +3437,10 @@ func Open(db walletdb.DB, pubPass []byte, cbs *waddrmgr.OpenCallbacks,
 		chainParams:        params,
 		quit:               make(chan struct{}),
 		watch:              watcher.New(),
+
+		looseTransactions:       lock.NewGenMutex[[]wire.MsgTx](nil, "looseTransactions"),
+		looseTransactionsStop:   event.NewEmitter[struct{}]("looseTransactionsStop"),
+		looseTransactionsActive: lock.AtomicBool{},
 	}
 
 	w.NtfnServer = newNotificationServer(w)

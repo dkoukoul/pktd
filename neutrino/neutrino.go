@@ -10,8 +10,10 @@ import (
 
 	"github.com/pkt-cash/pktd/addrmgr/localaddrs"
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/btcutil/event"
 	"github.com/pkt-cash/pktd/btcutil/gcs"
 	"github.com/pkt-cash/pktd/btcutil/gcs/builder"
+	"github.com/pkt-cash/pktd/btcutil/lock"
 	"github.com/pkt-cash/pktd/connmgr/banmgr"
 	"github.com/pkt-cash/pktd/pktlog/log"
 	"github.com/pkt-cash/pktd/txscript"
@@ -293,27 +295,62 @@ func (sp *ServerPeer) OnVersion(_ *peer.Peer, msg *wire.MsgVersion) *wire.MsgRej
 	return nil
 }
 
+func (sp *ServerPeer) OnTx(p *peer.Peer, msg *wire.MsgTx) {
+	if err := sp.server.TxListener.TryEmit(*msg); err != nil {
+		log.Warnf("Error sending to TxListener: ", err)
+	}
+}
+
+func (sp *ServerPeer) invTxn(inv *wire.MsgInv) {
+	if sp.server.TxListener.Listeners() == 0 {
+		return
+	}
+	needHashes := make([]chainhash.Hash, 0, len(inv.InvList))
+	now := time.Now()
+	if err := sp.server.knownTxns.In(func(knownTxns *map[string]time.Time) er.R {
+		// Sweep anything from knownTxns which is older than 20 minutes
+		for k, v := range *knownTxns {
+			if v.Add(20 * time.Minute).Before(now) {
+				delete(*knownTxns, k)
+			}
+		}
+		for _, v := range inv.InvList {
+			if v.Type != wire.InvTypeTx && v.Type != wire.InvTypeWitnessTx {
+				continue
+			}
+			vhs := v.Hash.String()
+			if _, ok := (*knownTxns)[vhs]; !ok {
+				needHashes = append(needHashes, v.Hash)
+				(*knownTxns)[vhs] = now
+			}
+		}
+		return nil
+	}); err != nil {
+		log.Error("Failed to process inv message [%v]", err)
+		return
+	}
+	gdmsg := wire.NewMsgGetData()
+	for _, h := range needHashes {
+		iv := wire.InvVect{
+			Hash: h,
+			Type: wire.InvTypeTx,
+		}
+		if sp.IsWitnessEnabled() {
+			iv.Type = wire.InvTypeWitnessTx
+		}
+		gdmsg.AddInvVect(&iv)
+	}
+	sp.QueueMessage(gdmsg, nil)
+}
+
 // OnInv is invoked when a peer receives an inv wire message and is used to
 // examine the inventory being advertised by the remote peer and react
 // accordingly.  We pass the message down to blockmanager which will call
 // QueueMessage with any appropriate responses
 func (sp *ServerPeer) OnInv(p *peer.Peer, msg *wire.MsgInv) {
 	sp.server.inv(msg, sp)
-	newInv := wire.NewMsgInvSizeHint(uint(len(msg.InvList)))
-	for _, invVect := range msg.InvList {
-		if invVect.Type == wire.InvTypeTx {
-			continue
-		}
-		err := newInv.AddInvVect(invVect)
-		if err != nil {
-			log.Errorf("Failed to add inventory vector: %s", err)
-			break
-		}
-	}
-
-	if len(newInv.InvList) > 0 {
-		sp.server.blockManager.QueueInv(newInv, sp)
-	}
+	sp.server.blockManager.QueueInv(msg, sp)
+	sp.invTxn(msg)
 }
 
 func (s *ChainService) inv(msg *wire.MsgInv, sp *ServerPeer) {
@@ -330,6 +367,10 @@ func (s *ChainService) inv(msg *wire.MsgInv, sp *ServerPeer) {
 			}
 		}
 	}
+}
+
+func (cs *ChainService) LooseTransactionEmitter() *event.Emitter[wire.MsgTx] {
+	return &cs.TxListener
 }
 
 func (s *ChainService) ListenInvs(h chainhash.Hash) chan *ServerPeer {
@@ -609,6 +650,10 @@ type ChainService struct {
 
 	mtxInvListeners sync.Mutex
 	invListeners    map[chainhash.Hash][]chan *ServerPeer
+
+	// Transaction listener
+	knownTxns  lock.GenMutex[map[string]time.Time] // txid and when first seen
+	TxListener event.Emitter[wire.MsgTx]
 }
 
 var _ chainiface.Interface = (*ChainService)(nil)
@@ -671,6 +716,8 @@ func NewChainService(cfg Config) (*ChainService, er.R) {
 		queries:           make(map[uint32]*Query),
 		invListeners:      make(map[chainhash.Hash][]chan *ServerPeer),
 		banMgr:            *banmgr.New(&bmConfig),
+		knownTxns:         lock.NewGenMutex(make(map[string]time.Time), "ChainService.knownTxns"),
+		TxListener:        event.NewEmitter[wire.MsgTx]("ChainService.TxListener"),
 	}
 
 	s.dialer = func(na net.Addr) (net.Conn, er.R) {
@@ -1369,6 +1416,7 @@ func newPeerConfig(sp *ServerPeer) *peer.Config {
 			OnAddr:      sp.OnAddr,
 			OnRead:      sp.OnRead,
 			OnWrite:     sp.OnWrite,
+			OnTx:        sp.OnTx,
 		},
 		NewestBlock:      sp.newestBlock,
 		HostToNetAddress: sp.server.addrManager.HostToNetAddress,
