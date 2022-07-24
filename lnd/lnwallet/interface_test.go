@@ -3226,144 +3226,120 @@ func runTests(t *testing.T, walletDriver *lnwallet.WalletDriver,
 	}
 	defer os.RemoveAll(tempTestDirBob)
 
-	walletType := walletDriver.WalletType
-	switch walletType {
-	case "btcwallet":
-		var aliceClient, bobClient chain.Interface
-		switch backEnd {
-		case "btcd":
-			aliceClient, err = chain.NewRPCClient(netParams,
-				rpcConfig.Host, rpcConfig.User, rpcConfig.Pass,
-				rpcConfig.Certificates, false, 20)
-			if err != nil {
-				t.Fatalf("unable to make chain rpc: %v", err)
-			}
-			bobClient, err = chain.NewRPCClient(netParams,
-				rpcConfig.Host, rpcConfig.User, rpcConfig.Pass,
-				rpcConfig.Certificates, false, 20)
-			if err != nil {
-				t.Fatalf("unable to make chain rpc: %v", err)
-			}
+	var aliceClient, bobClient *chain.NeutrinoClient
 
-		case "neutrino":
-			// Set some package-level variable to speed up
-			// operation for tests.
-			neutrino.BanDuration = time.Millisecond * 100
-			neutrino.QueryTimeout = time.Millisecond * 500
-			neutrino.QueryNumRetries = 1
+	// Set some package-level variable to speed up
+	// operation for tests.
+	neutrino.BanDuration = time.Millisecond * 100
+	neutrino.QueryTimeout = time.Millisecond * 500
+	neutrino.QueryNumRetries = 1
 
-			// Start Alice - open a database, start a neutrino
-			// instance, and initialize a btcwallet driver for it.
-			aliceDB, err := walletdb.Create(
-				"bdb", tempTestDirAlice+"/neutrino.db", true,
-			)
-			if err != nil {
-				t.Fatalf("unable to create DB: %v", err)
-			}
-			defer aliceDB.Close()
-			aliceChain, err := neutrino.NewChainService(
-				neutrino.Config{
-					DataDir:     tempTestDirAlice,
-					Database:    aliceDB,
-					ChainParams: *netParams,
-					ConnectPeers: []string{
-						miningNode.P2PAddress(),
-					},
-				},
-			)
-			if err != nil {
-				t.Fatalf("unable to make neutrino: %v", err)
-			}
-			aliceChain.Start()
-			defer aliceChain.Stop()
-			aliceClient = chain.NewNeutrinoClient(
-				netParams, aliceChain,
-			)
-
-			// Start Bob - open a database, start a neutrino
-			// instance, and initialize a btcwallet driver for it.
-			bobDB, err := walletdb.Create(
-				"bdb", tempTestDirBob+"/neutrino.db", true,
-			)
-			if err != nil {
-				t.Fatalf("unable to create DB: %v", err)
-			}
-			defer bobDB.Close()
-			bobChain, err := neutrino.NewChainService(
-				neutrino.Config{
-					DataDir:     tempTestDirBob,
-					Database:    bobDB,
-					ChainParams: *netParams,
-					ConnectPeers: []string{
-						miningNode.P2PAddress(),
-					},
-				},
-			)
-			if err != nil {
-				t.Fatalf("unable to make neutrino: %v", err)
-			}
-			bobChain.Start()
-			defer bobChain.Stop()
-			bobClient = chain.NewNeutrinoClient(
-				netParams, bobChain,
-			)
-		default:
-			t.Fatalf("unknown chain driver: %v", backEnd)
-		}
-
-		aliceSeed := sha256.New()
-		aliceSeed.Write([]byte(backEnd))
-		aliceSeed.Write(aliceHDSeed[:])
-		aliceSeedBytes := aliceSeed.Sum(nil)
-
-		aliceWalletConfig := &btcwallet.Config{
-			PrivatePass: []byte("alice-pass"),
-			HdSeed:      aliceSeedBytes,
-			DataDir:     tempTestDirAlice,
-			NetParams:   netParams,
-			ChainSource: aliceClient,
-			CoinType:    keychain.CoinTypeTestnet,
-			// wallet starts in recovery mode
-			RecoveryWindow: 2,
-		}
-		aliceWalletController, err = walletDriver.New(aliceWalletConfig)
-		if err != nil {
-			t.Fatalf("unable to create btcwallet: %v", err)
-		}
-		aliceSigner = aliceWalletController.(*btcwallet.BtcWallet)
-		aliceKeyRing = keychain.NewBtcWalletKeyRing(
-			aliceWalletController.(*btcwallet.BtcWallet).InternalWallet(),
-			keychain.CoinTypeTestnet,
-		)
-
-		bobSeed := sha256.New()
-		bobSeed.Write([]byte(backEnd))
-		bobSeed.Write(bobHDSeed[:])
-		bobSeedBytes := bobSeed.Sum(nil)
-
-		bobWalletConfig := &btcwallet.Config{
-			PrivatePass: []byte("bob-pass"),
-			HdSeed:      bobSeedBytes,
-			DataDir:     tempTestDirBob,
-			NetParams:   netParams,
-			ChainSource: bobClient,
-			CoinType:    keychain.CoinTypeTestnet,
-			// wallet starts without recovery mode
-			RecoveryWindow: 0,
-		}
-		bobWalletController, err = walletDriver.New(bobWalletConfig)
-		if err != nil {
-			t.Fatalf("unable to create btcwallet: %v", err)
-		}
-		bobSigner = bobWalletController.(*btcwallet.BtcWallet)
-		bobKeyRing = keychain.NewBtcWalletKeyRing(
-			bobWalletController.(*btcwallet.BtcWallet).InternalWallet(),
-			keychain.CoinTypeTestnet,
-		)
-		bio = bobWalletController.(*btcwallet.BtcWallet)
-	default:
-		t.Fatalf("unknown wallet driver: %v", walletType)
+	// Start Alice - open a database, start a neutrino
+	// instance, and initialize a btcwallet driver for it.
+	aliceDB, err := walletdb.Create(
+		"bdb", tempTestDirAlice+"/neutrino.db", true,
+	)
+	if err != nil {
+		t.Fatalf("unable to create DB: %v", err)
 	}
+	defer aliceDB.Close()
+	aliceChain, err := neutrino.NewChainService(
+		neutrino.Config{
+			DataDir:     tempTestDirAlice,
+			Database:    aliceDB,
+			ChainParams: *netParams,
+			ConnectPeers: []string{
+				miningNode.P2PAddress(),
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("unable to make neutrino: %v", err)
+	}
+	aliceChain.Start()
+	defer aliceChain.Stop()
+	aliceClient = chain.NewNeutrinoClient(
+		netParams, aliceChain,
+	)
+
+	// Start Bob - open a database, start a neutrino
+	// instance, and initialize a btcwallet driver for it.
+	bobDB, err := walletdb.Create(
+		"bdb", tempTestDirBob+"/neutrino.db", true,
+	)
+	if err != nil {
+		t.Fatalf("unable to create DB: %v", err)
+	}
+	defer bobDB.Close()
+	bobChain, err := neutrino.NewChainService(
+		neutrino.Config{
+			DataDir:     tempTestDirBob,
+			Database:    bobDB,
+			ChainParams: *netParams,
+			ConnectPeers: []string{
+				miningNode.P2PAddress(),
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("unable to make neutrino: %v", err)
+	}
+	bobChain.Start()
+	defer bobChain.Stop()
+	bobClient = chain.NewNeutrinoClient(
+		netParams, bobChain,
+	)
+
+	aliceSeed := sha256.New()
+	aliceSeed.Write([]byte(backEnd))
+	aliceSeed.Write(aliceHDSeed[:])
+	aliceSeedBytes := aliceSeed.Sum(nil)
+
+	aliceWalletConfig := &btcwallet.Config{
+		PrivatePass: []byte("alice-pass"),
+		HdSeed:      aliceSeedBytes,
+		DataDir:     tempTestDirAlice,
+		NetParams:   netParams,
+		ChainSource: aliceClient,
+		CoinType:    keychain.CoinTypeTestnet,
+		// wallet starts in recovery mode
+		RecoveryWindow: 2,
+	}
+	aliceWalletController, err = walletDriver.New(aliceWalletConfig)
+	if err != nil {
+		t.Fatalf("unable to create btcwallet: %v", err)
+	}
+	aliceSigner = aliceWalletController.(*btcwallet.BtcWallet)
+	aliceKeyRing = keychain.NewBtcWalletKeyRing(
+		aliceWalletController.(*btcwallet.BtcWallet).InternalWallet(),
+		keychain.CoinTypeTestnet,
+	)
+
+	bobSeed := sha256.New()
+	bobSeed.Write([]byte(backEnd))
+	bobSeed.Write(bobHDSeed[:])
+	bobSeedBytes := bobSeed.Sum(nil)
+
+	bobWalletConfig := &btcwallet.Config{
+		PrivatePass: []byte("bob-pass"),
+		HdSeed:      bobSeedBytes,
+		DataDir:     tempTestDirBob,
+		NetParams:   netParams,
+		ChainSource: bobClient,
+		CoinType:    keychain.CoinTypeTestnet,
+		// wallet starts without recovery mode
+		RecoveryWindow: 0,
+	}
+	bobWalletController, err = walletDriver.New(bobWalletConfig)
+	if err != nil {
+		t.Fatalf("unable to create btcwallet: %v", err)
+	}
+	bobSigner = bobWalletController.(*btcwallet.BtcWallet)
+	bobKeyRing = keychain.NewBtcWalletKeyRing(
+		bobWalletController.(*btcwallet.BtcWallet).InternalWallet(),
+		keychain.CoinTypeTestnet,
+	)
+	bio = bobWalletController.(*btcwallet.BtcWallet)
 
 	// Funding via 20 outputs with 4BTC each.
 	alice, err := createTestWallet(
@@ -3400,8 +3376,7 @@ func runTests(t *testing.T, walletDriver *lnwallet.WalletDriver,
 		if walletTest.enabled {
 
 			log.Debugf(">>>>> About to run test: %s", walletTest.name)
-			testName := fmt.Sprintf("%v/%v:%v", walletType, backEnd,
-				walletTest.name)
+			testName := fmt.Sprintf("%v:%v", backEnd, walletTest.name)
 			success := t.Run(testName, func(t *testing.T) {
 				if backEnd == "neutrino" &&
 					strings.Contains(walletTest.name, "dual funder") {

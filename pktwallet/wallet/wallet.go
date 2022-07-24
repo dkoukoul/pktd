@@ -190,7 +190,7 @@ func (w *Wallet) Start() {
 //
 // This method is unstable and will be removed when all syncing logic is moved
 // outside of the wallet package.
-func (w *Wallet) SynchronizeRPC(chainClient chain.Interface) {
+func (w *Wallet) SynchronizeRPC(chainClient *chain.NeutrinoClient) {
 	w.quitMu.Lock()
 	select {
 	case <-w.quit:
@@ -1656,21 +1656,10 @@ func (w *Wallet) GetTransactions(
 			if chainClient == nil {
 				return nil, er.New("no chain server client")
 			}
-			switch client := chainClient.(type) {
-			case *chain.RPCClient:
-				startHeader, err := client.GetBlockHeaderVerbose(
-					startBlock.hash,
-				)
-				if err != nil {
-					return nil, err
-				}
-				start = startHeader.Height
-			case *chain.NeutrinoClient:
-				var err er.R
-				start, err = client.GetBlockHeight(startBlock.hash)
-				if err != nil {
-					return nil, err
-				}
+			var err er.R
+			start, err = chainClient.GetBlockHeight(startBlock.hash)
+			if err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -1681,21 +1670,10 @@ func (w *Wallet) GetTransactions(
 			if chainClient == nil {
 				return nil, er.New("no chain server client")
 			}
-			switch client := chainClient.(type) {
-			case *chain.RPCClient:
-				endHeader, err := client.GetBlockHeaderVerbose(
-					endBlock.hash,
-				)
-				if err != nil {
-					return nil, err
-				}
-				end = endHeader.Height
-			case *chain.NeutrinoClient:
-				var err er.R
-				end, err = client.GetBlockHeight(endBlock.hash)
-				if err != nil {
-					return nil, err
-				}
+			var err er.R
+			end, err = chainClient.GetBlockHeight(endBlock.hash)
+			if err != nil {
+				return nil, err
 			}
 		}
 	}

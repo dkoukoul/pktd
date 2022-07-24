@@ -59,17 +59,11 @@ func confirms(txHeight, curHeight int32) int32 {
 type requestHandler func(interface{}, *wallet.Wallet) (interface{}, er.R)
 
 // requestHandlerChain is a requestHandler that also takes a parameter for
-type handlerChain func(interface{}, *wallet.Wallet, chain.Interface) (interface{}, er.R)
-
-type handlerRPC func(interface{}, *wallet.Wallet, *chain.RPCClient) (interface{}, er.R)
-
-type handlerNeutrino func(interface{}, *wallet.Wallet, *chain.NeutrinoClient) (interface{}, er.R)
+type handlerChain func(interface{}, *wallet.Wallet, *chain.NeutrinoClient) (interface{}, er.R)
 
 var rpcHandlers = map[string]struct {
-	handler         requestHandler
-	handlerChain    handlerChain
-	handlerRPC      handlerRPC
-	handlerNeutrino handlerNeutrino
+	handler      requestHandler
+	handlerChain handlerChain
 
 	// Function variables cannot be compared against anything but nil, so
 	// use a boolean to record whether help generation is necessary.  This
@@ -92,7 +86,7 @@ var rpcHandlers = map[string]struct {
 	"getnewaddress":          {handler: getNewAddress},
 	"getreceivedbyaddress":   {handler: getReceivedByAddress},
 	"gettransaction":         {handler: getTransaction},
-	"help":                   {handler: helpNoChainRPC, handlerRPC: helpWithChainRPC},
+	"help":                   {handler: helpNoChainRPC},
 	"importprivkey":          {handler: importPrivKey},
 	"listlockunspent":        {handler: listLockUnspent},
 	"listreceivedbyaddress":  {handler: listReceivedByAddress},
@@ -143,7 +137,7 @@ type lazyHandler func() (interface{}, er.R)
 // returning a closure that will execute it with the (required) wallet and
 // (optional) consensus RPC server.  If no handlers are found and the
 // chainClient is not nil, the returned handler performs RPC passthrough.
-func lazyApplyHandler(request *btcjson.Request, w *wallet.Wallet, chainClient chain.Interface) lazyHandler {
+func lazyApplyHandler(request *btcjson.Request, w *wallet.Wallet, chainClient *chain.NeutrinoClient) lazyHandler {
 	hndlr, ok := rpcHandlers[request.Method]
 	var err er.R
 	unm := func(f func(interface{}) (interface{}, er.R)) func() (interface{}, er.R) {
@@ -162,10 +156,6 @@ func lazyApplyHandler(request *btcjson.Request, w *wallet.Wallet, chainClient ch
 			fmt.Sprintf("[%s] does not seem to be a wallet comand", request.Method), nil)
 	} else if chainClient == nil {
 		// fallthrough
-	} else if rpc, ok := chainClient.(*chain.RPCClient); ok && hndlr.handlerRPC != nil {
-		return unm(func(cmd interface{}) (interface{}, er.R) { return hndlr.handlerRPC(cmd, w, rpc) })
-	} else if neut, ok := chainClient.(*chain.NeutrinoClient); ok && hndlr.handlerNeutrino != nil {
-		return unm(func(cmd interface{}) (interface{}, er.R) { return hndlr.handlerNeutrino(cmd, w, neut) })
 	} else if hndlr.handlerChain != nil {
 		return unm(func(cmd interface{}) (interface{}, er.R) { return hndlr.handlerChain(cmd, w, chainClient) })
 	}
@@ -174,10 +164,6 @@ func lazyApplyHandler(request *btcjson.Request, w *wallet.Wallet, chainClient ch
 		return unm(func(cmd interface{}) (interface{}, er.R) { return hndlr.handler(cmd, w) })
 	} else if hndlr.handlerChain != nil {
 		err = btcjson.ErrRPCMisc.New("The wallet is still initializing...", nil)
-	} else if hndlr.handlerNeutrino != nil {
-		err = btcjson.ErrRPCMisc.New("This RPC requires neutrino backend (not --userpc mode)", nil)
-	} else if hndlr.handlerRPC != nil {
-		err = btcjson.ErrRPCMisc.New("This RPC requires RPC backend (--userpc mode)", nil)
 	}
 	if err == nil {
 		err = btcjson.ErrRPCMisc.New("This RPC is has no handlers (internal error)", nil)
@@ -442,7 +428,7 @@ func getBlockCount(icmd interface{}, w *wallet.Wallet) (interface{}, er.R) {
 // getInfo handles a getinfo request by returning the a structure containing
 // information about the current state of pktwallet.
 // exist.
-func getInfo(icmd interface{}, w *wallet.Wallet, chainClient chain.Interface) (interface{}, er.R) {
+func getInfo(icmd interface{}, w *wallet.Wallet, chainClient *chain.NeutrinoClient) (interface{}, er.R) {
 	bs, err := chainClient.BlockStamp()
 	if err != nil {
 		return nil, err
@@ -468,46 +454,36 @@ func getInfo(icmd interface{}, w *wallet.Wallet, chainClient chain.Interface) (i
 		WalletStats:           &walletStats,
 	}
 
-	if rpc, ok := chainClient.(*chain.RPCClient); ok {
-		// Call down to pktd for all of the information in this command known
-		// by them.
-		info, err := rpc.GetInfo()
-		if err != nil {
-			return nil, err
+	ni := btcjson.NeutrinoInfo{}
+	out.NeutrinoInfo = &ni
+	for _, p := range chainClient.CS.Peers() {
+		ni.Peers = append(ni.Peers, p.Describe())
+	}
+	if err := chainClient.CS.BanMgr().ForEachIp(func(
+		bi banmgr.BanInfo,
+	) er.R {
+		ni.Bans = append(ni.Bans, btcjson.NeutrinoBan{
+			Addr:    bi.Addr,
+			Reason:  bi.Reason,
+			EndTime: bi.BanExpiresTime.String(),
+		})
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	for _, q := range chainClient.CS.GetActiveQueries() {
+		peer := "<none>"
+		if q.Peer != nil {
+			peer = q.Peer.String()
 		}
-		out.RPCInfo = info
-	} else if neut, ok := chainClient.(*chain.NeutrinoClient); ok {
-		ni := btcjson.NeutrinoInfo{}
-		out.NeutrinoInfo = &ni
-		for _, p := range neut.CS.Peers() {
-			ni.Peers = append(ni.Peers, p.Describe())
-		}
-		if err := neut.CS.BanMgr().ForEachIp(func(
-			bi banmgr.BanInfo,
-		) er.R {
-			ni.Bans = append(ni.Bans, btcjson.NeutrinoBan{
-				Addr:    bi.Addr,
-				Reason:  bi.Reason,
-				EndTime: bi.BanExpiresTime.String(),
-			})
-			return nil
-		}); err != nil {
-			return nil, err
-		}
-		for _, q := range neut.CS.GetActiveQueries() {
-			peer := "<none>"
-			if q.Peer != nil {
-				peer = q.Peer.String()
-			}
-			ni.Queries = append(ni.Queries, btcjson.NeutrinoQuery{
-				Peer:             peer,
-				Command:          q.Command,
-				ReqNum:           q.ReqNum,
-				CreateTime:       q.CreateTime,
-				LastRequestTime:  q.LastRequestTime,
-				LastResponseTime: q.LastResponseTime,
-			})
-		}
+		ni.Queries = append(ni.Queries, btcjson.NeutrinoQuery{
+			Peer:             peer,
+			Command:          q.Command,
+			ReqNum:           q.ReqNum,
+			CreateTime:       q.CreateTime,
+			LastRequestTime:  q.LastRequestTime,
+			LastResponseTime: q.LastResponseTime,
+		})
 	}
 
 	return out, nil
@@ -817,65 +793,23 @@ func getTransaction(icmd interface{}, w *wallet.Wallet) (interface{}, er.R) {
 var helpDescs map[string]string
 var helpDescsMu sync.Mutex // Help may execute concurrently, so synchronize access.
 
-// helpWithChainRPC handles the help request when the RPC server has been
-// associated with a consensus RPC client.  The additional RPC client is used to
-// include help messages for methods implemented by the consensus server via RPC
-// passthrough.
-func helpWithChainRPC(icmd interface{}, w *wallet.Wallet, chainClient *chain.RPCClient) (interface{}, er.R) {
-	return help(icmd, w, chainClient)
-}
-
 // helpNoChainRPC handles the help request when the RPC server has not been
 // associated with a consensus RPC client.  No help messages are included for
 // passthrough requests.
 func helpNoChainRPC(icmd interface{}, w *wallet.Wallet) (interface{}, er.R) {
-	return help(icmd, w, nil)
+	return help(icmd, w)
 }
 
 // help handles the help request by returning one line usage of all available
 // methods, or full help for a specific method.  The chainClient is optional,
 // and this is simply a helper function for the HelpNoChainRPC and
 // HelpWithChainRPC handlers.
-func help(icmd interface{}, w *wallet.Wallet, chainClient *chain.RPCClient) (interface{}, er.R) {
+func help(icmd interface{}, w *wallet.Wallet) (interface{}, er.R) {
 	cmd := icmd.(*btcjson.HelpCmd)
 
-	// pktd returns different help messages depending on the kind of
-	// connection the client is using.  Only methods availble to HTTP POST
-	// clients are available to be used by wallet clients, even though
-	// wallet itself is a websocket client to pktd.  Therefore, create a
-	// POST client as needed.
-	//
-	// Returns nil if chainClient is currently nil or there is an error
-	// creating the client.
-	//
-	// This is hacky and is probably better handled by exposing help usage
-	// texts in a non-internal pktd package.
-	postClient := func() *rpcclient.Client {
-		if chainClient == nil {
-			return nil
-		}
-		c, err := chainClient.POSTClient()
-		if err != nil {
-			return nil
-		}
-		return c
-	}
 	if cmd.Command == nil || *cmd.Command == "" {
 		// Prepend chain server usage if it is available.
 		usages := requestUsages
-		client := postClient()
-		if client != nil {
-			rawChainUsage, err := client.RawRequest("help", nil)
-			var chainUsage string
-			if err == nil {
-				_ = jsoniter.Unmarshal([]byte(rawChainUsage), &chainUsage)
-			}
-			if chainUsage != "" {
-				usages = "Chain server usage:\n\n" + chainUsage + "\n\n" +
-					"Wallet server usage (overrides chain requests):\n\n" +
-					requestUsages
-			}
-		}
 		return usages, nil
 	}
 
@@ -894,22 +828,6 @@ func help(icmd interface{}, w *wallet.Wallet, chainClient *chain.RPCClient) (int
 		return helpText, nil
 	}
 
-	// Return the chain server's detailed help if possible.
-	var chainHelp string
-	client := postClient()
-	if client != nil {
-		param := make([]byte, len(*cmd.Command)+2)
-		param[0] = '"'
-		copy(param[1:], *cmd.Command)
-		param[len(param)-1] = '"'
-		rawChainHelp, err := client.RawRequest("help", []jsoniter.RawMessage{param})
-		if err == nil {
-			_ = jsoniter.Unmarshal([]byte(rawChainHelp), &chainHelp)
-		}
-	}
-	if chainHelp != "" {
-		return chainHelp, nil
-	}
 	return nil, btcjson.ErrRPCInvalidParameter.New(
 		fmt.Sprintf("No help for method '%s'", *cmd.Command), nil)
 }
@@ -1019,7 +937,7 @@ func listReceivedByAddress(icmd interface{}, w *wallet.Wallet) (interface{}, er.
 
 // listSinceBlock handles a listsinceblock request by returning an array of maps
 // with details of sent and received wallet transactions since the given block.
-func listSinceBlock(icmd interface{}, w *wallet.Wallet, chainClient chain.Interface) (interface{}, er.R) {
+func listSinceBlock(icmd interface{}, w *wallet.Wallet, chainClient *chain.NeutrinoClient) (interface{}, er.R) {
 	cmd := icmd.(*btcjson.ListSinceBlockCmd)
 
 	syncBlock := w.Manager.SyncedTo()
@@ -1524,7 +1442,7 @@ func signMessage(icmd interface{}, w *wallet.Wallet) (interface{}, er.R) {
 }
 
 // signRawTransaction handles the signrawtransaction command.
-func signRawTransaction(icmd interface{}, w *wallet.Wallet, chainClient chain.Interface) (interface{}, er.R) {
+func signRawTransaction(icmd interface{}, w *wallet.Wallet, chainClient *chain.NeutrinoClient) (interface{}, er.R) {
 	cmd := icmd.(*btcjson.SignRawTransactionCmd)
 
 	serializedTx, err := decodeHexStr(cmd.RawTx)
@@ -1615,16 +1533,7 @@ func signRawTransaction(icmd interface{}, w *wallet.Wallet, chainClient chain.In
 			continue
 		}
 
-		rpc, ok := chainClient.(*chain.RPCClient)
-		if !ok {
-			return nil, er.New("You must specify all transaction inputs explicitly, " +
-				"or use --userpc to load them from pktd.")
-		}
-
-		// Asynchronously request the output script.
-		requested[txIn.PreviousOutPoint] = rpc.GetTxOutAsync(
-			&txIn.PreviousOutPoint.Hash, txIn.PreviousOutPoint.Index,
-			true)
+		return nil, er.New("You must specify all transaction inputs explicitly")
 	}
 
 	// Parse list of private keys, if present. If there are any keys here

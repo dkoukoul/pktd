@@ -40,13 +40,9 @@ const (
 )
 
 var (
-	pktdDefaultCAFile  = filepath.Join(btcutil.AppDataDir("pktd", false), "rpc.cert")
-	pktdDefaultConf    = filepath.Join(btcutil.AppDataDir("pktd", false), "pktd.conf")
-	defaultAppDataDir  = btcutil.AppDataDir("pktwallet", false)
-	defaultConfigFile  = filepath.Join(defaultAppDataDir, defaultConfigFilename)
-	defaultRPCKeyFile  = filepath.Join(defaultAppDataDir, "rpc.key")
-	defaultRPCCertFile = filepath.Join(defaultAppDataDir, "rpc.cert")
-	defaultLogDir      = filepath.Join(defaultAppDataDir, defaultLogDirname)
+	defaultAppDataDir = btcutil.AppDataDir("pktwallet", false)
+	defaultConfigFile = filepath.Join(defaultAppDataDir, defaultConfigFilename)
+	defaultLogDir     = filepath.Join(defaultAppDataDir, defaultLogDirname)
 )
 
 type config struct {
@@ -71,19 +67,7 @@ type config struct {
 	// Wallet options
 	WalletPass string `long:"walletpass" default-mask:"-" description:"The public wallet password -- Only required if the wallet was created with one"`
 
-	// RPC client options
-	RPCConnect       string                  `short:"c" long:"rpcconnect" description:"Hostname/IP and port of pktd RPC server to connect to (default localhost:8334, testnet: localhost:18334, simnet: localhost:18556)"`
-	CAFile           *cfgutil.ExplicitString `long:"cafile" description:"File containing root certificates to authenticate a TLS connections with pktd"`
-	DisableClientTLS bool                    `long:"noclienttls" description:"nolonger used" hidden:"true"`
-	ClientTLS        bool                    `long:"clienttls" description:"enable tls to the pktd instance"`
-	BtcdUsername     string                  `long:"pktdusername" description:"Username for pktd authentication"`
-	BtcdPassword     string                  `long:"pktdpassword" default-mask:"-" description:"Password for pktd authentication"`
-	Proxy            string                  `long:"proxy" description:"Connect via SOCKS5 proxy (eg. 127.0.0.1:9050)"`
-	ProxyUser        string                  `long:"proxyuser" description:"Username for proxy server"`
-	ProxyPass        string                  `long:"proxypass" default-mask:"-" description:"Password for proxy server"`
-
 	// SPV client options
-	UseSPV       bool          `long:"usespv" description:"Use SPV mode (default)"`
 	AddPeers     []string      `short:"a" long:"addpeer" description:"Add a peer to connect with at startup"`
 	ConnectPeers []string      `long:"connect" description:"Connect only to the specified peers at startup"`
 	MaxPeers     int           `long:"maxpeers" description:"Max number of inbound and outbound peers"`
@@ -98,27 +82,16 @@ type config struct {
 	//
 	// Usernames can also be used for the consensus RPC client, so they
 	// aren't considered legacy.
-	UseRPC                 bool                    `long:"userpc" description:"Use an RPC connection to pktd rather than using neutrino, the default behavior is to connect to a single local pktd instance using neutrino, UseSPV will make neutrino connect to multiple nodes"`
-	RPCCert                *cfgutil.ExplicitString `long:"rpccert" description:"File containing the certificate file"`
-	RPCKey                 *cfgutil.ExplicitString `long:"rpckey" description:"File containing the certificate key"`
-	OneTimeTLSKey          bool                    `long:"onetimetlskey" description:"Generate a new TLS certpair at startup, but only write the certificate to disk"`
-	DisableServerTLS       bool                    `long:"noservertls" description:"Disable TLS for the RPC server"`
-	LegacyRPCListeners     []string                `long:"rpclisten" description:"Listen for legacy RPC connections on this interface/port (default port: 8332, testnet: 18332, simnet: 18554)"`
-	LegacyRPCMaxClients    int64                   `long:"rpcmaxclients" description:"Max number of legacy RPC clients for standard connections"`
-	LegacyRPCMaxWebsockets int64                   `long:"rpcmaxwebsockets" description:"Max number of legacy RPC websocket connections"`
-	Username               string                  `short:"u" long:"rpcuser" description:"Username for legacy RPC and pktd authentication (if pktdusername is unset)"`
-	Password               string                  `short:"P" long:"rpcpass" default-mask:"-" description:"Password for legacy RPC and pktd authentication (if pktdpassword is unset)"`
+	LegacyRPCListeners     []string `long:"rpclisten" description:"Listen for legacy RPC connections on this interface/port (default port: 8332, testnet: 18332, simnet: 18554)"`
+	LegacyRPCMaxClients    int64    `long:"rpcmaxclients" description:"Max number of legacy RPC clients for standard connections"`
+	LegacyRPCMaxWebsockets int64    `long:"rpcmaxwebsockets" description:"Max number of legacy RPC websocket connections"`
+	Username               string   `short:"u" long:"rpcuser" description:"Username for legacy RPC and pktd authentication (if pktdusername is unset)"`
+	Password               string   `short:"P" long:"rpcpass" default-mask:"-" description:"Password for legacy RPC and pktd authentication (if pktdpassword is unset)"`
 
 	// These exist because btcwallet took it upon themselves to specify a username and password differently from btcd
 	// in case any of these are existing in the wild, they'll be accepted.
 	OldUsername string `long:"username" hidden:"true"`
 	OldPassword string `long:"password" hidden:"true"`
-
-	// EXPERIMENTAL RPC server options
-	//
-	// These options will change (and require changes to config files, etc.)
-	// when the new gRPC server is enabled.
-	ExperimentalRPCListeners []string `long:"experimentalrpclisten" description:"Listen for RPC connections on this interface/port"`
 
 	// Deprecated options
 	DataDir *cfgutil.ExplicitString `short:"b" long:"datadir" default-mask:"-" description:"DEPRECATED -- use appdata instead"`
@@ -173,25 +146,6 @@ func cleanAndExpandPath(path string) string {
 	return filepath.Join(homeDir, path)
 }
 
-// validLogLevel returns whether or not logLevel is a valid debug log level.
-func validLogLevel(logLevel string) bool {
-	switch logLevel {
-	case "trace":
-		fallthrough
-	case "debug":
-		fallthrough
-	case "info":
-		fallthrough
-	case "warn":
-		fallthrough
-	case "error":
-		fallthrough
-	case "critical":
-		return true
-	}
-	return false
-}
-
 // loadConfig initializes and parses the config using a config file and command
 // line options.
 //
@@ -213,14 +167,9 @@ func loadConfig() (*config, []string, er.R) {
 		AppDataDir:             cfgutil.NewExplicitString(defaultAppDataDir),
 		LogDir:                 defaultLogDir,
 		WalletPass:             wallet.InsecurePubPassphrase,
-		CAFile:                 cfgutil.NewExplicitString(""),
-		RPCKey:                 cfgutil.NewExplicitString(defaultRPCKeyFile),
-		RPCCert:                cfgutil.NewExplicitString(defaultRPCCertFile),
 		LegacyRPCMaxClients:    defaultRPCMaxClients,
 		LegacyRPCMaxWebsockets: defaultRPCMaxWebsockets,
 		DataDir:                cfgutil.NewExplicitString(defaultAppDataDir),
-		UseSPV:                 false,
-		UseRPC:                 false,
 		AddPeers:               []string{},
 		ConnectPeers:           []string{},
 		MaxPeers:               neutrino.MaxPeers,
@@ -264,22 +213,6 @@ func loadConfig() (*config, []string, er.R) {
 		}
 	}
 
-	// Attempt to grab the user/pass from pktd.conf
-	if preCfg.Username != "" && preCfg.Password != "" {
-		// They specified a user/pass on the command line, we probably
-		// want to use this one for the BtcdUsername and BtcdPassword
-	} else if userpass, err := pktconfig.ReadUserPass(pktdDefaultConf); err != nil {
-		if _, ok := errr.(*os.PathError); !ok {
-			fmt.Fprintln(os.Stderr, err)
-			parser.WriteHelp(os.Stderr)
-			return nil, nil, er.E(errr)
-		}
-		// file doesn't exist, whatever
-	} else if len(userpass) >= 2 {
-		cfg.BtcdUsername = userpass[0]
-		cfg.BtcdPassword = userpass[1]
-	}
-
 	if errr := flags.NewIniParser(parser).ParseFile(configFilePath); errr != nil {
 		if _, ok := errr.(*os.PathError); !ok {
 			fmt.Fprintln(os.Stderr, errr)
@@ -319,12 +252,6 @@ func loadConfig() (*config, []string, er.R) {
 	// relative to the new data dir.
 	if cfg.AppDataDir.ExplicitlySet() {
 		cfg.AppDataDir.Value = cleanAndExpandPath(cfg.AppDataDir.Value)
-		if !cfg.RPCKey.ExplicitlySet() {
-			cfg.RPCKey.Value = filepath.Join(cfg.AppDataDir.Value, "rpc.key")
-		}
-		if !cfg.RPCCert.ExplicitlySet() {
-			cfg.RPCCert.Value = filepath.Join(cfg.AppDataDir.Value, "rpc.cert")
-		}
 	}
 
 	// Choose the active network params based on the selected network.
@@ -470,69 +397,11 @@ func loadConfig() (*config, []string, er.R) {
 		return nil, nil, err
 	}
 
-	localhostListeners := map[string]struct{}{
-		"localhost": {},
-		"127.0.0.1": {},
-		"::1":       {},
-	}
+	neutrino.MaxPeers = cfg.MaxPeers
+	neutrino.BanDuration = cfg.BanDuration
+	neutrino.BanThreshold = cfg.BanThreshold
 
-	if !cfg.UseRPC {
-		neutrino.MaxPeers = cfg.MaxPeers
-		neutrino.BanDuration = cfg.BanDuration
-		neutrino.BanThreshold = cfg.BanThreshold
-	} else {
-		if cfg.RPCConnect == "" {
-			cfg.RPCConnect = net.JoinHostPort("localhost", activeNet.RPCClientPort)
-		}
-
-		// Add default port to connect flag if missing.
-		cfg.RPCConnect, err = cfgutil.NormalizeAddress(cfg.RPCConnect,
-			activeNet.RPCClientPort)
-		if err != nil {
-			fmt.Fprintf(os.Stderr,
-				"Invalid rpcconnect network address: %v\n", err)
-			return nil, nil, err
-		}
-
-		RPCHost, _, errr := net.SplitHostPort(cfg.RPCConnect)
-		if errr != nil {
-			return nil, nil, er.E(errr)
-		}
-		if cfg.ClientTLS {
-			// If CAFile is unset, choose either the copy or local pktd cert.
-			if !cfg.CAFile.ExplicitlySet() {
-				cfg.CAFile.Value = filepath.Join(cfg.AppDataDir.Value, defaultCAFilename)
-
-				// If the CA copy does not exist, check if we're connecting to
-				// a local pktd and switch to its RPC cert if it exists.
-				certExists, err := cfgutil.FileExists(cfg.CAFile.Value)
-				if err != nil {
-					fmt.Fprintln(os.Stderr, err)
-					return nil, nil, err
-				}
-				if !certExists {
-					if _, ok := localhostListeners[RPCHost]; ok {
-						pktdCertExists, err := cfgutil.FileExists(
-							pktdDefaultCAFile)
-						if err != nil {
-							fmt.Fprintln(os.Stderr, err)
-							return nil, nil, err
-						}
-						if pktdCertExists {
-							cfg.CAFile.Value = pktdDefaultCAFile
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Only set default RPC listeners when there are no listeners set for
-	// the experimental RPC server.  This is required to prevent the old RPC
-	// server from sharing listen addresses, since it is impossible to
-	// remove defaults from go-flags slice options without assigning
-	// specific behavior to a particular string.
-	if len(cfg.ExperimentalRPCListeners) == 0 && len(cfg.LegacyRPCListeners) == 0 {
+	if len(cfg.LegacyRPCListeners) == 0 {
 		addrs, errr := net.LookupHost("localhost")
 		if errr != nil {
 			return nil, nil, er.E(errr)
@@ -553,53 +422,12 @@ func loadConfig() (*config, []string, er.R) {
 			"Invalid network address in legacy RPC listeners: %v\n", err)
 		return nil, nil, err
 	}
-	cfg.ExperimentalRPCListeners, err = cfgutil.NormalizeAddresses(
-		cfg.ExperimentalRPCListeners, activeNet.RPCServerPort)
-	if err != nil {
-		fmt.Fprintf(os.Stderr,
-			"Invalid network address in RPC listeners: %v\n", err)
-		return nil, nil, err
-	}
-
-	// Both RPC servers may not listen on the same interface/port.
-	if len(cfg.LegacyRPCListeners) > 0 && len(cfg.ExperimentalRPCListeners) > 0 {
-		seenAddresses := make(map[string]struct{}, len(cfg.LegacyRPCListeners))
-		for _, addr := range cfg.LegacyRPCListeners {
-			seenAddresses[addr] = struct{}{}
-		}
-		for _, addr := range cfg.ExperimentalRPCListeners {
-			_, seen := seenAddresses[addr]
-			if seen {
-				err := er.Errorf("Address `%s` may not be "+
-					"used as a listener address for both "+
-					"RPC servers", addr)
-				fmt.Fprintln(os.Stderr, err)
-				return nil, nil, err
-			}
-		}
-	}
-
-	// Expand environment variable and leading ~ for filepaths.
-	cfg.CAFile.Value = cleanAndExpandPath(cfg.CAFile.Value)
-	cfg.RPCCert.Value = cleanAndExpandPath(cfg.RPCCert.Value)
-	cfg.RPCKey.Value = cleanAndExpandPath(cfg.RPCKey.Value)
 
 	if cfg.Username == "" {
 		cfg.Username = cfg.OldUsername
 	}
 	if cfg.Password == "" {
 		cfg.Password = cfg.OldPassword
-	}
-
-	// If the pktd username or password are unset, use the same auth as for
-	// the client.  The two settings were previously shared for pktd and
-	// client auth, so this avoids breaking backwards compatibility while
-	// allowing users to use different auth settings for pktd and wallet.
-	if cfg.BtcdUsername == "" {
-		cfg.BtcdUsername = cfg.Username
-	}
-	if cfg.BtcdPassword == "" {
-		cfg.BtcdPassword = cfg.Password
 	}
 
 	// Warn about missing config file after the final command line parse

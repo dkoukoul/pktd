@@ -65,7 +65,7 @@ type Server struct {
 	httpServer   http.Server
 	wallet       *wallet.Wallet
 	walletLoader *wallet.Loader
-	chainClient  chain.Interface
+	chainClient  *chain.NeutrinoClient
 	handlerMu    sync.Mutex
 
 	listeners []net.Listener
@@ -266,7 +266,7 @@ func (s *Server) Stop() {
 // functional bitcoin wallet RPC server.  This can be called to enable RPC
 // passthrough even before a loaded wallet is set, but the wallet's RPC client
 // is preferred.
-func (s *Server) SetChainServer(chainClient chain.Interface) {
+func (s *Server) SetChainServer(chainClient *chain.NeutrinoClient) {
 	s.handlerMu.Lock()
 	s.chainClient = chainClient
 	s.handlerMu.Unlock()
@@ -284,11 +284,10 @@ func (s *Server) handlerClosure(request *btcjson.Request) lazyHandler {
 	// With the lock held, make copies of these pointers for the closure.
 	wallet := s.wallet
 	chainClient := s.chainClient
-	if wallet != nil && chainClient == nil {
-		chainClient = wallet.ChainClient()
-		s.chainClient = chainClient
-	}
 	s.handlerMu.Unlock()
+	if chainClient == nil {
+		panic("missing chainClient")
+	}
 
 	return lazyApplyHandler(request, wallet, chainClient)
 }

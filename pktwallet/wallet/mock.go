@@ -85,3 +85,7 @@ func (m *mockChainClient) Notifications() <-chan interface{} {
 func (m *mockChainClient) BackEnd() string {
 	return "mock"
 }
+
+func (m *mockChainClient) GetBlockHeight(hash *chainhash.Hash) (int32, er.R) {
+	return -1, er.New("unsupported in mock")
+}

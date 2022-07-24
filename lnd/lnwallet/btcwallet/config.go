@@ -61,7 +61,7 @@ type Config struct {
 	// ChainSource is the primary chain interface. This is used to operate
 	// the wallet and do things such as rescanning, sending transactions,
 	// notifications for received funds, etc.
-	ChainSource chain.Interface
+	ChainSource *chain.NeutrinoClient
 
 	// NetParams is the net parameters for the target chain.
 	NetParams *chaincfg.Params

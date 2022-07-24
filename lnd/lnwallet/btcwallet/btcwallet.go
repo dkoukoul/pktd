@@ -58,7 +58,7 @@ type BtcWallet struct {
 	// wallet is an active instance of btcwallet.
 	wallet *base.Wallet
 
-	chain chain.Interface
+	chain *chain.NeutrinoClient
 
 	db walletdb.DB
 

@@ -42,6 +42,7 @@ type Interface interface {
 	BlockStamp() (*waddrmgr.BlockStamp, er.R)
 	SendRawTransaction(*wire.MsgTx, bool) (*chainhash.Hash, er.R)
 	BackEnd() string
+	GetBlockHeight(hash *chainhash.Hash) (int32, er.R)
 }
 
 // Notification types.  These are defined here and processed from from reading
