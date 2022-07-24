@@ -284,10 +284,7 @@ func main() {
 	build("pktd", ".", &conf)
 	build("pktwallet", "./pktwallet", &conf)
 	build("pktctl", "./cmd/pktctl", &conf)
-	//build("checksig", "./cmd/checksig", &conf)
 	build("pld", "./lnd/cmd/lnd", &conf)
-	//	no need to compile and build the old version of pldctl
-	//		build("pldctl", "./lnd/cmd/lncli", &conf)
 	build("pldctl", "./lnd/cmd/lndcli", &conf)
 	fmt.Println("Everything looks good, type `./bin/pktwallet --create` to make a wallet")
 }
