@@ -19,6 +19,7 @@ import (
 	"github.com/pkt-cash/pktd/lnd/lnwire"
 	"github.com/pkt-cash/pktd/lnd/routing/chainview"
 	"github.com/pkt-cash/pktd/lnd/routing/route"
+	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
 	"github.com/pkt-cash/pktd/wire"
 )
 
@@ -148,13 +149,11 @@ func (m *mockChain) setBestBlock(height int32) {
 	m.bestHeight = height
 }
 
-func (m *mockChain) GetBestBlock() (*chainhash.Hash, int32, er.R) {
-	m.RLock()
-	defer m.RUnlock()
-
-	blockHash := m.blockIndex[uint32(m.bestHeight)]
-
-	return &blockHash, m.bestHeight, nil
+func (m *mockChain) BestBlock() (*waddrmgr.BlockStamp, er.R) {
+	return &waddrmgr.BlockStamp{
+		Hash:   m.blockIndex[uint32(m.bestHeight)],
+		Height: m.bestHeight,
+	}, nil
 }
 
 func (m *mockChain) GetTransaction(txid *chainhash.Hash) (*wire.MsgTx, er.R) {

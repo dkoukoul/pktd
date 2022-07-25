@@ -20,12 +20,12 @@ import (
 	jsoniter "github.com/json-iterator/go"
 
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/neutrino"
 	"github.com/pkt-cash/pktd/pktconfig/version"
 	"github.com/pkt-cash/pktd/pktlog/log"
 
 	"github.com/gorilla/websocket"
 	"github.com/pkt-cash/pktd/btcjson"
-	"github.com/pkt-cash/pktd/pktwallet/chain"
 	"github.com/pkt-cash/pktd/pktwallet/wallet"
 )
 
@@ -65,7 +65,7 @@ type Server struct {
 	httpServer   http.Server
 	wallet       *wallet.Wallet
 	walletLoader *wallet.Loader
-	chainClient  *chain.NeutrinoClient
+	chainClient  *neutrino.ChainService
 	handlerMu    sync.Mutex
 
 	listeners []net.Listener
@@ -254,9 +254,6 @@ func (s *Server) Stop() {
 	if wallet != nil {
 		wallet.WaitForShutdown()
 	}
-	if chainClient != nil {
-		chainClient.WaitForShutdown()
-	}
 
 	// Wait for all remaining goroutines to exit.
 	s.wg.Wait()
@@ -266,7 +263,7 @@ func (s *Server) Stop() {
 // functional bitcoin wallet RPC server.  This can be called to enable RPC
 // passthrough even before a loaded wallet is set, but the wallet's RPC client
 // is preferred.
-func (s *Server) SetChainServer(chainClient *chain.NeutrinoClient) {
+func (s *Server) SetChainServer(chainClient *neutrino.ChainService) {
 	s.handlerMu.Lock()
 	s.chainClient = chainClient
 	s.handlerMu.Unlock()

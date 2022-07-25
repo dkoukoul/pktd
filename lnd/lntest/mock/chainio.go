@@ -4,6 +4,7 @@ import (
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/chaincfg"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
+	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
 	"github.com/pkt-cash/pktd/wire"
 )
 
@@ -13,8 +14,11 @@ type ChainIO struct {
 }
 
 // GetBestBlock currently returns dummy values.
-func (c *ChainIO) GetBestBlock() (*chainhash.Hash, int32, er.R) {
-	return chaincfg.TestNet3Params.GenesisHash, c.BestHeight, nil
+func (c *ChainIO) BestBlock() (*waddrmgr.BlockStamp, er.R) {
+	return &waddrmgr.BlockStamp{
+		Hash:   *chaincfg.TestNet3Params.GenesisHash,
+		Height: c.BestHeight,
+	}, nil
 }
 
 // GetUtxo currently returns dummy values.

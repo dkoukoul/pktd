@@ -16,7 +16,7 @@ import (
 	"github.com/pkt-cash/pktd/lnd/keychain"
 	"github.com/pkt-cash/pktd/lnd/lnwallet"
 	"github.com/pkt-cash/pktd/lnd/lnwallet/chainfee"
-	"github.com/pkt-cash/pktd/pktwallet/chain"
+	"github.com/pkt-cash/pktd/neutrino"
 	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
 	"github.com/pkt-cash/pktd/pktwallet/wallet"
 	base "github.com/pkt-cash/pktd/pktwallet/wallet"
@@ -58,7 +58,7 @@ type BtcWallet struct {
 	// wallet is an active instance of btcwallet.
 	wallet *base.Wallet
 
-	chain *chain.NeutrinoClient
+	chain *neutrino.ChainService
 
 	db walletdb.DB
 
@@ -871,14 +871,14 @@ func (b *BtcWallet) IsSynced() (bool, int64, er.R) {
 
 	// Next, query the chain backend to grab the info about the tip of the
 	// main chain.
-	bestHash, bestHeight, err := b.cfg.ChainSource.GetBestBlock()
+	bs, err := b.cfg.ChainSource.BestBlock()
 	if err != nil {
 		return false, 0, err
 	}
 
 	// Make sure the backing chain has been considered synced first.
 	if !b.wallet.ChainSynced() {
-		bestHeader, err := b.cfg.ChainSource.GetBlockHeader(bestHash)
+		bestHeader, err := b.cfg.ChainSource.GetBlockHeader(&bs.Hash)
 		if err != nil {
 			return false, 0, err
 		}
@@ -888,7 +888,7 @@ func (b *BtcWallet) IsSynced() (bool, int64, er.R) {
 
 	// If the wallet hasn't yet fully synced to the node's best chain tip,
 	// then we're not yet fully synced.
-	if syncState.Height < bestHeight {
+	if syncState.Height < bs.Height {
 		return false, bestTimestamp, nil
 	}
 
@@ -896,7 +896,7 @@ func (b *BtcWallet) IsSynced() (bool, int64, er.R) {
 	// still may not yet be synced as the chain backend may still be
 	// catching up to the main chain. So we'll grab the block header in
 	// order to make a guess based on the current time stamp.
-	blockHeader, err := b.cfg.ChainSource.GetBlockHeader(bestHash)
+	blockHeader, err := b.cfg.ChainSource.GetBlockHeader(&bs.Hash)
 	if err != nil {
 		return false, 0, err
 	}
@@ -963,7 +963,7 @@ func (b *BtcWallet) GetRecoveryInfo() (bool, float64, er.R) {
 	// showing the recovery being unfinished while it's actually done. However,
 	// during a wallet rescan after the recovery, the wallet's synced height
 	// will catch up and this won't be an issue.
-	_, bestHeight, err := b.cfg.ChainSource.GetBestBlock()
+	bs, err := b.cfg.ChainSource.BestBlock()
 	if err != nil {
 		return isRecoveryMode, progress, err
 	}
@@ -972,7 +972,7 @@ func (b *BtcWallet) GetRecoveryInfo() (bool, float64, er.R) {
 	// in a newly restored wallet, and might be greater than the chain tip if a
 	// rollback happens. In that case, we will return zero progress here.
 	if syncState.Height < birthdayBlock.Height ||
-		bestHeight < birthdayBlock.Height {
+		bs.Height < birthdayBlock.Height {
 		return isRecoveryMode, progress, nil
 	}
 
@@ -986,7 +986,7 @@ func (b *BtcWallet) GetRecoveryInfo() (bool, float64, er.R) {
 	// - If the wallet is born very recently, the bestHeight can be equal to
 	//   the birthdayBlock.Height, and it will recovery instantly.
 	progress = float64(syncState.Height-birthdayBlock.Height+1) /
-		float64(bestHeight-birthdayBlock.Height+1)
+		float64(bs.Height-birthdayBlock.Height+1)
 
 	return isRecoveryMode, progress, nil
 }

@@ -471,7 +471,7 @@ func newServer(cfg *Config, listenAddrs []net.Addr,
 		subscribers: make(map[uint64]*preimageSubscriber),
 	}
 
-	_, currentHeight, err := s.cc.ChainIO.GetBestBlock()
+	bs, err := s.cc.ChainIO.BestBlock()
 	if err != nil {
 		return nil, err
 	}
@@ -507,7 +507,7 @@ func newServer(cfg *Config, listenAddrs []net.Addr,
 		RejectHTLC:             cfg.RejectHTLC,
 		Clock:                  clock.NewDefaultClock(),
 		HTLCExpiry:             htlcswitch.DefaultHTLCExpiry,
-	}, uint32(currentHeight))
+	}, uint32(bs.Height))
 	if err != nil {
 		return nil, err
 	}

@@ -51,14 +51,14 @@ func (w *Wallet) FetchInputInfo(prevOut *wire.OutPoint) (*wire.MsgTx,
 	}
 
 	// Determine the number of confirmations the output currently has.
-	_, currentHeight, err := w.chainClient.GetBestBlock()
+	bs, err := w.chainClient.BestBlock()
 	if err != nil {
 		return nil, nil, 0, er.Errorf("unable to retrieve current "+
 			"height: %v", err)
 	}
 	confs := int64(0)
 	if txDetail.Block.Height != -1 {
-		confs = int64(currentHeight - txDetail.Block.Height)
+		confs = int64(bs.Height - txDetail.Block.Height)
 	}
 
 	return &txDetail.TxRecord.MsgTx, &wire.TxOut{

@@ -1424,7 +1424,7 @@ func TestWakeUpOnStaleBranch(t *testing.T) {
 	// Give time to process new blocks
 	time.Sleep(time.Millisecond * 500)
 
-	_, forkHeight, err := ctx.chain.GetBestBlock()
+	forkBs, err := ctx.chain.BestBlock()
 	if err != nil {
 		t.Fatalf("unable to ge best block: %v", err)
 	}
@@ -1434,7 +1434,7 @@ func TestWakeUpOnStaleBranch(t *testing.T) {
 		block := &wire.MsgBlock{
 			Transactions: []*wire.MsgTx{},
 		}
-		height := uint32(forkHeight) + i
+		height := uint32(forkBs.Height) + i
 		if i == 5 {
 			fundingTx, _, chanID, err := createChannelEdge(ctx,
 				bitcoinKey1.SerializeCompressed(),
@@ -1535,7 +1535,7 @@ func TestWakeUpOnStaleBranch(t *testing.T) {
 		block := &wire.MsgBlock{
 			Transactions: []*wire.MsgTx{},
 		}
-		height := uint32(forkHeight) + i
+		height := uint32(forkBs.Height) + i
 		ctx.chain.addBlock(block, height, rand.Uint32())
 		ctx.chain.setBestBlock(int32(height))
 	}
@@ -1635,7 +1635,7 @@ func TestDisconnectedBlocks(t *testing.T) {
 	// Give time to process new blocks
 	time.Sleep(time.Millisecond * 500)
 
-	_, forkHeight, err := ctx.chain.GetBestBlock()
+	forkBs, err := ctx.chain.BestBlock()
 	if err != nil {
 		t.Fatalf("unable to get best block: %v", err)
 	}
@@ -1646,7 +1646,7 @@ func TestDisconnectedBlocks(t *testing.T) {
 		block := &wire.MsgBlock{
 			Transactions: []*wire.MsgTx{},
 		}
-		height := uint32(forkHeight) + i
+		height := uint32(forkBs.Height) + i
 		if i == 5 {
 			fundingTx, _, chanID, err := createChannelEdge(ctx,
 				bitcoinKey1.SerializeCompressed(),
@@ -1747,7 +1747,7 @@ func TestDisconnectedBlocks(t *testing.T) {
 	// this because we expect this order from the chainview.
 	for i := len(minorityChain) - 1; i >= 0; i-- {
 		block := minorityChain[i]
-		height := uint32(forkHeight) + uint32(i) + 1
+		height := uint32(forkBs.Height) + uint32(i) + 1
 		ctx.chainView.notifyStaleBlock(block.BlockHash(), height,
 			block.Transactions)
 	}
@@ -1755,7 +1755,7 @@ func TestDisconnectedBlocks(t *testing.T) {
 		block := &wire.MsgBlock{
 			Transactions: []*wire.MsgTx{},
 		}
-		height := uint32(forkHeight) + i
+		height := uint32(forkBs.Height) + i
 		ctx.chain.addBlock(block, height, rand.Uint32())
 		ctx.chain.setBestBlock(int32(height))
 		ctx.chainView.notifyBlock(block.BlockHash(), height,
@@ -1880,13 +1880,13 @@ func TestRouterChansClosedOfflinePruneGraph(t *testing.T) {
 	}
 
 	// At this point, our starting height should be 107.
-	_, chainHeight, err := ctx.chain.GetBestBlock()
+	chainBs, err := ctx.chain.BestBlock()
 	if err != nil {
 		t.Fatalf("unable to get best block: %v", err)
 	}
-	if chainHeight != 107 {
+	if chainBs.Height != 107 {
 		t.Fatalf("incorrect chain height: expected %v, got %v",
-			107, chainHeight)
+			107, chainBs.Height)
 	}
 
 	// Next, we'll "shut down" the router in order to simulate downtime.
@@ -1922,13 +1922,13 @@ func TestRouterChansClosedOfflinePruneGraph(t *testing.T) {
 	}
 
 	// At this point, our starting height should be 112.
-	_, chainHeight, err = ctx.chain.GetBestBlock()
+	chainBs, err = ctx.chain.BestBlock()
 	if err != nil {
 		t.Fatalf("unable to get best block: %v", err)
 	}
-	if chainHeight != 112 {
+	if chainBs.Height != 112 {
 		t.Fatalf("incorrect chain height: expected %v, got %v",
-			112, chainHeight)
+			112, chainBs.Height)
 	}
 
 	// Now we'll re-start the ChannelRouter. It should recognize that it's

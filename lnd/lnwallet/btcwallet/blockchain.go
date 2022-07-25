@@ -25,8 +25,8 @@ var (
 // within the main chain.
 //
 // This method is a part of the lnwallet.BlockChainIO interface.
-func (b *BtcWallet) GetBestBlock() (*chainhash.Hash, int32, er.R) {
-	return b.chain.GetBestBlock()
+func (b *BtcWallet) BestBlock() (*waddrmgr.BlockStamp, er.R) {
+	return b.chain.BestBlock()
 }
 
 // GetUtxo returns the original output referenced by the passed outpoint that
@@ -36,7 +36,7 @@ func (b *BtcWallet) GetBestBlock() (*chainhash.Hash, int32, er.R) {
 func (b *BtcWallet) GetUtxo(op *wire.OutPoint, pkScript []byte,
 	heightHint uint32, cancel <-chan struct{}) (*wire.TxOut, er.R) {
 
-	spendReport, err := b.chain.CS.GetUtxo(
+	spendReport, err := b.chain.GetUtxo(
 		neutrino.WatchInputs(neutrino.InputWithScript{
 			OutPoint: *op,
 			PkScript: pkScript,

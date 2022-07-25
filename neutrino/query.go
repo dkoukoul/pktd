@@ -1397,10 +1397,18 @@ func (s *ChainService) GetCFilter(blockHash chainhash.Hash,
 	}
 }
 
+func (cs *ChainService) GetBlock(hash *chainhash.Hash) (*wire.MsgBlock, er.R) {
+	block, err := cs.GetBlock0(*hash)
+	if err != nil {
+		return nil, err
+	}
+	return block.MsgBlock(), nil
+}
+
 // GetBlock gets a block by requesting it from the network, one peer at a
 // time, until one answers. If the block is found in the cache, it will be
 // returned immediately.
-func (s *ChainService) GetBlock(blockHash chainhash.Hash,
+func (s *ChainService) GetBlock0(blockHash chainhash.Hash,
 	options ...QueryOption) (*btcutil.Block, er.R) {
 
 	// Fetch the corresponding block header from the database. If this
@@ -1411,10 +1419,10 @@ func (s *ChainService) GetBlock(blockHash chainhash.Hash,
 		return nil, er.Errorf("Couldn't get header for block %s "+
 			"from database", blockHash)
 	}
-	return s.GetBlock0(blockHash, height, options...)
+	return s.getBlock(blockHash, height, options...)
 }
 
-func (s *ChainService) GetBlock0(blockHash chainhash.Hash, height uint32,
+func (s *ChainService) getBlock(blockHash chainhash.Hash, height uint32,
 	options ...QueryOption) (*btcutil.Block, er.R) {
 
 	// Starting with the set of default options, we'll apply any specified

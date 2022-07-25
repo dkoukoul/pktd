@@ -2953,10 +2953,10 @@ func waitForMempoolTx(r *rpctest.Harness, txid *chainhash.Hash) er.R {
 
 func waitForWalletSync(r *rpctest.Harness, w *lnwallet.LightningWallet) er.R {
 	var (
-		synced                  bool
-		err                     er.R
-		bestHash, knownHash     *chainhash.Hash
-		bestHeight, knownHeight int32
+		synced     bool
+		err        er.R
+		bestHash   *chainhash.Hash
+		bestHeight int32
 	)
 	timeout := time.After(10 * time.Second)
 	for !synced {
@@ -2973,17 +2973,17 @@ func waitForWalletSync(r *rpctest.Harness, w *lnwallet.LightningWallet) er.R {
 		if err != nil {
 			return err
 		}
-		knownHash, knownHeight, err = w.Cfg.ChainIO.GetBestBlock()
+		knownBs, err := w.Cfg.ChainIO.BestBlock()
 		if err != nil {
 			return err
 		}
-		if knownHeight != bestHeight {
+		if knownBs.Height != bestHeight {
 			continue
 		}
-		if *knownHash != *bestHash {
+		if knownBs.Hash != *bestHash {
 			return er.Errorf("hash at height %d doesn't match: "+
 				"expected %s, got %s", bestHeight, bestHash,
-				knownHash)
+				knownBs.Hash)
 		}
 
 		// Check for synchronization.
@@ -3176,25 +3176,19 @@ func _TestLightningWallet(t *testing.T) {
 		t.Fatalf("unable to start notifier: %v", err)
 	}
 
-	for _, walletDriver := range lnwallet.RegisteredWallets() {
-		for _, backEnd := range walletDriver.BackEnds() {
-			if backEnd == "neutrino" {
-				// TODO(cjd): DISABLED TEST neutrino doesn't work with sha256 yet
-				continue
-			}
-			if !runTests(t, walletDriver, backEnd, miningNode,
-				rpcConfig, chainNotifier) {
-				return
-			}
+	for _, backEnd := range chain.BackEnds() {
+		if !runTests(t, backEnd, miningNode, rpcConfig, chainNotifier) {
+			return
 		}
 	}
+
 }
 
 // runTests runs all of the tests for a single interface implementation and
 // chain back-end combination. This makes it easier to use `defer` as well as
 // factoring out the test logic from the loop which cycles through the
 // interface implementations.
-func runTests(t *testing.T, walletDriver *lnwallet.WalletDriver,
+func runTests(t *testing.T,
 	backEnd string, miningNode *rpctest.Harness,
 	rpcConfig rpcclient.ConnConfig,
 	chainNotifier chainntnfs.ChainNotifier) bool {
@@ -3226,8 +3220,6 @@ func runTests(t *testing.T, walletDriver *lnwallet.WalletDriver,
 	}
 	defer os.RemoveAll(tempTestDirBob)
 
-	var aliceClient, bobClient *chain.NeutrinoClient
-
 	// Set some package-level variable to speed up
 	// operation for tests.
 	neutrino.BanDuration = time.Millisecond * 100
@@ -3258,9 +3250,6 @@ func runTests(t *testing.T, walletDriver *lnwallet.WalletDriver,
 	}
 	aliceChain.Start()
 	defer aliceChain.Stop()
-	aliceClient = chain.NewNeutrinoClient(
-		netParams, aliceChain,
-	)
 
 	// Start Bob - open a database, start a neutrino
 	// instance, and initialize a btcwallet driver for it.
@@ -3286,26 +3275,22 @@ func runTests(t *testing.T, walletDriver *lnwallet.WalletDriver,
 	}
 	bobChain.Start()
 	defer bobChain.Stop()
-	bobClient = chain.NewNeutrinoClient(
-		netParams, bobChain,
-	)
 
 	aliceSeed := sha256.New()
 	aliceSeed.Write([]byte(backEnd))
 	aliceSeed.Write(aliceHDSeed[:])
 	aliceSeedBytes := aliceSeed.Sum(nil)
 
-	aliceWalletConfig := &btcwallet.Config{
+	aliceWalletController, err = btcwallet.New(btcwallet.Config{
 		PrivatePass: []byte("alice-pass"),
 		HdSeed:      aliceSeedBytes,
 		DataDir:     tempTestDirAlice,
 		NetParams:   netParams,
-		ChainSource: aliceClient,
+		ChainSource: aliceChain,
 		CoinType:    keychain.CoinTypeTestnet,
 		// wallet starts in recovery mode
 		RecoveryWindow: 2,
-	}
-	aliceWalletController, err = walletDriver.New(aliceWalletConfig)
+	})
 	if err != nil {
 		t.Fatalf("unable to create btcwallet: %v", err)
 	}
@@ -3320,17 +3305,16 @@ func runTests(t *testing.T, walletDriver *lnwallet.WalletDriver,
 	bobSeed.Write(bobHDSeed[:])
 	bobSeedBytes := bobSeed.Sum(nil)
 
-	bobWalletConfig := &btcwallet.Config{
+	bobWalletController, err = btcwallet.New(btcwallet.Config{
 		PrivatePass: []byte("bob-pass"),
 		HdSeed:      bobSeedBytes,
 		DataDir:     tempTestDirBob,
 		NetParams:   netParams,
-		ChainSource: bobClient,
+		ChainSource: bobChain,
 		CoinType:    keychain.CoinTypeTestnet,
 		// wallet starts without recovery mode
 		RecoveryWindow: 0,
-	}
-	bobWalletController, err = walletDriver.New(bobWalletConfig)
+	})
 	if err != nil {
 		t.Fatalf("unable to create btcwallet: %v", err)
 	}

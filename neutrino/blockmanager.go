@@ -1459,7 +1459,7 @@ func (b *blockManager) detectBadPeers(headers map[string]*wire.MsgCFHeaders,
 
 	// If all peers responded with consistent filters and hashes, get the
 	// block and use it to detect who is serving bad filters.
-	block, err := b.server.GetBlock(header.BlockHash())
+	block, err := b.server.GetBlock0(header.BlockHash())
 	if err != nil {
 		return nil, err
 	}
@@ -2377,7 +2377,7 @@ func (b *blockManager) handleHeadersMsg(hmsg *headersMsg) {
 		for _, hash := range needProofs {
 			sem <- 1
 			go func(hh hashHeight) {
-				h, err := s.GetBlock0(hh.hash, uint32(hh.height), Encoding(wire.BaseEncoding))
+				h, err := s.getBlock(hh.hash, uint32(hh.height), Encoding(wire.BaseEncoding))
 				if err != nil {
 					log.Infof("Unable to get block [%s @ %d]: %s",
 						hh.hash.String(), hh.height, err.String())

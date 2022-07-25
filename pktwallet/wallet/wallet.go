@@ -16,6 +16,7 @@ import (
 
 	"github.com/emirpasic/gods/utils"
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/neutrino"
 	"github.com/pkt-cash/pktd/neutrino/pushtx"
 	"github.com/pkt-cash/pktd/pktlog/log"
 	"github.com/pkt-cash/pktd/txscript/params"
@@ -27,7 +28,7 @@ import (
 	"github.com/pkt-cash/pktd/btcutil/hdkeychain"
 	"github.com/pkt-cash/pktd/chaincfg"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
-	"github.com/pkt-cash/pktd/pktwallet/chain"
+	"github.com/pkt-cash/pktd/pktwallet/chainiface"
 	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
 	"github.com/pkt-cash/pktd/pktwallet/wallet/seedwords"
 	"github.com/pkt-cash/pktd/pktwallet/wallet/txauthor"
@@ -101,7 +102,7 @@ type Wallet struct {
 	Manager *waddrmgr.Manager
 	TxStore *wtxmgr.Store
 
-	chainClient        chain.Interface
+	chainClient        chainiface.Interface
 	chainClientLock    sync.Mutex
 	chainClientSynced  bool
 	chainClientSyncMtx sync.Mutex
@@ -190,7 +191,7 @@ func (w *Wallet) Start() {
 //
 // This method is unstable and will be removed when all syncing logic is moved
 // outside of the wallet package.
-func (w *Wallet) SynchronizeRPC(chainClient *chain.NeutrinoClient) {
+func (w *Wallet) SynchronizeRPC(chainClient *neutrino.ChainService) {
 	w.quitMu.Lock()
 	select {
 	case <-w.quit:
@@ -222,7 +223,7 @@ func (w *Wallet) SynchronizeRPC(chainClient *chain.NeutrinoClient) {
 // consensus RPC server is set.  This function and all functions that call it
 // are unstable and will need to be moved when the syncing code is moved out of
 // the wallet.
-func (w *Wallet) requireChainClient() (chain.Interface, er.R) {
+func (w *Wallet) requireChainClient() (chainiface.Interface, er.R) {
 	w.chainClientLock.Lock()
 	chainClient := w.chainClient
 	w.chainClientLock.Unlock()
@@ -237,7 +238,7 @@ func (w *Wallet) requireChainClient() (chain.Interface, er.R) {
 //
 // This function is unstable and will be removed once sync logic is moved out of
 // the wallet.
-func (w *Wallet) ChainClient() chain.Interface {
+func (w *Wallet) ChainClient() chainiface.Interface {
 	w.chainClientLock.Lock()
 	chainClient := w.chainClient
 	w.chainClientLock.Unlock()
@@ -284,11 +285,6 @@ func (w *Wallet) ShuttingDown() bool {
 
 // WaitForShutdown blocks until all wallet goroutines have finished executing.
 func (w *Wallet) WaitForShutdown() {
-	w.chainClientLock.Lock()
-	if w.chainClient != nil {
-		w.chainClient.WaitForShutdown()
-	}
-	w.chainClientLock.Unlock()
 	w.wg.Wait()
 }
 
@@ -520,7 +516,7 @@ func (w *Wallet) isDevEnv() bool {
 
 // waitUntilBackendSynced blocks until the chain backend considers itself
 // "current".
-func (w *Wallet) waitUntilBackendSynced(chainClient chain.Interface) er.R {
+func (w *Wallet) waitUntilBackendSynced(chainClient chainiface.Interface) er.R {
 	// We'll poll every 100ms to determine if our chain considers itself
 	// "current".
 	t := time.NewTicker(time.Millisecond * 100)
@@ -541,22 +537,22 @@ func (w *Wallet) waitUntilBackendSynced(chainClient chain.Interface) er.R {
 // locateBirthdayBlock returns a block that meets the given birthday timestamp
 // by a margin of +/-2 hours. This is safe to do as the timestamp is already 2
 // days in the past of the actual timestamp.
-func locateBirthdayBlock(chainClient chainConn,
+func locateBirthdayBlock(chainClient chainiface.Interface,
 	birthday time.Time) (*waddrmgr.BlockStamp, er.R) {
 
 	// Retrieve the lookup range for our block.
 	startHeight := int32(0)
-	_, bestHeight, err := chainClient.GetBestBlock()
+	bs, err := chainClient.BestBlock()
 	if err != nil {
 		return nil, err
 	}
 
 	log.Debugf("Locating suitable block for birthday %v between blocks "+
-		"%v-%v", birthday, startHeight, bestHeight)
+		"%v-%v", birthday, startHeight, bs.Height)
 
 	var (
 		birthdayBlock *waddrmgr.BlockStamp
-		left, right   = startHeight, bestHeight
+		left, right   = startHeight, bs.Height
 	)
 
 	// Binary search for a block that meets the birthday timestamp by a
@@ -579,7 +575,7 @@ func locateBirthdayBlock(chainClient chainConn,
 
 		// If the search happened to reach either of our range extremes,
 		// then we'll just use that as there's nothing left to search.
-		if mid == startHeight || mid == bestHeight || mid == left {
+		if mid == startHeight || mid == bs.Height || mid == left {
 			birthdayBlock = &waddrmgr.BlockStamp{
 				Hash:      *hash,
 				Height:    int32(mid),
@@ -617,7 +613,7 @@ func locateBirthdayBlock(chainClient chainConn,
 	return birthdayBlock, nil
 }
 
-func getBlockStamp(chainClient chain.Interface, height int32) (*waddrmgr.BlockStamp, er.R) {
+func getBlockStamp(chainClient chainiface.Interface, height int32) (*waddrmgr.BlockStamp, er.R) {
 	hash, err := chainClient.GetBlockHash(int64(height))
 	if err != nil {
 		return nil, err
@@ -2710,7 +2706,7 @@ func (w *Wallet) WalletMempool() ([]wtxmgr.TxDetails, er.R) {
 type SyncerResp struct {
 	// this can be nil if rollbackHash is non-nil
 	// or if we're syncing the chain and we need to load headers
-	filter *chain.FilterBlocksResponse
+	filter *chainiface.FilterBlocksResponse
 
 	// if nil then there is nothing to be done at all
 	header *wire.BlockHeader
@@ -2802,7 +2798,7 @@ func existsTxEntry(
 	return nil, true
 }
 
-func mkFilterReq(w *watcher.Watcher, header *wire.BlockHeader, height int32) *chain.FilterBlocksRequest {
+func mkFilterReq(w *watcher.Watcher, header *wire.BlockHeader, height int32) *chainiface.FilterBlocksRequest {
 	filterReq := w.FilterReq(height)
 	filterReq.Blocks = []wtxmgr.BlockMeta{
 		{
@@ -2841,7 +2837,7 @@ func containsTxFromWrongBlock(txd []wtxmgr.TxDetails, correctHash *chainhash.Has
 func rescanStep(
 	db walletdb.DB,
 	height int32,
-	chainClient chain.Interface,
+	chainClient chainiface.Interface,
 	txStore *wtxmgr.Store,
 	watch *watcher.Watcher,
 	isRescan bool,
@@ -3237,12 +3233,12 @@ func (w *Wallet) checkBlock() bool {
 		/// shutting down
 		return false
 	}
-	bestH, bestHeight, err := cc.GetBestBlock()
+	bs, err := cc.BestBlock()
 	if err != nil {
 		log.Warnf("Error checking for best block [%s]", err.String())
 	}
 	st := w.Manager.SyncedTo()
-	if st.Height >= bestHeight {
+	if st.Height >= bs.Height {
 		synced := w.ChainSynced()
 		if !synced {
 			log.Infof("Wallet frontend synced to tip [%s] 💪", log.Height(st.Height))
@@ -3250,8 +3246,8 @@ func (w *Wallet) checkBlock() bool {
 		}
 		return false
 	} else if err := w.block(dbstructs.Block{
-		Hash:   *bestH,
-		Height: bestHeight,
+		Hash:   bs.Hash,
+		Height: bs.Height,
 	}); err != nil {
 		log.Warnf("Error registering block [%s]", err.String())
 	}

@@ -134,7 +134,7 @@ func (w *Wallet) txToOutputs(txr CreateTxReq) (tx *txauthor.AuthoredTx, err er.R
 	addrmgrNs := dbtx.ReadWriteBucket(waddrmgrNamespaceKey)
 
 	// Get current block's height and hash.
-	bs, err := chainClient.BlockStamp()
+	bs, err := chainClient.BestBlock()
 	if err != nil {
 		return nil, err
 	}

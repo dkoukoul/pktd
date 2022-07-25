@@ -22,7 +22,6 @@ import (
 	"github.com/pkt-cash/pktd/lnd/routing/chainview"
 	"github.com/pkt-cash/pktd/neutrino"
 	"github.com/pkt-cash/pktd/pktlog/log"
-	"github.com/pkt-cash/pktd/pktwallet/chain"
 	"github.com/pkt-cash/pktd/pktwallet/wallet"
 )
 
@@ -320,13 +319,11 @@ func NewChainControl(cfg *Config) (*ChainControl, er.R) {
 		cfg.FeeURL = cfg.NeutrinoMode.FeeURL
 	}
 
-	walletConfig.ChainSource = chain.NewNeutrinoClient(
-		cfg.ActiveNetParams.Params, cfg.NeutrinoCS,
-	)
+	walletConfig.ChainSource = cfg.NeutrinoCS
 
 	// Get our best block as a health check.
 	cc.HealthCheck = func() er.R {
-		_, _, err := walletConfig.ChainSource.GetBestBlock()
+		_, err := walletConfig.ChainSource.BestBlock()
 		return err
 	}
 	// End setup neutrino

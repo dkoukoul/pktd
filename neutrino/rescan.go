@@ -17,7 +17,6 @@ import (
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/gcs"
 	"github.com/pkt-cash/pktd/btcutil/gcs/builder"
-	"github.com/pkt-cash/pktd/chaincfg"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
 	"github.com/pkt-cash/pktd/chaincfg/genesis"
 	"github.com/pkt-cash/pktd/neutrino/blockntfns"
@@ -38,45 +37,6 @@ var (
 	ErrRescanExit = Err.CodeWithDetail("ErrRescanExit",
 		"rescan exited")
 )
-
-// ChainSource is an interface that's in charge of retrieving information about
-// the existing chain.
-type ChainSource interface {
-	// ChainParams returns the parameters of the current chain.
-	ChainParams() chaincfg.Params
-
-	// BestBlock retrieves the most recent block's height and hash where we
-	// have both the header and filter header ready.
-	BestBlock() (*waddrmgr.BlockStamp, er.R)
-
-	// GetBlockHeaderByHeight returns the header of the block with the given
-	// height.
-	GetBlockHeaderByHeight(uint32) (*wire.BlockHeader, er.R)
-
-	// GetBlockHeader returns the header of the block with the given hash.
-	GetBlockHeader(*chainhash.Hash) (*wire.BlockHeader, uint32, er.R)
-
-	// GetBlock returns the block with the given hash.
-	GetBlock(chainhash.Hash, ...QueryOption) (*btcutil.Block, er.R)
-
-	// GetFilterHeaderByHeight returns the filter header of the block with
-	// the given height.
-	GetFilterHeaderByHeight(uint32) (*chainhash.Hash, er.R)
-
-	// GetCFilter returns the filter of the given type for the block with
-	// the given hash.
-	GetCFilter(chainhash.Hash, wire.FilterType,
-		...QueryOption) (*gcs.Filter, er.R)
-
-	// Subscribe returns a block subscription that delivers block
-	// notifications in order. The bestHeight parameter can be used to
-	// signal that a backlog of notifications should be delivered from this
-	// height. When providing a bestHeight of 0, a backlog will not be
-	// delivered.
-	//
-	// TODO(wilmer): extend with best hash as well.
-	Subscribe(bestHeight uint32) (*blockntfns.Subscription, er.R)
-}
 
 // rescanOptions holds the set of functional parameters for Rescan.
 type rescanOptions struct {
@@ -216,7 +176,7 @@ func updateChan(update <-chan *updateOptions) RescanOption {
 
 // rescan is a single-threaded function that uses headers from the database and
 // functional options as arguments.
-func rescan(chain ChainSource, options ...RescanOption) er.R {
+func rescan(chain *RescanChainSource, options ...RescanOption) er.R {
 	// First, we'll apply the set of default options, then serially apply
 	// all the options that've been passed in.
 	ro := defaultRescanOptions()
@@ -814,7 +774,7 @@ rescanLoop:
 	}
 }
 
-func logWatchList(chain ChainSource, ro *rescanOptions, scanning bool) {
+func logWatchList(chain *RescanChainSource, ro *rescanOptions, scanning bool) {
 	wl := map[string]struct{}{}
 	cp := chain.ChainParams()
 	for _, pk := range ro.watchList {
@@ -831,7 +791,7 @@ func logWatchList(chain ChainSource, ro *rescanOptions, scanning bool) {
 }
 
 // notifyBlock calls appropriate listeners based on the block filter.
-func notifyBlock(chain ChainSource, ro *rescanOptions,
+func notifyBlock(chain *RescanChainSource, ro *rescanOptions,
 	curHeader wire.BlockHeader, curStamp waddrmgr.BlockStamp,
 	scanning bool) er.R {
 
@@ -874,12 +834,12 @@ func notifyBlock(chain ChainSource, ro *rescanOptions,
 
 // extractBlockMatches fetches the target block from the network, and filters
 // out any relevant transactions found within the block.
-func extractBlockMatches(chain ChainSource, ro *rescanOptions,
+func extractBlockMatches(chain *RescanChainSource, ro *rescanOptions,
 	curStamp *waddrmgr.BlockStamp) ([]*btcutil.Tx, er.R) {
 
 	// We've matched. Now we actually get the block and cycle through the
 	// transactions to see which ones are relevant.
-	block, err := chain.GetBlock(curStamp.Hash, ro.queryOptions...)
+	block, err := chain.GetBlock0(curStamp.Hash, ro.queryOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -936,7 +896,7 @@ func extractBlockMatches(chain ChainSource, ro *rescanOptions,
 // notifyBlockWithFilter calls appropriate listeners based on the block filter.
 // This differs from notifyBlock in that is expects the caller to already have
 // obtained the target filter.
-func notifyBlockWithFilter(chain ChainSource, ro *rescanOptions,
+func notifyBlockWithFilter(chain *RescanChainSource, ro *rescanOptions,
 	curHeader *wire.BlockHeader, curStamp *waddrmgr.BlockStamp,
 	filter *gcs.Filter) er.R {
 
@@ -1002,7 +962,7 @@ func matchBlockFilter(ro *rescanOptions, filter *gcs.Filter,
 // blockFilterMatches returns whether the block filter matches the watched
 // items. If this returns false, it means the block is certainly not interesting
 // to us.
-func blockFilterMatches(chain ChainSource, ro *rescanOptions,
+func blockFilterMatches(chain *RescanChainSource, ro *rescanOptions,
 	blockHash *chainhash.Hash) (bool, er.R) {
 
 	// TODO(roasbeef): need to ENSURE always get filter
@@ -1033,7 +993,7 @@ func blockFilterMatches(chain ChainSource, ro *rescanOptions,
 
 // updateFilter atomically updates the filter and rewinds to the specified
 // height if not 0.
-func (ro *rescanOptions) updateFilter(chain ChainSource, update *updateOptions,
+func (ro *rescanOptions) updateFilter(chain *RescanChainSource, update *updateOptions,
 	curStamp *waddrmgr.BlockStamp, curHeader *wire.BlockHeader) (bool, er.R) {
 
 	ro.watchAddrs = append(ro.watchAddrs, update.addrs...)
@@ -1189,7 +1149,7 @@ type Rescan struct {
 
 	options []RescanOption
 
-	chain ChainSource
+	chain *RescanChainSource
 
 	errMtx sync.Mutex
 	err    er.R
@@ -1200,7 +1160,7 @@ type Rescan struct {
 // NewRescan returns a rescan object that runs in another goroutine and has an
 // updatable filter. It returns the long-running rescan object, and a channel
 // which returns any error on termination of the rescan process.
-func NewRescan(chain ChainSource, options ...RescanOption) *Rescan {
+func NewRescan(chain *RescanChainSource, options ...RescanOption) *Rescan {
 	return &Rescan{
 		running:    make(chan struct{}),
 		options:    options,

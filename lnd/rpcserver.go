@@ -490,7 +490,7 @@ func (r *LightningRPCServer) SendCoins(ctx context.Context,
 				"active"))
 		}
 
-		_, bestHeight, err := r.server.cc.ChainIO.GetBestBlock()
+		bs, err := r.server.cc.ChainIO.BestBlock()
 		if err != nil {
 			return nil, er.Native(err)
 		}
@@ -501,7 +501,7 @@ func (r *LightningRPCServer) SendCoins(ctx context.Context,
 		// safe manner, so no need to worry about locking.
 		sweepTxPkg, err := sweep.CraftSweepAllTx(
 			feePerKw, lnwallet.DefaultDustLimit(),
-			uint32(bestHeight), targetAddr, wallet,
+			uint32(bs.Height), targetAddr, wallet,
 			wallet.WalletController, wallet.WalletController,
 			r.server.cc.FeeEstimator, r.server.cc.Signer,
 		)
@@ -1367,7 +1367,7 @@ func (r *LightningRPCServer) CloseChannel0(in *rpc_pb.CloseChannelRequest,
 
 	// Retrieve the best height of the chain, which we'll use to complete
 	// either closing flow.
-	_, bestHeight, err := r.server.cc.ChainIO.GetBestBlock()
+	bs, err := r.server.cc.ChainIO.BestBlock()
 	if err != nil {
 		return err
 	}
@@ -1415,7 +1415,7 @@ func (r *LightningRPCServer) CloseChannel0(in *rpc_pb.CloseChannelRequest,
 
 		errChan = make(chan er.R, 1)
 		notifier := r.server.cc.ChainNotifier
-		go peer.WaitForChanToClose(uint32(bestHeight), notifier, errChan, chanPoint,
+		go peer.WaitForChanToClose(uint32(bs.Height), notifier, errChan, chanPoint,
 			&closingTxid, closingTx.TxOut[0].PkScript, func() {
 				// Respond to the local subsystem which
 				// requested the channel closure.
@@ -1433,11 +1433,11 @@ func (r *LightningRPCServer) CloseChannel0(in *rpc_pb.CloseChannelRequest,
 			if err != nil {
 				return err
 			}
-			if uint32(bestHeight) < absoluteThawHeight {
+			if uint32(bs.Height) < absoluteThawHeight {
 				return er.Errorf("cannot co-op close frozen "+
 					"channel as initiator until height=%v, "+
 					"(current_height=%v)",
-					absoluteThawHeight, bestHeight)
+					absoluteThawHeight, bs.Height)
 			}
 		}
 
@@ -1617,7 +1617,7 @@ func (r *LightningRPCServer) AbandonChannel0(in *rpc_pb.AbandonChannelRequest) (
 
 	// When we remove the channel from the database, we need to set a close
 	// height, so we'll just use the current best known height.
-	_, bestHeight, err := r.server.cc.ChainIO.GetBestBlock()
+	bs, err := r.server.cc.ChainIO.BestBlock()
 	if err != nil {
 		return nil, err
 	}
@@ -1667,7 +1667,7 @@ func (r *LightningRPCServer) AbandonChannel0(in *rpc_pb.AbandonChannelRequest) (
 	// court. Between any step it's possible that the users restarts the
 	// process all over again. As a result, each of the steps below are
 	// intended to be idempotent.
-	err = r.server.remoteChanDB.AbandonChannel(chanPoint, uint32(bestHeight))
+	err = r.server.remoteChanDB.AbandonChannel(chanPoint, uint32(bs.Height))
 	if err != nil {
 		return nil, err
 	}
@@ -1737,7 +1737,7 @@ func (r *LightningRPCServer) GetInfo0(ctx context.Context,
 	idPub := r.server.identityECDH.PubKey().SerializeCompressed()
 	encodedIDPub := idPub
 
-	bestHash, bestHeight, err := r.server.cc.ChainIO.GetBestBlock()
+	bs, err := r.server.cc.ChainIO.BestBlock()
 	if err != nil {
 		return nil, er.Errorf("unable to get best block info: %v", err)
 	}
@@ -1796,8 +1796,8 @@ func (r *LightningRPCServer) GetInfo0(ctx context.Context,
 		NumActiveChannels:   activeChannels,
 		NumInactiveChannels: inactiveChannels,
 		NumPeers:            uint32(len(serverPeers)),
-		BlockHeight:         uint32(bestHeight),
-		BlockHash:           bestHash.String(),
+		BlockHeight:         uint32(bs.Height),
+		BlockHash:           bs.Hash.String(),
 		SyncedToChain:       isSynced,
 		Testnet:             chainreg.IsTestnet(&r.cfg.ActiveNetParams),
 		Chains:              activeChains,
@@ -2229,7 +2229,7 @@ func (r *LightningRPCServer) PendingChannels(ctx context.Context,
 		}
 	}
 
-	_, currentHeight, err := r.server.cc.ChainIO.GetBestBlock()
+	bs, err := r.server.cc.ChainIO.BestBlock()
 	if err != nil {
 		return nil, er.Native(err)
 	}
@@ -2315,14 +2315,14 @@ func (r *LightningRPCServer) PendingChannels(ctx context.Context,
 			// and channel arbitrator will be the single source for
 			// these kind of reports.
 			err := r.nurseryPopulateForceCloseResp(
-				&chanPoint, currentHeight, forceClose,
+				&chanPoint, bs.Height, forceClose,
 			)
 			if err != nil {
 				return nil, err
 			}
 
 			err = r.arbitratorPopulateForceCloseResp(
-				&chanPoint, currentHeight, forceClose,
+				&chanPoint, bs.Height, forceClose,
 			)
 			if err != nil {
 				return nil, err

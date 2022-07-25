@@ -248,13 +248,13 @@ func (u *utxoNursery) Start() er.R {
 
 	// Retrieve the currently best known block. This is needed to have the
 	// state machine catch up with the blocks we missed when we were down.
-	bestHash, bestHeight, err := u.cfg.ChainIO.GetBestBlock()
+	bs, err := u.cfg.ChainIO.BestBlock()
 	if err != nil {
 		return err
 	}
 
 	// Set best known height to schedule late registrations properly.
-	atomic.StoreUint32(&u.bestHeight, uint32(bestHeight))
+	atomic.StoreUint32(&u.bestHeight, uint32(bs.Height))
 
 	// 2. Flush all fully-graduated channels from the pipeline.
 
@@ -291,7 +291,7 @@ func (u *utxoNursery) Start() er.R {
 
 	// 3. Replay all crib and kindergarten outputs up to the current best
 	// height.
-	if err := u.reloadClasses(uint32(bestHeight)); err != nil {
+	if err := u.reloadClasses(uint32(bs.Height)); err != nil {
 		close(u.quit)
 		return err
 	}
@@ -299,8 +299,8 @@ func (u *utxoNursery) Start() er.R {
 	// Start watching for new blocks, as this will drive the nursery store's
 	// state machine.
 	newBlockChan, err := u.cfg.Notifier.RegisterBlockEpochNtfn(&chainntnfs.BlockEpoch{
-		Height: bestHeight,
-		Hash:   bestHash,
+		Height: bs.Height,
+		Hash:   &bs.Hash,
 	})
 	if err != nil {
 		close(u.quit)
@@ -431,7 +431,7 @@ func (u *utxoNursery) IncubateOutputs(chanPoint wire.OutPoint,
 	// As an intermediate step, we'll now check to see if any of the baby
 	// outputs has actually _already_ expired. This may be the case if
 	// blocks were mined while we processed this message.
-	_, bestHeight, err := u.cfg.ChainIO.GetBestBlock()
+	bs, err := u.cfg.ChainIO.BestBlock()
 	if err != nil {
 		return err
 	}
@@ -440,7 +440,7 @@ func (u *utxoNursery) IncubateOutputs(chanPoint wire.OutPoint,
 	// if the output has already expired, then we'll *immediately* sweep
 	// it. This may happen if the caller raced a block to call this method.
 	for i, babyOutput := range babyOutputs {
-		if uint32(bestHeight) >= babyOutput.expiry {
+		if uint32(bs.Height) >= babyOutput.expiry {
 			err = u.sweepCribOutput(
 				babyOutput.expiry, &babyOutputs[i],
 			)

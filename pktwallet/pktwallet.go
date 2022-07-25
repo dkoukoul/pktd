@@ -20,7 +20,6 @@ import (
 
 	"github.com/arl/statsviz"
 	"github.com/pkt-cash/pktd/neutrino"
-	"github.com/pkt-cash/pktd/pktwallet/chain"
 	"github.com/pkt-cash/pktd/pktwallet/rpc/legacyrpc"
 	"github.com/pkt-cash/pktd/pktwallet/wallet"
 	"github.com/pkt-cash/pktd/pktwallet/walletdb"
@@ -143,17 +142,8 @@ func walletMain() er.R {
 func rpcClientConnectLoop(legacyRPCServer *legacyrpc.Server, loader *wallet.Loader) {
 
 	for {
-		var (
-			chainClient *chain.NeutrinoClient
-			err         er.R
-		)
-
-		var (
-			chainService *neutrino.ChainService
-			spvdb        walletdb.DB
-		)
 		netDir := networkDir(cfg.AppDataDir.Value, activeNet.Params)
-		spvdb, err = walletdb.Create("bdb",
+		spvdb, err := walletdb.Create("bdb",
 			filepath.Join(netDir, "neutrino.db"), false)
 		defer spvdb.Close()
 		if err != nil {
@@ -161,7 +151,7 @@ func rpcClientConnectLoop(legacyRPCServer *legacyrpc.Server, loader *wallet.Load
 			continue
 		}
 		cp := cfg.ConnectPeers
-		chainService, err = neutrino.NewChainService(
+		chainService, err := neutrino.NewChainService(
 			neutrino.Config{
 				DataDir:      netDir,
 				Database:     spvdb,
@@ -173,9 +163,8 @@ func rpcClientConnectLoop(legacyRPCServer *legacyrpc.Server, loader *wallet.Load
 			log.Errorf("Couldn't create Neutrino ChainService: %s", err)
 			continue
 		}
-		chainClient = chain.NewNeutrinoClient(activeNet.Params, chainService)
-		legacyRPCServer.SetChainServer(chainClient)
-		err = chainClient.Start()
+		legacyRPCServer.SetChainServer(chainService)
+		err = chainService.Start()
 		if err != nil {
 			log.Errorf("Couldn't start Neutrino client: %s", err)
 		}
@@ -187,7 +176,7 @@ func rpcClientConnectLoop(legacyRPCServer *legacyrpc.Server, loader *wallet.Load
 		// later time with a client that has already disconnected.  A
 		// mutex is used to make this concurrent safe.
 		associateRPCClient := func(w *wallet.Wallet) {
-			w.SynchronizeRPC(chainClient)
+			w.SynchronizeRPC(chainService)
 		}
 		mu := new(sync.Mutex)
 		loader.RunAfterLoad(func(w *wallet.Wallet) {
@@ -198,8 +187,6 @@ func rpcClientConnectLoop(legacyRPCServer *legacyrpc.Server, loader *wallet.Load
 				associate(w)
 			}
 		})
-
-		chainClient.WaitForShutdown()
 
 		mu.Lock()
 		associateRPCClient = nil

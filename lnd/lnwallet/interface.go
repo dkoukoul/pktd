@@ -1,7 +1,6 @@
 package lnwallet
 
 import (
-	"sync"
 	"time"
 
 	"github.com/pkt-cash/pktd/btcec"
@@ -11,6 +10,7 @@ import (
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
 	"github.com/pkt-cash/pktd/lnd/input"
 	"github.com/pkt-cash/pktd/lnd/lnwallet/chainfee"
+	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
 	"github.com/pkt-cash/pktd/pktwallet/wallet"
 	"github.com/pkt-cash/pktd/pktwallet/wallet/txauthor"
 	"github.com/pkt-cash/pktd/pktwallet/wtxmgr"
@@ -346,7 +346,7 @@ type WalletController interface {
 type BlockChainIO interface {
 	// GetBestBlock returns the current height and block hash of the valid
 	// most-work chain the implementation is aware of.
-	GetBestBlock() (*chainhash.Hash, int32, er.R)
+	BestBlock() (*waddrmgr.BlockStamp, er.R)
 
 	// GetUtxo attempts to return the passed outpoint if it's still a
 	// member of the utxo set. The passed height hint should be the "birth
@@ -378,79 +378,4 @@ type MessageSigner interface {
 	// is unable to be found, then an error will be returned. The actual
 	// digest signed is the double SHA-256 of the passed message.
 	SignMessage(pubKey *btcec.PublicKey, msg []byte) (input.Signature, er.R)
-}
-
-// WalletDriver represents a "driver" for a particular concrete
-// WalletController implementation. A driver is identified by a globally unique
-// string identifier along with a 'New()' method which is responsible for
-// initializing a particular WalletController concrete implementation.
-type WalletDriver struct {
-	// WalletType is a string which uniquely identifies the
-	// WalletController that this driver, drives.
-	WalletType string
-
-	// New creates a new instance of a concrete WalletController
-	// implementation given a variadic set up arguments. The function takes
-	// a variadic number of interface parameters in order to provide
-	// initialization flexibility, thereby accommodating several potential
-	// WalletController implementations.
-	New func(args ...interface{}) (WalletController, er.R)
-
-	// BackEnds returns a list of available chain service drivers for the
-	// wallet driver. This could be e.g. bitcoind, btcd, neutrino, etc.
-	BackEnds func() []string
-}
-
-var (
-	wallets     = make(map[string]*WalletDriver)
-	registerMtx sync.Mutex
-)
-
-// RegisteredWallets returns a slice of all currently registered notifiers.
-//
-// NOTE: This function is safe for concurrent access.
-func RegisteredWallets() []*WalletDriver {
-	registerMtx.Lock()
-	defer registerMtx.Unlock()
-
-	registeredWallets := make([]*WalletDriver, 0, len(wallets))
-	for _, wallet := range wallets {
-		registeredWallets = append(registeredWallets, wallet)
-	}
-
-	return registeredWallets
-}
-
-// RegisterWallet registers a WalletDriver which is capable of driving a
-// concrete WalletController interface. In the case that this driver has
-// already been registered, an error is returned.
-//
-// NOTE: This function is safe for concurrent access.
-func RegisterWallet(driver *WalletDriver) er.R {
-	registerMtx.Lock()
-	defer registerMtx.Unlock()
-
-	if _, ok := wallets[driver.WalletType]; ok {
-		return er.Errorf("wallet already registered")
-	}
-
-	wallets[driver.WalletType] = driver
-
-	return nil
-}
-
-// SupportedWallets returns a slice of strings that represents the wallet
-// drivers that have been registered and are therefore supported.
-//
-// NOTE: This function is safe for concurrent access.
-func SupportedWallets() []string {
-	registerMtx.Lock()
-	defer registerMtx.Unlock()
-
-	supportedWallets := make([]string, 0, len(wallets))
-	for walletName := range wallets {
-		supportedWallets = append(supportedWallets, walletName)
-	}
-
-	return supportedWallets
 }

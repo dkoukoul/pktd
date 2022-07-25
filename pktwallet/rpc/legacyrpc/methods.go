@@ -19,6 +19,7 @@ import (
 	"github.com/pkt-cash/pktd/blockchain"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/connmgr/banmgr"
+	"github.com/pkt-cash/pktd/neutrino"
 	"github.com/pkt-cash/pktd/pktlog/log"
 	"github.com/pkt-cash/pktd/txscript/params"
 	"github.com/pkt-cash/pktd/wire/ruleerror"
@@ -28,7 +29,6 @@ import (
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/chaincfg"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
-	"github.com/pkt-cash/pktd/pktwallet/chain"
 	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
 	"github.com/pkt-cash/pktd/pktwallet/wallet"
 	"github.com/pkt-cash/pktd/pktwallet/wallet/txauthor"
@@ -59,7 +59,7 @@ func confirms(txHeight, curHeight int32) int32 {
 type requestHandler func(interface{}, *wallet.Wallet) (interface{}, er.R)
 
 // requestHandlerChain is a requestHandler that also takes a parameter for
-type handlerChain func(interface{}, *wallet.Wallet, *chain.NeutrinoClient) (interface{}, er.R)
+type handlerChain func(interface{}, *wallet.Wallet, *neutrino.ChainService) (interface{}, er.R)
 
 var rpcHandlers = map[string]struct {
 	handler      requestHandler
@@ -137,7 +137,7 @@ type lazyHandler func() (interface{}, er.R)
 // returning a closure that will execute it with the (required) wallet and
 // (optional) consensus RPC server.  If no handlers are found and the
 // chainClient is not nil, the returned handler performs RPC passthrough.
-func lazyApplyHandler(request *btcjson.Request, w *wallet.Wallet, chainClient *chain.NeutrinoClient) lazyHandler {
+func lazyApplyHandler(request *btcjson.Request, w *wallet.Wallet, chainClient *neutrino.ChainService) lazyHandler {
 	hndlr, ok := rpcHandlers[request.Method]
 	var err er.R
 	unm := func(f func(interface{}) (interface{}, er.R)) func() (interface{}, er.R) {
@@ -428,8 +428,8 @@ func getBlockCount(icmd interface{}, w *wallet.Wallet) (interface{}, er.R) {
 // getInfo handles a getinfo request by returning the a structure containing
 // information about the current state of pktwallet.
 // exist.
-func getInfo(icmd interface{}, w *wallet.Wallet, chainClient *chain.NeutrinoClient) (interface{}, er.R) {
-	bs, err := chainClient.BlockStamp()
+func getInfo(icmd interface{}, w *wallet.Wallet, chainClient *neutrino.ChainService) (interface{}, er.R) {
+	bs, err := chainClient.BestBlock()
 	if err != nil {
 		return nil, err
 	}
@@ -456,10 +456,10 @@ func getInfo(icmd interface{}, w *wallet.Wallet, chainClient *chain.NeutrinoClie
 
 	ni := btcjson.NeutrinoInfo{}
 	out.NeutrinoInfo = &ni
-	for _, p := range chainClient.CS.Peers() {
+	for _, p := range chainClient.Peers() {
 		ni.Peers = append(ni.Peers, p.Describe())
 	}
-	if err := chainClient.CS.BanMgr().ForEachIp(func(
+	if err := chainClient.BanMgr().ForEachIp(func(
 		bi banmgr.BanInfo,
 	) er.R {
 		ni.Bans = append(ni.Bans, btcjson.NeutrinoBan{
@@ -471,7 +471,7 @@ func getInfo(icmd interface{}, w *wallet.Wallet, chainClient *chain.NeutrinoClie
 	}); err != nil {
 		return nil, err
 	}
-	for _, q := range chainClient.CS.GetActiveQueries() {
+	for _, q := range chainClient.GetActiveQueries() {
 		peer := "<none>"
 		if q.Peer != nil {
 			peer = q.Peer.String()
@@ -937,7 +937,7 @@ func listReceivedByAddress(icmd interface{}, w *wallet.Wallet) (interface{}, er.
 
 // listSinceBlock handles a listsinceblock request by returning an array of maps
 // with details of sent and received wallet transactions since the given block.
-func listSinceBlock(icmd interface{}, w *wallet.Wallet, chainClient *chain.NeutrinoClient) (interface{}, er.R) {
+func listSinceBlock(icmd interface{}, w *wallet.Wallet, chainClient *neutrino.ChainService) (interface{}, er.R) {
 	cmd := icmd.(*btcjson.ListSinceBlockCmd)
 
 	syncBlock := w.Manager.SyncedTo()
@@ -1442,7 +1442,7 @@ func signMessage(icmd interface{}, w *wallet.Wallet) (interface{}, er.R) {
 }
 
 // signRawTransaction handles the signrawtransaction command.
-func signRawTransaction(icmd interface{}, w *wallet.Wallet, chainClient *chain.NeutrinoClient) (interface{}, er.R) {
+func signRawTransaction(icmd interface{}, w *wallet.Wallet, chainClient *neutrino.ChainService) (interface{}, er.R) {
 	cmd := icmd.(*btcjson.SignRawTransactionCmd)
 
 	serializedTx, err := decodeHexStr(cmd.RawTx)

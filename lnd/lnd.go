@@ -460,7 +460,7 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 	if !(cfg.Bitcoin.RegTest || cfg.Bitcoin.SimNet ||
 		cfg.Litecoin.RegTest || cfg.Litecoin.SimNet) {
 
-		_, bestHeight, err := activeChainControl.ChainIO.GetBestBlock()
+		bs, err := activeChainControl.ChainIO.BestBlock()
 		if err != nil {
 			err := er.Errorf("unable to determine chain tip: %v",
 				err)
@@ -469,7 +469,7 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 		}
 
 		log.Infof("Waiting for chain backend to finish sync, "+
-			"start_height=%v", bestHeight)
+			"start_height=%v", bs.Height)
 
 		for {
 			if !signal.Alive() {
@@ -491,7 +491,7 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 			time.Sleep(time.Second * 1)
 		}
 
-		_, bestHeight, err = activeChainControl.ChainIO.GetBestBlock()
+		bs, err = activeChainControl.ChainIO.BestBlock()
 		if err != nil {
 			err := er.Errorf("unable to determine chain tip: %v",
 				err)
@@ -500,7 +500,7 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 		}
 
 		log.Infof("Chain backend is fully synced (end_height=%v)!",
-			bestHeight)
+			bs.Height)
 	}
 
 	// With all the relevant chains initialized, we can finally start the
@@ -908,9 +908,7 @@ func initNeutrinoBackend(cfg *Config, chainDir string) (*neutrino.ChainService,
 	}
 
 	cleanUp := func() {
-		if err := neutrinoCS.Stop(); err != nil {
-			log.Infof("Unable to stop neutrino light client: %v", err)
-		}
+		neutrinoCS.Stop()
 		db.Close()
 	}
 

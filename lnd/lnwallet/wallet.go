@@ -1446,7 +1446,7 @@ func (l *LightningWallet) handleFundingCounterPartySigs(msg *addCounterPartySigs
 	//
 	// TODO(roasbeef): this info can also be piped into light client's
 	// basic fee estimation?
-	_, bestHeight, err := l.Cfg.ChainIO.GetBestBlock()
+	bs, err := l.Cfg.ChainIO.BestBlock()
 	if err != nil {
 		msg.err <- err
 		msg.completeChan <- nil
@@ -1473,7 +1473,7 @@ func (l *LightningWallet) handleFundingCounterPartySigs(msg *addCounterPartySigs
 	// Add the complete funding transaction to the DB, in its open bucket
 	// which will be used for the lifetime of this channel.
 	nodeAddr := res.nodeAddr
-	err = res.partialState.SyncPending(nodeAddr, uint32(bestHeight))
+	err = res.partialState.SyncPending(nodeAddr, uint32(bs.Height))
 	if err != nil {
 		msg.err <- err
 		msg.completeChan <- nil
@@ -1616,7 +1616,7 @@ func (l *LightningWallet) handleSingleFunderSigs(req *addSingleFunderSigsMsg) {
 	}
 	pendingReservation.ourCommitmentSig = sigTheirCommit
 
-	_, bestHeight, err := l.Cfg.ChainIO.GetBestBlock()
+	bs, err := l.Cfg.ChainIO.BestBlock()
 	if err != nil {
 		req.err <- err
 		req.completeChan <- nil
@@ -1634,7 +1634,7 @@ func (l *LightningWallet) handleSingleFunderSigs(req *addSingleFunderSigsMsg) {
 	// which will be used for the lifetime of this channel.
 	chanState.LocalChanCfg = pendingReservation.ourContribution.toChanConfig()
 	chanState.RemoteChanCfg = pendingReservation.theirContribution.toChanConfig()
-	err = chanState.SyncPending(pendingReservation.nodeAddr, uint32(bestHeight))
+	err = chanState.SyncPending(pendingReservation.nodeAddr, uint32(bs.Height))
 	if err != nil {
 		req.err <- err
 		req.completeChan <- nil

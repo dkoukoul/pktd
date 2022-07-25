@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/pkt-cash/pktd/btcutil"
-	"github.com/pkt-cash/pktd/pktwallet/chain"
+	"github.com/pkt-cash/pktd/pktwallet/chainiface"
 	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
 	"github.com/pkt-cash/pktd/wire"
 )
@@ -70,10 +70,10 @@ func (w *Watcher) WatchAddr(addr btcutil.Address) {
 	w.watchStuff([]btcutil.Address{addr}, nil)
 }
 
-func (w *Watcher) FilterReq(height int32) *chain.FilterBlocksRequest {
+func (w *Watcher) FilterReq(height int32) *chainiface.FilterBlocksRequest {
 	w.watchAddrsLock.RLock()
 	defer w.watchAddrsLock.RUnlock()
-	filterReq := chain.FilterBlocksRequest{
+	filterReq := chainiface.FilterBlocksRequest{
 		Blocks:           nil,
 		ExternalAddrs:    make(map[waddrmgr.ScopedIndex]btcutil.Address),
 		InternalAddrs:    make(map[waddrmgr.ScopedIndex]btcutil.Address),

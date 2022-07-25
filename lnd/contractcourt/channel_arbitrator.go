@@ -441,7 +441,7 @@ func (c *ChannelArbitrator) Start(state *chanArbStartState) er.R {
 	// Set our state from our starting state.
 	c.state = state.currentState
 
-	_, bestHeight, err := c.cfg.ChainIO.GetBestBlock()
+	bs, err := c.cfg.ChainIO.BestBlock()
 	if err != nil {
 		return err
 	}
@@ -452,7 +452,7 @@ func (c *ChannelArbitrator) Start(state *chanArbStartState) er.R {
 	// try to recover from this by manually advancing the state by setting
 	// the corresponding close trigger.
 	trigger := chainTrigger
-	triggerHeight := uint32(bestHeight)
+	triggerHeight := uint32(bs.Height)
 	if c.cfg.IsPendingClose {
 		switch c.state {
 		case StateDefault:
@@ -535,7 +535,7 @@ func (c *ChannelArbitrator) Start(state *chanArbStartState) er.R {
 	}
 
 	c.wg.Add(1)
-	go c.channelAttendant(bestHeight)
+	go c.channelAttendant(bs.Height)
 	return nil
 }
 

@@ -4,6 +4,7 @@ import (
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/chaincfg"
 	"github.com/pkt-cash/pktd/pktlog/log"
+	"github.com/pkt-cash/pktd/pktwallet/chainiface"
 	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
 	"github.com/pkt-cash/pktd/txscript"
 	"github.com/pkt-cash/pktd/wire"
@@ -70,7 +71,7 @@ type BlockFilterer struct {
 // scan successive blocks for addresses of interest. A particular block filter
 // can be reused until the first call from `FitlerBlock` returns true.
 func NewBlockFilterer(params *chaincfg.Params,
-	req *FilterBlocksRequest) *BlockFilterer {
+	req *chainiface.FilterBlocksRequest) *BlockFilterer {
 
 	// Construct a reverse index by address string for the requested
 	// external addresses.

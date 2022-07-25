@@ -459,7 +459,7 @@ func (r *ChannelRouter) Start() er.R {
 
 	log.Tracef("Channel Router starting")
 
-	bestHash, bestHeight, err := r.cfg.Chain.GetBestBlock()
+	bs, err := r.cfg.Chain.BestBlock()
 	if err != nil {
 		return err
 	}
@@ -475,7 +475,7 @@ func (r *ChannelRouter) Start() er.R {
 			// the prune height to the current best height of the
 			// chain backend.
 			_, err = r.cfg.Graph.PruneGraph(
-				nil, bestHash, uint32(bestHeight),
+				nil, &bs.Hash, uint32(bs.Height),
 			)
 			if err != nil {
 				return err
@@ -519,7 +519,7 @@ func (r *ChannelRouter) Start() er.R {
 
 		if len(channelView) != 0 {
 			err = r.cfg.ChainView.UpdateFilter(
-				channelView, uint32(bestHeight),
+				channelView, uint32(bs.Height),
 			)
 			if err != nil {
 				return err
@@ -641,11 +641,11 @@ func (r *ChannelRouter) Stop() er.R {
 func (r *ChannelRouter) syncGraphWithChain() er.R {
 	// First, we'll need to check to see if we're already in sync with the
 	// latest state of the UTXO set.
-	bestHash, bestHeight, err := r.cfg.Chain.GetBestBlock()
+	bs, err := r.cfg.Chain.BestBlock()
 	if err != nil {
 		return err
 	}
-	r.bestHeight = uint32(bestHeight)
+	r.bestHeight = uint32(bs.Height)
 
 	pruneHash, pruneHeight, err := r.cfg.Graph.PruneTip()
 	if err != nil {
@@ -672,7 +672,7 @@ func (r *ChannelRouter) syncGraphWithChain() er.R {
 
 	// If the block hashes and heights match exactly, then we don't need to
 	// prune the channel graph as we're already fully in sync.
-	case bestHash.IsEqual(pruneHash) && uint32(bestHeight) == pruneHeight:
+	case bs.Hash.IsEqual(pruneHash) && uint32(bs.Height) == pruneHeight:
 		return nil
 	}
 
@@ -717,13 +717,13 @@ func (r *ChannelRouter) syncGraphWithChain() er.R {
 	}
 
 	log.Infof("Syncing channel graph from height=%v (hash=%v) to height=%v "+
-		"(hash=%v)", pruneHeight, pruneHash, bestHeight, bestHash)
+		"(hash=%v)", pruneHeight, pruneHash, bs.Height, bs.Hash)
 
 	// If we're not yet caught up, then we'll walk forward in the chain
 	// pruning the channel graph with each new block that hasn't yet been
 	// consumed by the channel graph.
 	var spentOutputs []*wire.OutPoint
-	for nextHeight := pruneHeight + 1; nextHeight <= uint32(bestHeight); nextHeight++ {
+	for nextHeight := pruneHeight + 1; nextHeight <= uint32(bs.Height); nextHeight++ {
 		// Break out of the rescan early if a shutdown has been
 		// requested, otherwise long rescans will block the daemon from
 		// shutting down promptly.
@@ -758,7 +758,7 @@ func (r *ChannelRouter) syncGraphWithChain() er.R {
 	// With the spent outputs gathered, attempt to prune the channel graph,
 	// also passing in the best hash+height so the prune tip can be updated.
 	closedChans, err := r.cfg.Graph.PruneGraph(
-		spentOutputs, bestHash, uint32(bestHeight),
+		spentOutputs, &bs.Hash, uint32(bs.Height),
 	)
 	if err != nil {
 		return err
@@ -1473,14 +1473,14 @@ func (r *ChannelRouter) FindRoute(source, target route.Vertex,
 
 	// We'll fetch the current block height so we can properly calculate the
 	// required HTLC time locks within the route.
-	_, currentHeight, err := r.cfg.Chain.GetBestBlock()
+	bs, err := r.cfg.Chain.BestBlock()
 	if err != nil {
 		return nil, err
 	}
 
 	// Now that we know the destination is reachable within the graph, we'll
 	// execute our path finding algorithm.
-	finalHtlcExpiry := currentHeight + int32(finalExpiry)
+	finalHtlcExpiry := bs.Height + int32(finalExpiry)
 
 	routingTx, err := newDbRoutingTx(r.cfg.Graph)
 	if err != nil {
@@ -1509,7 +1509,7 @@ func (r *ChannelRouter) FindRoute(source, target route.Vertex,
 
 	// Create the route with absolute time lock values.
 	route, err := newRoute(
-		source, path, uint32(currentHeight),
+		source, path, uint32(bs.Height),
 		finalHopParams{
 			amt:       amt,
 			totalAmt:  amt,
@@ -1938,7 +1938,7 @@ func (r *ChannelRouter) sendPayment(
 
 	// We'll also fetch the current block height so we can properly
 	// calculate the required HTLC time locks within the route.
-	_, currentHeight, err := r.cfg.Chain.GetBestBlock()
+	bs, err := r.cfg.Chain.BestBlock()
 	if err != nil {
 		return [32]byte{}, nil, err
 	}
@@ -1951,7 +1951,7 @@ func (r *ChannelRouter) sendPayment(
 		feeLimit:      feeLimit,
 		paymentHash:   paymentHash,
 		paySession:    paySession,
-		currentHeight: currentHeight,
+		currentHeight: bs.Height,
 	}
 
 	// If a timeout is specified, create a timeout channel. If no timeout is
@@ -2214,8 +2214,8 @@ func (r *ChannelRouter) UpdateEdge(update *channeldb.ChannelEdgePolicy) er.R {
 //
 // NOTE: This method is part of the ChannelGraphSource interface.
 func (r *ChannelRouter) CurrentBlockHeight() (uint32, er.R) {
-	_, height, err := r.cfg.Chain.GetBestBlock()
-	return uint32(height), err
+	bs, err := r.cfg.Chain.BestBlock()
+	return uint32(bs.Height), err
 }
 
 // GetChannelByID return the channel by the channel id.
@@ -2462,7 +2462,7 @@ func (r *ChannelRouter) BuildRoute(amt *lnwire.MilliSatoshi,
 
 	// Fetch the current block height outside the routing transaction, to
 	// prevent the rpc call blocking the database.
-	_, height, err := r.cfg.Chain.GetBestBlock()
+	bs, err := r.cfg.Chain.BestBlock()
 	if err != nil {
 		return nil, err
 	}
@@ -2583,7 +2583,7 @@ func (r *ChannelRouter) BuildRoute(amt *lnwire.MilliSatoshi,
 
 	// Build and return the final route.
 	return newRoute(
-		source, pathEdges, uint32(height),
+		source, pathEdges, uint32(bs.Height),
 		finalHopParams{
 			amt:       receiverAmt,
 			totalAmt:  receiverAmt,

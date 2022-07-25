@@ -9,6 +9,7 @@ import (
 	"github.com/pkt-cash/pktd/chaincfg"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
 	"github.com/pkt-cash/pktd/pktwallet/chain"
+	"github.com/pkt-cash/pktd/pktwallet/chainiface"
 	"github.com/pkt-cash/pktd/wire"
 )
 
@@ -279,7 +280,7 @@ func TestBlockFiltererOneInOneOut(t *testing.T) {
 
 	// Construct a filter request, watching only for the outpoints above,
 	// and construct a block filterer.
-	req := &chain.FilterBlocksRequest{
+	req := &chainiface.FilterBlocksRequest{
 		WatchedOutPoints: watchedOutPoints,
 	}
 	blockFilterer := chain.NewBlockFilterer(&chaincfg.SimNetParams, req)

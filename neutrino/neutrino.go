@@ -1,6 +1,3 @@
-// NOTE: THIS API IS UNSTABLE RIGHT NOW.
-// TODO: Add functional options to ChainService instantiation.
-
 package neutrino
 
 import (
@@ -13,8 +10,11 @@ import (
 
 	"github.com/pkt-cash/pktd/addrmgr/localaddrs"
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/btcutil/gcs"
+	"github.com/pkt-cash/pktd/btcutil/gcs/builder"
 	"github.com/pkt-cash/pktd/connmgr/banmgr"
 	"github.com/pkt-cash/pktd/pktlog/log"
+	"github.com/pkt-cash/pktd/txscript"
 	"github.com/pkt-cash/pktd/wire/protocol"
 
 	"github.com/pkt-cash/pktd/addrmgr"
@@ -28,6 +28,8 @@ import (
 	"github.com/pkt-cash/pktd/neutrino/headerfs"
 	"github.com/pkt-cash/pktd/neutrino/pushtx"
 	"github.com/pkt-cash/pktd/peer"
+	"github.com/pkt-cash/pktd/pktwallet/chain"
+	"github.com/pkt-cash/pktd/pktwallet/chainiface"
 	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
 	"github.com/pkt-cash/pktd/pktwallet/walletdb"
 	"github.com/pkt-cash/pktd/wire"
@@ -609,6 +611,8 @@ type ChainService struct {
 	invListeners    map[chainhash.Hash][]chan *ServerPeer
 }
 
+var _ chainiface.Interface = (*ChainService)(nil)
+
 type Query struct {
 	Peer             *ServerPeer
 	Command          string
@@ -847,7 +851,7 @@ func NewChainService(cfg Config) (*ChainService, er.R) {
 	s.utxoScanner = NewUtxoScanner(&UtxoScannerConfig{
 		BestSnapshot: s.BestBlock,
 		GetBlockHash: s.GetBlockHash,
-		GetBlock:     s.GetBlock,
+		GetBlock:     s.GetBlock0,
 		BlockFilterMatches: func(ro *rescanOptions,
 			blockHash *chainhash.Hash) (bool, er.R) {
 
@@ -1500,10 +1504,10 @@ func (s *ChainService) Start() er.R {
 
 // Stop gracefully shuts down the server by stopping and disconnecting all
 // peers and the main listener.
-func (s *ChainService) Stop() er.R {
+func (s *ChainService) Stop() {
 	// Make sure this only happens once.
 	if atomic.AddInt32(&s.shutdown, 1) != 1 {
-		return nil
+		return
 	}
 
 	s.connManager.Stop()
@@ -1516,7 +1520,6 @@ func (s *ChainService) Stop() er.R {
 	// Signal the remaining goroutines to quit.
 	close(s.quit)
 	s.wg.Wait()
-	return nil
 }
 
 // IsCurrent lets the caller know whether the chain service's block manager
@@ -1536,15 +1539,173 @@ func (s *ChainService) PeerByAddr(addr string) *ServerPeer {
 	return nil
 }
 
-// RescanChainSource is a wrapper type around the ChainService struct that will
-// be used to satisfy the rescan.ChainSource interface.
+// SendRawTransaction replicates the RPC client's SendRawTransaction command.
+func (cs *ChainService) SendRawTransaction(tx *wire.MsgTx, allowHighFees bool) (*chainhash.Hash, er.R) {
+	err := cs.SendTransaction0(tx)
+	if err != nil {
+		return nil, err
+	}
+	hash := tx.TxHash()
+	return &hash, nil
+}
+
+// BackEnd returns the name of the driver.
+func (s *ChainService) BackEnd() string {
+	return "neutrino"
+}
+
+// buildFilterBlocksWatchList constructs a watchlist used for matching against a
+// cfilter from a FilterBlocksRequest. The watchlist will be populated with all
+// external addresses, internal addresses, and outpoints contained in the
+// request.
+func buildFilterBlocksWatchList(req *chainiface.FilterBlocksRequest) ([][]byte, er.R) {
+	// Construct a watch list containing the script addresses of all
+	// internal and external addresses that were requested, in addition to
+	// the set of outpoints currently being watched.
+	watchListSize := len(req.ExternalAddrs) +
+		len(req.InternalAddrs) +
+		len(req.ImportedAddrs) +
+		len(req.WatchedOutPoints)
+
+	watchList := make([][]byte, 0, watchListSize)
+
+	var err er.R
+	add := func(a btcutil.Address) {
+		if err != nil {
+			return
+		}
+		p2shAddr, e := txscript.PayToAddrScript(a)
+		if err != nil {
+			err = e
+			return
+		}
+		watchList = append(watchList, p2shAddr)
+	}
+
+	for _, addr := range req.ExternalAddrs {
+		add(addr)
+	}
+	for _, addr := range req.InternalAddrs {
+		add(addr)
+	}
+	for _, addr := range req.ImportedAddrs {
+		add(addr)
+	}
+	for _, addr := range req.WatchedOutPoints {
+		add(addr)
+	}
+
+	return watchList, err
+}
+
+// FilterBlocks scans the blocks contained in the FilterBlocksRequest for any
+// addresses of interest. For each requested block, the corresponding compact
+// filter will first be checked for matches, skipping those that do not report
+// anything. If the filter returns a postive match, the full block will be
+// fetched and filtered. This method returns a FilterBlocksReponse for the first
+// block containing a matching address. If no matches are found in the range of
+// blocks requested, the returned response will be nil.
+func (cs *ChainService) FilterBlocks(
+	req *chainiface.FilterBlocksRequest,
+) (*chainiface.FilterBlocksResponse, er.R) {
+
+	blockFilterer := chain.NewBlockFilterer(&cs.chainParams, req)
+
+	// Construct the watchlist using the addresses and outpoints contained
+	// in the filter blocks request.
+	watchList, err := buildFilterBlocksWatchList(req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Iterate over the requested blocks, fetching the compact filter for
+	// each one, and matching it against the watchlist generated above. If
+	// the filter returns a positive match, the full block is then requested
+	// and scanned for addresses using the block filterer.
+	for i, blk := range req.Blocks {
+		filter, err := cs.pollCFilter(&blk.Hash)
+		if err != nil {
+			return nil, err
+		}
+
+		// Skip any empty filters.
+		if filter == nil || filter.N() == 0 {
+			continue
+		}
+
+		key := builder.DeriveKey(&blk.Hash)
+		matched, err := filter.MatchAny(key, watchList)
+		if err != nil {
+			return nil, err
+		} else if !matched {
+			continue
+		}
+
+		log.Tracef("Fetching block height=%d hash=%v", blk.Height, blk.Hash)
+
+		block, err := cs.GetBlock0(blk.Hash)
+		if err != nil {
+			return nil, err
+		}
+		rawBlock := block.MsgBlock()
+
+		if !blockFilterer.FilterBlock(rawBlock) {
+			continue
+		}
+
+		// If any external or internal addresses were detected in this
+		// block, we return them to the caller so that the rescan
+		// windows can widened with subsequent addresses. The
+		// `BatchIndex` is returned so that the caller can compute the
+		// *next* block from which to begin again.
+		resp := &chainiface.FilterBlocksResponse{
+			BatchIndex:         uint32(i),
+			BlockMeta:          blk,
+			FoundExternalAddrs: blockFilterer.FoundExternal,
+			FoundInternalAddrs: blockFilterer.FoundInternal,
+			FoundOutPoints:     blockFilterer.FoundOutPoints,
+			RelevantTxns:       blockFilterer.RelevantTxns,
+		}
+
+		return resp, nil
+	}
+
+	// No addresses were found for this range.
+	return nil, nil
+}
+
+// pollCFilter attempts to fetch a CFilter from the neutrino client. This is
+// used to get around the fact that the filter headers may lag behind the
+// highest known block header.
+func (cs *ChainService) pollCFilter(hash *chainhash.Hash) (*gcs.Filter, er.R) {
+	var (
+		filter *gcs.Filter
+		err    er.R
+		count  int
+	)
+
+	const maxFilterRetries = 50
+	for count < maxFilterRetries {
+		if count > 0 {
+			time.Sleep(100 * time.Millisecond)
+		}
+
+		filter, err = cs.GetCFilter(*hash, wire.GCSFilterRegular, OptimisticBatch())
+		if err != nil {
+			count++
+			continue
+		}
+
+		return filter, nil
+	}
+
+	return nil, err
+}
+
+// RescanChainSource is a wrapper type around the ChainService
 type RescanChainSource struct {
 	*ChainService
 }
-
-// A compile-time check to ensure that RescanChainSource implements the
-// rescan.ChainSource interface.
-var _ ChainSource = (*RescanChainSource)(nil)
 
 // GetBlockHeaderByHeight returns the header of the block with the given height.
 func (s *RescanChainSource) GetBlockHeaderByHeight(

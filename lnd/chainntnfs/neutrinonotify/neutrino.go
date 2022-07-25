@@ -572,7 +572,7 @@ func (n *NeutrinoNotifier) historicalConfDetails(confRequest chainntnfs.ConfRequ
 		// In the case that we do have a match, we'll fetch the block
 		// from the network so we can find the positional data required
 		// to send the proper response.
-		block, err := n.p2pNode.GetBlock(*blockHash)
+		block, err := n.p2pNode.GetBlock0(*blockHash)
 		if err != nil {
 			return nil, er.Errorf("unable to get block from network: %v", err)
 		}
@@ -629,7 +629,7 @@ func (n *NeutrinoNotifier) handleBlockConnected(newBlock *filteredBlock) er.R {
 
 // getFilteredBlock is a utility to retrieve the full filtered block from a block epoch.
 func (n *NeutrinoNotifier) getFilteredBlock(epoch chainntnfs.BlockEpoch) (*filteredBlock, er.R) {
-	rawBlock, err := n.p2pNode.GetBlock(*epoch.Hash)
+	rawBlock, err := n.p2pNode.GetBlock0(*epoch.Hash)
 	if err != nil {
 		return nil, er.Errorf("unable to get block: %v", err)
 	}

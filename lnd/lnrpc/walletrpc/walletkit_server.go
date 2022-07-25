@@ -678,13 +678,13 @@ func (w *WalletKit) BumpFee0(ctx context.Context,
 
 	// We'll use the current height as the height hint since we're dealing
 	// with an unconfirmed transaction.
-	_, currentHeight, err := w.cfg.Chain.GetBestBlock()
+	currentBs, err := w.cfg.Chain.BestBlock()
 	if err != nil {
 		return nil, er.Errorf("unable to retrieve current height: %v",
 			err)
 	}
 
-	input := input.NewBaseInput(op, witnessType, signDesc, uint32(currentHeight))
+	input := input.NewBaseInput(op, witnessType, signDesc, uint32(currentBs.Height))
 	if _, err = w.cfg.Sweeper.SweepInput(input, sweep.Params{Fee: feePreference}); err != nil {
 		return nil, err
 	}

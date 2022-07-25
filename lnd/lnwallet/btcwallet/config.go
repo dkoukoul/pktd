@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/pkt-cash/pktd/chaincfg"
+	"github.com/pkt-cash/pktd/neutrino"
 	"github.com/pkt-cash/pktd/wire/protocol"
 
-	"github.com/pkt-cash/pktd/pktwallet/chain"
 	"github.com/pkt-cash/pktd/pktwallet/wallet"
 
 	// This is required to register bdb as a valid walletdb driver. In the
@@ -61,7 +61,7 @@ type Config struct {
 	// ChainSource is the primary chain interface. This is used to operate
 	// the wallet and do things such as rescanning, sending transactions,
 	// notifications for received funds, etc.
-	ChainSource *chain.NeutrinoClient
+	ChainSource *neutrino.ChainService
 
 	// NetParams is the net parameters for the target chain.
 	NetParams *chaincfg.Params

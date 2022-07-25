@@ -2317,7 +2317,7 @@ func (p *Brontide) fetchActiveChanCloser(chanID lnwire.ChannelID) (
 			return nil, er.Errorf("unable to estimate fee")
 		}
 
-		_, startingHeight, err := p.cfg.ChainIO.GetBestBlock()
+		startingBs, err := p.cfg.ChainIO.BestBlock()
 		if err != nil {
 			log.Errorf("unable to obtain best block: %v", err)
 			return nil, er.Errorf("cannot obtain best block")
@@ -2336,7 +2336,7 @@ func (p *Brontide) fetchActiveChanCloser(chanID lnwire.ChannelID) (
 			},
 			deliveryScript,
 			feePerKw,
-			uint32(startingHeight),
+			uint32(startingBs.Height),
 			nil,
 			false,
 		)
@@ -2432,7 +2432,7 @@ func (p *Brontide) handleLocalCloseReq(req *htlcswitch.ChanClose) {
 
 		// Next, we'll create a new channel closer state machine to
 		// handle the close negotiation.
-		_, startingHeight, err := p.cfg.ChainIO.GetBestBlock()
+		startingBs, err := p.cfg.ChainIO.BestBlock()
 		if err != nil {
 			log.Errorf(err.String())
 			req.Err <- err
@@ -2452,7 +2452,7 @@ func (p *Brontide) handleLocalCloseReq(req *htlcswitch.ChanClose) {
 			},
 			deliveryScript,
 			req.TargetFeePerKw,
-			uint32(startingHeight),
+			uint32(startingBs.Height),
 			req,
 			true,
 		)

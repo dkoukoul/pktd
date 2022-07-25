@@ -12,6 +12,7 @@ import (
 
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/chaincfg"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
 	"github.com/pkt-cash/pktd/chaincfg/globalcfg"
 	"github.com/pkt-cash/pktd/lnd/chainntnfs"
@@ -22,6 +23,7 @@ import (
 	"github.com/pkt-cash/pktd/lnd/lntest/mock"
 	"github.com/pkt-cash/pktd/lnd/lnwallet"
 	"github.com/pkt-cash/pktd/lnd/lnwire"
+	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
 	"github.com/pkt-cash/pktd/wire"
 )
 
@@ -172,8 +174,11 @@ type mockChainIO struct{}
 
 var _ lnwallet.BlockChainIO = (*mockChainIO)(nil)
 
-func (*mockChainIO) GetBestBlock() (*chainhash.Hash, int32, er.R) {
-	return nil, 0, nil
+func (c *mockChainIO) BestBlock() (*waddrmgr.BlockStamp, er.R) {
+	return &waddrmgr.BlockStamp{
+		Hash:   *chaincfg.TestNet3Params.GenesisHash,
+		Height: 0,
+	}, nil
 }
 
 func (*mockChainIO) GetUtxo(op *wire.OutPoint, _ []byte,

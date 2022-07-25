@@ -9,6 +9,7 @@ import (
 	"github.com/pkt-cash/pktd/chaincfg"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
 	"github.com/pkt-cash/pktd/chaincfg/genesis"
+	"github.com/pkt-cash/pktd/pktwallet/chainiface"
 	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
 	_ "github.com/pkt-cash/pktd/pktwallet/walletdb/bdb"
 	"github.com/pkt-cash/pktd/wire"
@@ -31,12 +32,13 @@ var (
 // capable of being backed by a chain in order to reproduce real-world
 // scenarios.
 type mockChainConn struct {
+	chainiface.Mock
 	chainTip    uint32
 	blockHashes map[uint32]chainhash.Hash
 	blocks      map[chainhash.Hash]*wire.MsgBlock
 }
 
-var _ chainConn = (*mockChainConn)(nil)
+var _ chainiface.Interface = (*mockChainConn)(nil)
 
 // createMockChainConn creates a new mock chain connection backed by a chain
 // with N blocks. Each block has a timestamp that is exactly blockInterval after
@@ -70,16 +72,16 @@ func createMockChainConn(genesis *wire.MsgBlock, n uint32,
 	return c
 }
 
-// GetBestBlock returns the hash and height of the best block known to the
-// backend.
-func (c *mockChainConn) GetBestBlock() (*chainhash.Hash, int32, er.R) {
+func (c *mockChainConn) BestBlock() (*waddrmgr.BlockStamp, er.R) {
 	bestHash, ok := c.blockHashes[c.chainTip]
 	if !ok {
-		return nil, 0, er.Errorf("block with height %d not found",
+		return nil, er.Errorf("block with height %d not found",
 			c.chainTip)
 	}
-
-	return &bestHash, int32(c.chainTip), nil
+	return &waddrmgr.BlockStamp{
+		Hash:   bestHash,
+		Height: int32(c.chainTip),
+	}, nil
 }
 
 // GetBlockHash returns the hash of the block with the given height.

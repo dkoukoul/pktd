@@ -358,7 +358,7 @@ func createTestPeer(notifier chainntnfs.ChainNotifier,
 		},
 	}
 
-	_, currentHeight, err := chainIO.GetBestBlock()
+	bs, err := chainIO.BestBlock()
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -373,7 +373,7 @@ func createTestPeer(notifier chainntnfs.ChainNotifier,
 			htlcswitch.DefaultLogInterval),
 		AckEventTicker: ticker.New(
 			htlcswitch.DefaultAckInterval),
-	}, uint32(currentHeight))
+	}, uint32(bs.Height))
 	if err != nil {
 		return nil, nil, nil, err
 	}

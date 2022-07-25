@@ -11,8 +11,7 @@ import (
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/pktlog/log"
 
-	"github.com/pkt-cash/pktd/chaincfg/chainhash"
-	"github.com/pkt-cash/pktd/pktwallet/chain"
+	"github.com/pkt-cash/pktd/pktwallet/chainiface"
 	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
 	"github.com/pkt-cash/pktd/pktwallet/wallet/watcher"
 	"github.com/pkt-cash/pktd/pktwallet/walletdb"
@@ -30,7 +29,7 @@ const (
 
 func (w *Wallet) storeTxns(
 	dbtx walletdb.ReadWriteTx,
-	filterResp *chain.FilterBlocksResponse,
+	filterResp *chainiface.FilterBlocksResponse,
 ) er.R {
 	for _, txn := range filterResp.RelevantTxns {
 		if txRecord, err := wtxmgr.NewTxRecordFromMsgTx(txn, filterResp.BlockMeta.Time); err != nil {
@@ -199,20 +198,6 @@ func (w *Wallet) addRelevantTx(dbtx walletdb.ReadWriteTx, rec *wtxmgr.TxRecord, 
 	return nil
 }
 
-// chainConn is an interface that abstracts the chain connection logic required
-// to perform a wallet's birthday block sanity check.
-type chainConn interface {
-	// GetBestBlock returns the hash and height of the best block known to
-	// the backend.
-	GetBestBlock() (*chainhash.Hash, int32, er.R)
-
-	// GetBlockHash returns the hash of the block with the given height.
-	GetBlockHash(int64) (*chainhash.Hash, er.R)
-
-	// GetBlockHeader returns the header for the block with the given hash.
-	GetBlockHeader(*chainhash.Hash) (*wire.BlockHeader, er.R)
-}
-
 // birthdayStore is an interface that abstracts the wallet's sync-related
 // information required to perform a birthday block sanity check.
 type birthdayStore interface {
@@ -291,7 +276,7 @@ func (s *walletBirthdayStore) SetBirthdayBlock(block waddrmgr.BlockStamp) er.R {
 // block to ensure we do not miss any relevant events throughout rescans.
 // waddrmgr.ErrBirthdayBlockNotSet is returned if the birthday block has not
 // been set yet.
-func birthdaySanityCheck(chainConn chainConn,
+func birthdaySanityCheck(chainConn chainiface.Interface,
 	birthdayStore birthdayStore) (*waddrmgr.BlockStamp, er.R) {
 
 	// We'll start by fetching our wallet's birthday timestamp and block.
