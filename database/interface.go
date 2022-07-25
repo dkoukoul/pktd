@@ -240,66 +240,6 @@ type Tx interface {
 	// Other errors are possible depending on the implementation.
 	HasBlock(hash *chainhash.Hash) (bool, er.R)
 
-	// HasBlocks returns whether or not the blocks with the provided hashes
-	// exist in the database.
-	//
-	// The interface contract guarantees at least the following errors will
-	// be returned (other implementation-specific errors are possible):
-	//   - ErrTxClosed if the transaction has already been closed
-	//
-	// Other errors are possible depending on the implementation.
-	HasBlocks(hashes []chainhash.Hash) ([]bool, er.R)
-
-	// FetchBlockHeader returns the raw serialized bytes for the block
-	// header identified by the given hash.  The raw bytes are in the format
-	// returned by Serialize on a wire.BlockHeader.
-	//
-	// It is highly recommended to use this function (or FetchBlockHeaders)
-	// to obtain block headers over the FetchBlockRegion(s) functions since
-	// it provides the backend drivers the freedom to perform very specific
-	// optimizations which can result in significant speed advantages when
-	// working with headers.
-	//
-	// The interface contract guarantees at least the following errors will
-	// be returned (other implementation-specific errors are possible):
-	//   - ErrBlockNotFound if the requested block hash does not exist
-	//   - ErrTxClosed if the transaction has already been closed
-	//   - ErrCorruption if the database has somehow become corrupted
-	//
-	// NOTE: The data returned by this function is only valid during a
-	// database transaction.  Attempting to access it after a transaction
-	// has ended results in undefined behavior.  This constraint prevents
-	// additional data copies and allows support for memory-mapped database
-	// implementations.
-	FetchBlockHeader(hash *chainhash.Hash) ([]byte, er.R)
-
-	// FetchBlockHeaders returns the raw serialized bytes for the block
-	// headers identified by the given hashes.  The raw bytes are in the
-	// format returned by Serialize on a wire.BlockHeader.
-	//
-	// It is highly recommended to use this function (or FetchBlockHeader)
-	// to obtain block headers over the FetchBlockRegion(s) functions since
-	// it provides the backend drivers the freedom to perform very specific
-	// optimizations which can result in significant speed advantages when
-	// working with headers.
-	//
-	// Furthermore, depending on the specific implementation, this function
-	// can be more efficient for bulk loading multiple block headers than
-	// loading them one-by-one with FetchBlockHeader.
-	//
-	// The interface contract guarantees at least the following errors will
-	// be returned (other implementation-specific errors are possible):
-	//   - ErrBlockNotFound if any of the request block hashes do not exist
-	//   - ErrTxClosed if the transaction has already been closed
-	//   - ErrCorruption if the database has somehow become corrupted
-	//
-	// NOTE: The data returned by this function is only valid during a
-	// database transaction.  Attempting to access it after a transaction
-	// has ended results in undefined behavior.  This constraint prevents
-	// additional data copies and allows support for memory-mapped database
-	// implementations.
-	FetchBlockHeaders(hashes []chainhash.Hash) ([][]byte, er.R)
-
 	// FetchBlock returns the raw serialized bytes for the block identified
 	// by the given hash.  The raw bytes are in the format returned by
 	// Serialize on a wire.MsgBlock.
@@ -316,24 +256,6 @@ type Tx interface {
 	// additional data copies and allows support for memory-mapped database
 	// implementations.
 	FetchBlock(hash *chainhash.Hash) ([]byte, er.R)
-
-	// FetchBlocks returns the raw serialized bytes for the blocks
-	// identified by the given hashes.  The raw bytes are in the format
-	// returned by Serialize on a wire.MsgBlock.
-	//
-	// The interface contract guarantees at least the following errors will
-	// be returned (other implementation-specific errors are possible):
-	//   - ErrBlockNotFound if the any of the requested block hashes do not
-	//     exist
-	//   - ErrTxClosed if the transaction has already been closed
-	//   - ErrCorruption if the database has somehow become corrupted
-	//
-	// NOTE: The data returned by this function is only valid during a
-	// database transaction.  Attempting to access it after a transaction
-	// has ended results in undefined behavior.  This constraint prevents
-	// additional data copies and allows support for memory-mapped database
-	// implementations.
-	FetchBlocks(hashes []chainhash.Hash) ([][]byte, er.R)
 
 	// FetchBlockRegion returns the raw serialized bytes for the given
 	// block region.

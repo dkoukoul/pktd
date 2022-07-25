@@ -1237,27 +1237,6 @@ func (tx *transaction) HasBlock(hash *chainhash.Hash) (bool, er.R) {
 	return tx.hasBlock(hash), nil
 }
 
-// HasBlocks returns whether or not the blocks with the provided hashes
-// exist in the database.
-//
-// Returns the following errors as required by the interface contract:
-//   - ErrTxClosed if the transaction has already been closed
-//
-// This function is part of the database.Tx interface implementation.
-func (tx *transaction) HasBlocks(hashes []chainhash.Hash) ([]bool, er.R) {
-	// Ensure transaction state is valid.
-	if err := tx.checkClosed(); err != nil {
-		return nil, err
-	}
-
-	results := make([]bool, len(hashes))
-	for i := range hashes {
-		results[i] = tx.hasBlock(&hashes[i])
-	}
-
-	return results, nil
-}
-
 // fetchBlockRow fetches the metadata stored in the block index for the provided
 // hash.  It will return ErrBlockNotFound if there is no entry.
 func (tx *transaction) fetchBlockRow(hash *chainhash.Hash) ([]byte, er.R) {
@@ -1268,55 +1247,6 @@ func (tx *transaction) fetchBlockRow(hash *chainhash.Hash) ([]byte, er.R) {
 	}
 
 	return blockRow, nil
-}
-
-// FetchBlockHeader returns the raw serialized bytes for the block header
-// identified by the given hash.  The raw bytes are in the format returned by
-// Serialize on a wire.BlockHeader.
-//
-// Returns the following errors as required by the interface contract:
-//   - ErrBlockNotFound if the requested block hash does not exist
-//   - ErrTxClosed if the transaction has already been closed
-//   - ErrCorruption if the database has somehow become corrupted
-//
-// NOTE: The data returned by this function is only valid during a
-// database transaction.  Attempting to access it after a transaction
-// has ended results in undefined behavior.  This constraint prevents
-// additional data copies and allows support for memory-mapped database
-// implementations.
-//
-// This function is part of the database.Tx interface implementation.
-func (tx *transaction) FetchBlockHeader(hash *chainhash.Hash) ([]byte, er.R) {
-	return tx.FetchBlockRegion(&database.BlockRegion{
-		Hash:   hash,
-		Offset: 0,
-		Len:    blockHdrSize,
-	})
-}
-
-// FetchBlockHeaders returns the raw serialized bytes for the block headers
-// identified by the given hashes.  The raw bytes are in the format returned by
-// Serialize on a wire.BlockHeader.
-//
-// Returns the following errors as required by the interface contract:
-//   - ErrBlockNotFound if the any of the requested block hashes do not exist
-//   - ErrTxClosed if the transaction has already been closed
-//   - ErrCorruption if the database has somehow become corrupted
-//
-// NOTE: The data returned by this function is only valid during a database
-// transaction.  Attempting to access it after a transaction has ended results
-// in undefined behavior.  This constraint prevents additional data copies and
-// allows support for memory-mapped database implementations.
-//
-// This function is part of the database.Tx interface implementation.
-func (tx *transaction) FetchBlockHeaders(hashes []chainhash.Hash) ([][]byte, er.R) {
-	regions := make([]database.BlockRegion, len(hashes))
-	for i := range hashes {
-		regions[i].Hash = &hashes[i]
-		regions[i].Offset = 0
-		regions[i].Len = blockHdrSize
-	}
-	return tx.FetchBlockRegions(regions)
 }
 
 // FetchBlock returns the raw serialized bytes for the block identified by the
@@ -1364,48 +1294,6 @@ func (tx *transaction) FetchBlock(hash *chainhash.Hash) ([]byte, er.R) {
 	}
 
 	return blockBytes, nil
-}
-
-// FetchBlocks returns the raw serialized bytes for the blocks identified by the
-// given hashes.  The raw bytes are in the format returned by Serialize on a
-// wire.MsgBlock.
-//
-// Returns the following errors as required by the interface contract:
-//   - ErrBlockNotFound if any of the requested block hashed do not exist
-//   - ErrTxClosed if the transaction has already been closed
-//   - ErrCorruption if the database has somehow become corrupted
-//
-// In addition, returns ErrDriverSpecific if any failures occur when reading the
-// block files.
-//
-// NOTE: The data returned by this function is only valid during a database
-// transaction.  Attempting to access it after a transaction has ended results
-// in undefined behavior.  This constraint prevents additional data copies and
-// allows support for memory-mapped database implementations.
-//
-// This function is part of the database.Tx interface implementation.
-func (tx *transaction) FetchBlocks(hashes []chainhash.Hash) ([][]byte, er.R) {
-	// Ensure transaction state is valid.
-	if err := tx.checkClosed(); err != nil {
-		return nil, err
-	}
-
-	// NOTE: This could check for the existence of all blocks before loading
-	// any of them which would be faster in the failure case, however
-	// callers will not typically be calling this function with invalid
-	// values, so optimize for the common case.
-
-	// Load the blocks.
-	blocks := make([][]byte, len(hashes))
-	for i := range hashes {
-		var err er.R
-		blocks[i], err = tx.FetchBlock(&hashes[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return blocks, nil
 }
 
 // fetchPendingRegion attempts to fetch the provided region from any block which

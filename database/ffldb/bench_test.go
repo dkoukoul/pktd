@@ -39,21 +39,6 @@ func BenchmarkBlockHeader(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	err = db.View(func(tx database.Tx) er.R {
-		blockHash := chaincfg.MainNetParams.GenesisHash
-		for i := 0; i < b.N; i++ {
-			_, err := tx.FetchBlockHeader(blockHash)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		b.Fatal(err)
-	}
-
 	// Don't benchmark teardown.
 	b.StopTimer()
 }

@@ -1124,14 +1124,6 @@ func testFetchBlockIOMissing(tc *testContext, tx database.Tx) bool {
 			return false
 		}
 
-		// Ensure FetchBlockHeader returns expected error.
-		testName = fmt.Sprintf("FetchBlockHeader #%d on missing block",
-			i)
-		_, err = tx.FetchBlockHeader(blockHash)
-		if !util.CheckError(tc.t, testName, err, wantErrCode) {
-			return false
-		}
-
 		// Ensure the first transaction fetched as a block region from
 		// the database returns the expected error.
 		region := database.BlockRegion{
@@ -1161,37 +1153,11 @@ func testFetchBlockIOMissing(tc *testContext, tx database.Tx) bool {
 	// Bulk Block IO API
 	// -----------------
 
-	// Ensure FetchBlocks returns expected error.
-	testName := "FetchBlocks on missing blocks"
-	_, err := tx.FetchBlocks(allBlockHashes)
-	if !util.CheckError(tc.t, testName, err, wantErrCode) {
-		return false
-	}
-
-	// Ensure FetchBlockHeaders returns expected error.
-	testName = "FetchBlockHeaders on missing blocks"
-	_, err = tx.FetchBlockHeaders(allBlockHashes)
-	if !util.CheckError(tc.t, testName, err, wantErrCode) {
-		return false
-	}
-
 	// Ensure FetchBlockRegions returns expected error.
-	testName = "FetchBlockRegions on missing blocks"
-	_, err = tx.FetchBlockRegions(allBlockRegions)
+	testName := "FetchBlockRegions on missing blocks"
+	_, err := tx.FetchBlockRegions(allBlockRegions)
 	if !util.CheckError(tc.t, testName, err, wantErrCode) {
 		return false
-	}
-
-	// Ensure HasBlocks returns false for all blocks.
-	hasBlocks, err := tx.HasBlocks(allBlockHashes)
-	if err != nil {
-		tc.t.Errorf("HasBlocks: unexpected err: %v", err)
-	}
-	for i, hasBlock := range hasBlocks {
-		if hasBlock {
-			tc.t.Errorf("HasBlocks #%d: should not have block", i)
-			return false
-		}
 	}
 
 	return true
@@ -1247,22 +1213,6 @@ func testFetchBlockIO(tc *testContext, tx database.Tx) bool {
 			return false
 		}
 
-		// Ensure the block header fetched from the database matches the
-		// expected bytes.
-		wantHeaderBytes := blockBytes[0:wire.MaxBlockHeaderPayload]
-		gotHeaderBytes, err := tx.FetchBlockHeader(blockHash)
-		if err != nil {
-			tc.t.Errorf("FetchBlockHeader(%s): unexpected error: %v",
-				blockHash, err)
-			return false
-		}
-		if !bytes.Equal(gotHeaderBytes, wantHeaderBytes) {
-			tc.t.Errorf("FetchBlockHeader(%s): bytes mismatch: "+
-				"got %x, want %x", blockHash, gotHeaderBytes,
-				wantHeaderBytes)
-			return false
-		}
-
 		// Ensure the first transaction fetched as a block region from
 		// the database matches the expected bytes.
 		region := database.BlockRegion{
@@ -1315,15 +1265,6 @@ func testFetchBlockIO(tc *testContext, tx database.Tx) bool {
 			return false
 		}
 
-		// Ensure fetching a block header that doesn't exist returns
-		// the expected error.
-		testName = fmt.Sprintf("FetchBlockHeader(%s) invalid block",
-			badBlockHash)
-		_, err = tx.FetchBlockHeader(badBlockHash)
-		if !util.CheckError(tc.t, testName, err, wantErrCode) {
-			return false
-		}
-
 		// Ensure fetching a block region in a block that doesn't exist
 		// return the expected error.
 		testName = fmt.Sprintf("FetchBlockRegion(%s) invalid hash",
@@ -1366,55 +1307,6 @@ func testFetchBlockIO(tc *testContext, tx database.Tx) bool {
 	// Bulk Block IO API
 	// -----------------
 
-	// Ensure the bulk block data fetched from the database matches the
-	// expected bytes.
-	blockData, err := tx.FetchBlocks(allBlockHashes)
-	if err != nil {
-		tc.t.Errorf("FetchBlocks: unexpected error: %v", err)
-		return false
-	}
-	if len(blockData) != len(allBlockBytes) {
-		tc.t.Errorf("FetchBlocks: unexpected number of results - got "+
-			"%d, want %d", len(blockData), len(allBlockBytes))
-		return false
-	}
-	for i := 0; i < len(blockData); i++ {
-		blockHash := allBlockHashes[i]
-		wantBlockBytes := allBlockBytes[i]
-		gotBlockBytes := blockData[i]
-		if !bytes.Equal(gotBlockBytes, wantBlockBytes) {
-			tc.t.Errorf("FetchBlocks(%s): bytes mismatch: got %x, "+
-				"want %x", blockHash, gotBlockBytes,
-				wantBlockBytes)
-			return false
-		}
-	}
-
-	// Ensure the bulk block headers fetched from the database match the
-	// expected bytes.
-	blockHeaderData, err := tx.FetchBlockHeaders(allBlockHashes)
-	if err != nil {
-		tc.t.Errorf("FetchBlockHeaders: unexpected error: %v", err)
-		return false
-	}
-	if len(blockHeaderData) != len(allBlockBytes) {
-		tc.t.Errorf("FetchBlockHeaders: unexpected number of results "+
-			"- got %d, want %d", len(blockHeaderData),
-			len(allBlockBytes))
-		return false
-	}
-	for i := 0; i < len(blockHeaderData); i++ {
-		blockHash := allBlockHashes[i]
-		wantHeaderBytes := allBlockBytes[i][0:wire.MaxBlockHeaderPayload]
-		gotHeaderBytes := blockHeaderData[i]
-		if !bytes.Equal(gotHeaderBytes, wantHeaderBytes) {
-			tc.t.Errorf("FetchBlockHeaders(%s): bytes mismatch: "+
-				"got %x, want %x", blockHash, gotHeaderBytes,
-				wantHeaderBytes)
-			return false
-		}
-	}
-
 	// Ensure the first transaction of every block fetched in bulk block
 	// regions from the database matches the expected bytes.
 	allRegionBytes, err := tx.FetchBlockRegions(allBlockRegions)
@@ -1432,7 +1324,7 @@ func testFetchBlockIO(tc *testContext, tx database.Tx) bool {
 	for i, gotRegionBytes := range allRegionBytes {
 		region := &allBlockRegions[i]
 		endRegionOffset := region.Offset + region.Len
-		wantRegionBytes := blockData[i][region.Offset:endRegionOffset]
+		wantRegionBytes := allBlockBytes[i][region.Offset:endRegionOffset]
 		if !bytes.Equal(gotRegionBytes, wantRegionBytes) {
 			tc.t.Errorf("FetchBlockRegions(%d): bytes mismatch: "+
 				"got %x, want %x", i, gotRegionBytes,
@@ -1441,51 +1333,17 @@ func testFetchBlockIO(tc *testContext, tx database.Tx) bool {
 		}
 	}
 
-	// Ensure the bulk determination of whether a set of block hashes are in
-	// the database returns true for all loaded blocks.
-	hasBlocks, err := tx.HasBlocks(allBlockHashes)
-	if err != nil {
-		tc.t.Errorf("HasBlocks: unexpected error: %v", err)
-		return false
-	}
-	for i, hasBlock := range hasBlocks {
-		if !hasBlock {
-			tc.t.Errorf("HasBlocks(%d): should have block", i)
-			return false
-		}
-	}
-
 	// -----------------------
 	// Invalid blocks/regions.
 	// -----------------------
 
-	// Ensure fetching blocks for which one doesn't exist returns the
-	// expected error.
-	testName := "FetchBlocks invalid hash"
-	badBlockHashes := make([]chainhash.Hash, len(allBlockHashes)+1)
-	copy(badBlockHashes, allBlockHashes)
-	badBlockHashes[len(badBlockHashes)-1] = chainhash.Hash{}
-	wantErrCode := database.ErrBlockNotFound
-	_, err = tx.FetchBlocks(badBlockHashes)
-	if !util.CheckError(tc.t, testName, err, wantErrCode) {
-		return false
-	}
-
-	// Ensure fetching block headers for which one doesn't exist returns the
-	// expected error.
-	testName = "FetchBlockHeaders invalid hash"
-	_, err = tx.FetchBlockHeaders(badBlockHashes)
-	if !util.CheckError(tc.t, testName, err, wantErrCode) {
-		return false
-	}
-
 	// Ensure fetching block regions for which one of blocks doesn't exist
 	// returns expected error.
-	testName = "FetchBlockRegions invalid hash"
+	testName := "FetchBlockRegions invalid hash"
 	badBlockRegions := make([]database.BlockRegion, len(allBlockRegions)+1)
 	copy(badBlockRegions, allBlockRegions)
 	badBlockRegions[len(badBlockRegions)-1].Hash = &chainhash.Hash{}
-	wantErrCode = database.ErrBlockNotFound
+	wantErrCode := database.ErrBlockNotFound
 	_, err = tx.FetchBlockRegions(badBlockRegions)
 	if !util.CheckError(tc.t, testName, err, wantErrCode) {
 		return false
@@ -1877,13 +1735,6 @@ func testClosedTxInterface(tc *testContext, tx database.Tx) bool {
 			return false
 		}
 
-		// Ensure FetchBlockHeader returns expected error.
-		testName = fmt.Sprintf("FetchBlockHeader #%d on closed tx", i)
-		_, err = tx.FetchBlockHeader(blockHash)
-		if !util.CheckError(tc.t, testName, err, wantErrCode) {
-			return false
-		}
-
 		// Ensure the first transaction fetched as a block region from
 		// the database returns the expected error.
 		region := database.BlockRegion{
@@ -1909,30 +1760,9 @@ func testClosedTxInterface(tc *testContext, tx database.Tx) bool {
 	// Bulk Block IO API
 	// -----------------
 
-	// Ensure FetchBlocks returns expected error.
-	testName = "FetchBlocks on closed tx"
-	_, err = tx.FetchBlocks(allBlockHashes)
-	if !util.CheckError(tc.t, testName, err, wantErrCode) {
-		return false
-	}
-
-	// Ensure FetchBlockHeaders returns expected error.
-	testName = "FetchBlockHeaders on closed tx"
-	_, err = tx.FetchBlockHeaders(allBlockHashes)
-	if !util.CheckError(tc.t, testName, err, wantErrCode) {
-		return false
-	}
-
 	// Ensure FetchBlockRegions returns expected error.
 	testName = "FetchBlockRegions on closed tx"
 	_, err = tx.FetchBlockRegions(allBlockRegions)
-	if !util.CheckError(tc.t, testName, err, wantErrCode) {
-		return false
-	}
-
-	// Ensure HasBlocks returns expected error.
-	testName = "HasBlocks on closed tx"
-	_, err = tx.HasBlocks(allBlockHashes)
 	if !util.CheckError(tc.t, testName, err, wantErrCode) {
 		return false
 	}
