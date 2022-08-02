@@ -394,6 +394,18 @@ func E(e error) R {
 	}
 }
 
+func E1[T any](t T, e error) (T, R) {
+	return t, E(e)
+}
+
+func E2[T1, T2 any](t1 T1, t2 T2, e error) (T1, T2, R) {
+	return t1, t2, E(e)
+}
+
+func E3[T1, T2, T3 any](t1 T1, t2 T2, t3 T3, e error) (T1, T2, T3, R) {
+	return t1, t2, t3, E(e)
+}
+
 func equals(e, r R, fuzzy bool) bool {
 	if e == nil || r == nil {
 		return e == nil && r == nil
