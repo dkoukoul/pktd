@@ -11,8 +11,9 @@ import (
 )
 
 type LocalAddrs struct {
-	m sync.Mutex
-	a map[string]*wire.NetAddress
+	m        sync.Mutex
+	a        map[string]*wire.NetAddress
+	wasTried bool
 }
 
 func New() LocalAddrs {
@@ -25,6 +26,9 @@ func (la *LocalAddrs) Referesh() {
 	ifaces, errr := net.Interfaces()
 	if errr != nil {
 		log.Warnf("LocalAddrs.Referesh() failed: [%v]", errr.Error())
+		la.m.Lock()
+		defer la.m.Unlock()
+		la.wasTried = true
 		return
 	}
 	out := make(map[string]struct{})
@@ -39,6 +43,7 @@ func (la *LocalAddrs) Referesh() {
 		}
 	}
 	la.m.Lock()
+	la.wasTried = true
 	for s := range la.a {
 		if _, ok := out[s]; !ok {
 			log.Infof("Local address gone [%s]", log.IpAddr(s))
@@ -65,6 +70,12 @@ func (la *LocalAddrs) Referesh() {
 		}
 	}
 	la.m.Unlock()
+}
+
+func (la *LocalAddrs) IsWorking() bool {
+	la.m.Lock()
+	defer la.m.Unlock()
+	return len(la.a) > 0 || !la.wasTried
 }
 
 func (la *LocalAddrs) Reachable(na *wire.NetAddress) bool {

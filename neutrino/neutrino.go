@@ -846,7 +846,9 @@ func NewChainService(cfg Config) (*ChainService, er.R) {
 					continue
 				}
 
-				if !localAddrs.Reachable(addr.NetAddress()) {
+				// If for some reason, we're not able to get our local addrs (OS permissions)
+				// we'll pretend everything is ok.
+				if !localAddrs.Reachable(addr.NetAddress()) && localAddrs.IsWorking() {
 					// Unreachable address
 					continue
 				}
