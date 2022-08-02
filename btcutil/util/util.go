@@ -70,3 +70,11 @@ func RequireErr(t require.TestingT, err er.R, msgAndArgs ...interface{}) {
 func RequireNoErr(t require.TestingT, err er.R, msgAndArgs ...interface{}) {
 	require.NoError(t, er.Native(err), msgAndArgs...)
 }
+
+func Map[T, U any](t []T, f func(T) U) []U {
+	out := make([]U, len(t))
+	for i, tt := range t {
+		out[i] = f(tt)
+	}
+	return out
+}
