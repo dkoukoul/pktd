@@ -19,6 +19,10 @@ import (
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/btcutil/event"
 	"github.com/pkt-cash/pktd/btcutil/lock"
+	"github.com/pkt-cash/pktd/btcutil/util"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
+	"github.com/pkt-cash/pktd/lnd/describetxn"
+	"github.com/pkt-cash/pktd/lnd/lnrpc/apiv1"
 	"github.com/pkt-cash/pktd/neutrino"
 	"github.com/pkt-cash/pktd/neutrino/pushtx"
 	"github.com/pkt-cash/pktd/pktlog/log"
@@ -148,6 +152,8 @@ type Wallet struct {
 	looseTransactions       lock.GenMutex[[]wire.MsgTx]
 	looseTransactionsStop   event.Emitter[struct{}]
 	looseTransactionsActive lock.AtomicBool
+
+	api *apiv1.Apiv1
 }
 
 type rescanJob struct {
@@ -1625,6 +1631,100 @@ func NewBlockIdentifierFromHash(hash *chainhash.Hash) *BlockIdentifier {
 type GetTransactionsResult struct {
 	MinedTransactions   []Block
 	UnminedTransactions []TransactionSummary
+}
+
+func (w *Wallet) describeTxn(txn []byte, vinDetail bool) (*rpc_pb.TransactionInfo, er.R) {
+	getTxns := func(map[string]*wire.MsgTx) er.R {
+		return nil
+	}
+	buf := bytes.NewBuffer(txn)
+	var mtx wire.MsgTx
+	if err := mtx.BtcDecode(buf, 0, wire.WitnessEncoding); err != nil {
+		return nil, err
+	}
+	return describetxn.Describe(getTxns, mtx, w.chainParams, vinDetail)
+}
+
+func (w *Wallet) GetTransactions1(req *rpc_pb.GetTransactionsRequest) (*rpc_pb.TransactionDetails, er.R) {
+	start := NewBlockIdentifierFromHeight(req.StartHeight)
+	stop := NewBlockIdentifierFromHeight(req.EndHeight)
+	coinbase := int32(req.Coinbase.Number())
+	txns, err := w.GetTransactions(start, stop, req.TxnsLimit, req.TxnsSkip, coinbase, req.Reversed, nil)
+	if err != nil {
+		return nil, err
+	}
+	txDetails := &rpc_pb.TransactionDetails{
+		Transactions: make([]*rpc_pb.ContextualTransaction, 0,
+			len(txns.MinedTransactions)+len(txns.UnminedTransactions)),
+	}
+	bs := w.Manager.SyncedTo()
+	for _, blk := range txns.MinedTransactions {
+		blkHash := blk.Hash.String()
+		for _, txn := range blk.Transactions {
+			tx, err := w.describeTxn(txn.Transaction, req.VinDetail)
+			if err != nil {
+				return nil, err
+			}
+			txDetails.Transactions = append(txDetails.Transactions, &rpc_pb.ContextualTransaction{
+				Tx:               tx,
+				TxBin:            util.If(req.TxBin, txn.Transaction, nil),
+				NumConfirmations: bs.Height - blk.Height,
+				BlockHash:        blkHash,
+				BlockHeight:      blk.Height,
+				Time:             blk.Timestamp,
+			})
+		}
+	}
+	for _, txn := range txns.UnminedTransactions {
+		tx, err := w.describeTxn(txn.Transaction, req.VinDetail)
+		if err != nil {
+			return nil, err
+		}
+		txDetails.Transactions = append(txDetails.Transactions, &rpc_pb.ContextualTransaction{
+			Tx:               tx,
+			TxBin:            util.If(req.TxBin, txn.Transaction, nil),
+			NumConfirmations: 0,
+			BlockHash:        "",
+			BlockHeight:      0,
+			Time:             txn.Timestamp,
+		})
+	}
+
+	// Sort transactions by number of confirmations rather than height so
+	// that unconfirmed transactions (height =0; confirmations =-1) will
+	// follow the most recently set of confirmed transactions. If we sort
+	// by height, unconfirmed transactions will follow our oldest
+	// transactions, because they have lower block heights.
+	sort.Slice(txDetails.Transactions, func(i, j int) bool {
+		if !req.Reversed {
+			return txDetails.Transactions[i].NumConfirmations <
+				txDetails.Transactions[j].NumConfirmations
+		}
+		return txDetails.Transactions[i].NumConfirmations >
+			txDetails.Transactions[j].NumConfirmations
+	})
+
+	return txDetails, nil
+}
+
+func (w *Wallet) registerRpc() {
+	apiv1.Endpoint(
+		w.api.Category("wallet/transaction"),
+		"query",
+		`
+		List transactions from the wallet
+
+		Returns a list describing all the known transactions relevant to the wallet.
+		This includes confirmed (in the chain) transactions, and unconfirmed (mempool)
+		transactions, but not transactions which have been made with /wallet/transaction/create
+		but have not yet been broadcasted to the network.
+		This also does not include transactions that are not known to be relevant to the wallet,
+		if transactions are missing then a resync may be necessary.
+		`,
+		func(req *rpc_pb.GetTransactionsRequest) (*rpc_pb.TransactionDetails, er.R) {
+			return w.GetTransactions1(req)
+		},
+	)
 }
 
 // GetTransactions returns transaction results between a starting and ending
@@ -3327,6 +3427,7 @@ func (w *Wallet) goMainLoop() {
 		time.Sleep(time.Duration(1) * time.Second)
 	}
 	w.walletInit()
+	w.registerRpc()
 	for {
 		rapidCycle := w.rescan()
 		rapidCycle = w.checkBlock() || rapidCycle
@@ -3373,8 +3474,14 @@ func (w *Wallet) WatchingLooseTransactions() bool {
 }
 
 // Open loads an already-created wallet from the passed database and namespaces.
-func Open(db walletdb.DB, pubPass []byte, cbs *waddrmgr.OpenCallbacks,
-	params *chaincfg.Params, recoveryWindow uint32) (*Wallet, er.R) {
+func Open(
+	db walletdb.DB,
+	pubPass []byte,
+	cbs *waddrmgr.OpenCallbacks,
+	params *chaincfg.Params,
+	recoveryWindow uint32,
+	api *apiv1.Apiv1,
+) (*Wallet, er.R) {
 
 	var (
 		addrMgr *waddrmgr.Manager
@@ -3441,6 +3548,7 @@ func Open(db walletdb.DB, pubPass []byte, cbs *waddrmgr.OpenCallbacks,
 		looseTransactions:       lock.NewGenMutex[[]wire.MsgTx](nil, "looseTransactions"),
 		looseTransactionsStop:   event.NewEmitter[struct{}]("looseTransactionsStop"),
 		looseTransactionsActive: lock.AtomicBool{},
+		api:                     api,
 	}
 
 	w.NtfnServer = newNotificationServer(w)

@@ -71,10 +71,48 @@ func RequireNoErr(t require.TestingT, err er.R, msgAndArgs ...interface{}) {
 	require.NoError(t, er.Native(err), msgAndArgs...)
 }
 
+func Filter[T any](t []T, f func(T) bool) []T {
+	out := make([]T, 0, len(t))
+	for _, tt := range t {
+		if f(tt) {
+			out = append(out, tt)
+		}
+	}
+	return out
+}
+
 func Map[T, U any](t []T, f func(T) U) []U {
 	out := make([]U, len(t))
 	for i, tt := range t {
 		out[i] = f(tt)
 	}
 	return out
+}
+
+func Contains[T comparable](list []T, examples ...T) bool {
+	for _, t := range list {
+		for _, ex := range examples {
+			if t == ex {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// Generic terniary function
+func If[T any](condition bool, resultIfTrue, resultIfFalse T) T {
+	if condition {
+		return resultIfTrue
+	} else {
+		return resultIfFalse
+	}
+}
+
+func Iff[T any](condition bool, resultIfTrue func() T, resultIfFalse T) T {
+	if condition {
+		return resultIfTrue()
+	} else {
+		return resultIfFalse
+	}
 }

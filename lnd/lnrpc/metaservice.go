@@ -99,7 +99,7 @@ func (m *MetaService) ChangePassword0(ctx context.Context,
 		}
 
 		// Load the existing wallet in order to proceed with the password change.
-		w, err := loader.OpenExistingWallet(publicPw, false)
+		w, err := loader.OpenExistingWallet(publicPw, false, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -136,7 +136,7 @@ func (m *MetaService) ChangePassword0(ctx context.Context,
 		}
 
 		// Load the existing wallet in order to proceed with the password change.
-		w, err := loader.OpenExistingWallet(publicPw, false)
+		w, err := loader.OpenExistingWallet(publicPw, false, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -210,7 +210,7 @@ func (m *MetaService) CheckPassword0(
 		}
 
 		// Load the existing wallet in order to proceed with the password change.
-		walletAux, err = loader.OpenExistingWallet(publicPw, false)
+		walletAux, err = loader.OpenExistingWallet(publicPw, false, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -238,7 +238,7 @@ func (m *MetaService) CheckPassword0(
 		}
 
 		// Load the existing wallet in order to proceed with the password change.
-		walletAux, err = loader.OpenExistingWallet(publicPw, false)
+		walletAux, err = loader.OpenExistingWallet(publicPw, false, nil)
 		if err != nil {
 			return nil, err
 		}

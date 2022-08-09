@@ -10,6 +10,7 @@ import (
 	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/generated/proto/walletunlocker_pb"
 	"github.com/pkt-cash/pktd/lnd/chanbackup"
+	"github.com/pkt-cash/pktd/lnd/lnrpc/apiv1"
 	"github.com/pkt-cash/pktd/lnd/lnwallet/btcwallet"
 	"github.com/pkt-cash/pktd/pktwallet/wallet"
 	"github.com/pkt-cash/pktd/pktwallet/wallet/seedwords"
@@ -119,6 +120,8 @@ type UnlockerService struct {
 	walletFile string
 	walletPath string
 
+	api *apiv1.Apiv1
+
 	walletunlocker_pb.UnimplementedWalletUnlockerServer
 }
 
@@ -126,7 +129,7 @@ var _ walletunlocker_pb.WalletUnlockerServer = (*UnlockerService)(nil)
 
 // New creates and returns a new UnlockerService.
 func New(chainDir string, params *chaincfg.Params, noFreelistSync bool,
-	walletPath string, walletFilename string) *UnlockerService {
+	walletPath string, walletFilename string, api *apiv1.Apiv1) *UnlockerService {
 
 	return &UnlockerService{
 		InitMsgs:   make(chan *WalletInitMsg, 1),
@@ -137,6 +140,7 @@ func New(chainDir string, params *chaincfg.Params, noFreelistSync bool,
 		netParams:      params,
 		walletFile:     walletFilename,
 		walletPath:     walletPath,
+		api:            api,
 	}
 }
 
@@ -366,15 +370,15 @@ func (u *UnlockerService) InitWallet0(ctx context.Context,
 
 func (u *UnlockerService) UnlockWallet(ctx context.Context,
 	in *walletunlocker_pb.UnlockWalletRequest) (*walletunlocker_pb.UnlockWalletResponse, error) {
-	res, err := u.UnlockWallet0(ctx, in)
-	return res, er.Native(err)
+	_, err := u.UnlockWallet0(ctx, in)
+	return &walletunlocker_pb.UnlockWalletResponse{}, er.Native(err)
 }
 
 // UnlockWallet sends the password provided by the incoming UnlockWalletRequest
 // over the UnlockMsgs channel in case it successfully decrypts an existing
 // wallet found in the chain's wallet database directory.
 func (u *UnlockerService) UnlockWallet0(ctx context.Context,
-	in *walletunlocker_pb.UnlockWalletRequest) (*walletunlocker_pb.UnlockWalletResponse, er.R) {
+	in *walletunlocker_pb.UnlockWalletRequest) (*rpc_pb.Null, er.R) {
 
 	//	fetch wallet passphrase from request
 	var walletPassphrase []byte
@@ -413,7 +417,7 @@ func (u *UnlockerService) UnlockWallet0(ctx context.Context,
 	}
 
 	// Try opening the existing wallet with the provided password.
-	unlockedWallet, err := loader.OpenExistingWallet(pubpassword, false)
+	unlockedWallet, err := loader.OpenExistingWallet(pubpassword, false, u.api)
 	if err != nil {
 		// Could not open wallet, most likely this means that provided
 		// password was incorrect.
@@ -453,7 +457,7 @@ func (u *UnlockerService) UnlockWallet0(ctx context.Context,
 		// operation, so we read it but then discard it.
 		select {
 		case <-walletUnlockMsg.Complete:
-			return &walletunlocker_pb.UnlockWalletResponse{}, nil
+			return &rpc_pb.Null{}, nil
 
 		case <-ctx.Done():
 			return nil, ErrUnlockTimeout.Default()

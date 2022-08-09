@@ -18,7 +18,6 @@ import (
 	"github.com/pkt-cash/pktd/lnd/labels"
 	"github.com/pkt-cash/pktd/lnd/lnrpc"
 	"github.com/pkt-cash/pktd/lnd/lnwallet"
-	"github.com/pkt-cash/pktd/lnd/lnwallet/btcwallet"
 	"github.com/pkt-cash/pktd/lnd/lnwallet/chainfee"
 	"github.com/pkt-cash/pktd/lnd/sweep"
 	"github.com/pkt-cash/pktd/pktlog/log"
@@ -692,6 +691,7 @@ func (w *WalletKit) BumpFee0(ctx context.Context,
 	return &walletrpc_pb.BumpFeeResponse{}, nil
 }
 
+/*
 // ListSweeps returns a list of the sweeps that our node has published.
 func (w *WalletKit) ListSweeps(c context.Context,
 	req *walletrpc_pb.ListSweepsRequest) (*walletrpc_pb.ListSweepsResponse, error) {
@@ -761,6 +761,7 @@ func (w *WalletKit) ListSweeps0(ctx context.Context,
 		},
 	}, nil
 }
+*/
 
 // LabelTransaction adds a label to a transaction.
 func (w *WalletKit) LabelTransaction(ctx context.Context,

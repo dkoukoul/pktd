@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/lnd/lnrpc/apiv1"
 	"github.com/pkt-cash/pktd/pktlog/log"
 
 	"github.com/pkt-cash/pktd/chaincfg"
@@ -114,8 +115,13 @@ func WalletDbPath(netDir, walletName string) string {
 // CreateNewWallet creates a new wallet using the provided public and private
 // passphrases.  The seed is optional.  If non-nil, addresses are derived from
 // this seed.  If nil, a secure random seed is generated.
-func (l *Loader) CreateNewWallet(pubPassphrase, privPassphrase []byte,
-	seedInput []byte, seedBirthday time.Time, seed *seedwords.Seed) (*Wallet, er.R) {
+func (l *Loader) CreateNewWallet(
+	pubPassphrase, privPassphrase []byte,
+	seedInput []byte,
+	seedBirthday time.Time,
+	seed *seedwords.Seed,
+	api *apiv1.Apiv1,
+) (*Wallet, er.R) {
 
 	defer l.mu.Unlock()
 	l.mu.Lock()
@@ -150,7 +156,7 @@ func (l *Loader) CreateNewWallet(pubPassphrase, privPassphrase []byte,
 	}
 
 	// Open the newly-created wallet.
-	w, err := Open(db, pubPassphrase, nil, l.chainParams, l.recoveryWindow)
+	w, err := Open(db, pubPassphrase, nil, l.chainParams, l.recoveryWindow, api)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +174,11 @@ func noConsole() ([]byte, er.R) {
 // and the public passphrase.  If the loader is being called by a context where
 // standard input prompts may be used during wallet upgrades, setting
 // canConsolePrompt will enables these prompts.
-func (l *Loader) OpenExistingWallet(pubPassphrase []byte, canConsolePrompt bool) (*Wallet, er.R) {
+func (l *Loader) OpenExistingWallet(
+	pubPassphrase []byte,
+	canConsolePrompt bool,
+	api *apiv1.Apiv1,
+) (*Wallet, er.R) {
 	defer l.mu.Unlock()
 	l.mu.Lock()
 
@@ -201,7 +211,7 @@ func (l *Loader) OpenExistingWallet(pubPassphrase []byte, canConsolePrompt bool)
 			ObtainPrivatePass: noConsole,
 		}
 	}
-	w, err := Open(db, pubPassphrase, cbs, l.chainParams, l.recoveryWindow)
+	w, err := Open(db, pubPassphrase, cbs, l.chainParams, l.recoveryWindow, api)
 	if err != nil {
 		// If opening the wallet fails (e.g. because of wrong
 		// passphrase), we must close the backing database to

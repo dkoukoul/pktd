@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	URI_prefix = "/api/v1"
+	URI_prefix_ = "/api/v1"
 )
 
 //	constants for categories and subcategories of commands
@@ -409,7 +409,7 @@ func RESTCategory_help(
 
 		if commandInfo.Category == category {
 			restCommandCategory.Endpoints = append(restCommandCategory.Endpoints, &help_pb.RestEndpoint{
-				URI:              URI_prefix + commandInfo.Path,
+				URI:              commandInfo.Path,
 				ShortDescription: commandInfo.Description,
 			})
 		}

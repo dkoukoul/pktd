@@ -27,7 +27,7 @@ import (
 	"github.com/pkt-cash/pktd/lnd/keychain"
 	"github.com/pkt-cash/pktd/lnd/lncfg"
 	"github.com/pkt-cash/pktd/lnd/lnrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/restrpc"
+	"github.com/pkt-cash/pktd/lnd/lnrpc/apiv1"
 	"github.com/pkt-cash/pktd/lnd/lnrpc/verrpc"
 	"github.com/pkt-cash/pktd/lnd/lnwallet"
 	"github.com/pkt-cash/pktd/lnd/signal"
@@ -73,9 +73,11 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 	)
 
 	// Bring up the REST handler immediately
-	restContext := restrpc.RpcContext{}
-	restHandler := restrpc.RestHandlers(&restContext)
-	restrpc.RestHandlersHelp(restHandler)
+	api, apiRouter := apiv1.New()
+	restContext := RpcContext{}
+	restContext.RegisterFunctions(api)
+	//restHandler := restrpc.RestHandlers(&restContext)
+	//restrpc.RestHandlersHelp(restHandler)
 
 	for _, restEndpoint := range cfg.RESTListeners {
 		lis, err := lncfg.ListenOnAddress(restEndpoint)
@@ -85,7 +87,7 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 		}
 		go func() {
 			log.Infof("REST started at %s", lis.Addr())
-			corsHandler := allowCORS(restHandler, cfg.RestCORS)
+			corsHandler := allowCORS(apiRouter, cfg.RestCORS)
 			err := http.Serve(lis, corsHandler)
 			if err != nil && !lnrpc.IsClosedConnError(err) {
 				log.Error(err)
@@ -186,7 +188,7 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 	// for wallet encryption.
 
 	if !cfg.NoSeedBackup {
-		params, err := waitForWalletPassword(cfg, &restContext)
+		params, err := waitForWalletPassword(cfg, &restContext, api)
 		if err != nil {
 			err := er.Errorf("unable to set up wallet password "+
 				"listeners: %v", err)
@@ -239,7 +241,7 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 		FeeURL:                      cfg.FeeURL,
 	}
 
-	activeChainControl, err := chainreg.NewChainControl(chainControlCfg)
+	activeChainControl, err := chainreg.NewChainControl(chainControlCfg, api)
 	if err != nil {
 		err := er.Errorf("unable to create chain control: %v", err)
 		log.Error(err)
@@ -579,7 +581,8 @@ type WalletUnlockParams struct {
 // the user to this RPC server.
 func waitForWalletPassword(
 	cfg *Config,
-	restContext *restrpc.RpcContext,
+	restContext *RpcContext,
+	api *apiv1.Apiv1,
 ) (*WalletUnlockParams, er.R) {
 
 	chainConfig := cfg.Bitcoin
@@ -597,7 +600,7 @@ func waitForWalletPassword(
 	}
 	pwService := walletunlocker.New(
 		chainConfig.ChainDir, cfg.ActiveNetParams.Params,
-		!cfg.SyncFreelist, walletPath, walletFilename,
+		!cfg.SyncFreelist, walletPath, walletFilename, api,
 	)
 	restContext.MaybeWalletUnlocker = pwService
 
@@ -631,7 +634,8 @@ func waitForWalletPassword(
 		)
 
 		newWallet, err := loader.CreateNewWallet(
-			[]byte(wallet.InsecurePubPassphrase), password, initMsg.LegacySeed, time.Time{}, cipherSeed,
+			[]byte(wallet.InsecurePubPassphrase), password,
+			initMsg.LegacySeed, time.Time{}, cipherSeed, api,
 		)
 		if err != nil {
 			// Don't leave the file open in case the new wallet

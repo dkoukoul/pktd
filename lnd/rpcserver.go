@@ -4145,6 +4145,9 @@ func (r *LightningRPCServer) SubscribeInvoices(req *rpc_pb.InvoiceSubscription,
 	}
 }
 
+/* TODO(cjd): This should be implemented where the data actually exists rather than
+interfaces pointing to interfaces pointing to interfaces.
+
 // SubscribeTransactions creates a uni-directional stream (server -> client) in
 // which any newly discovered transactions relevant to the wallet are sent
 // over.
@@ -4201,46 +4204,7 @@ func (r *LightningRPCServer) SubscribeTransactions(req *rpc_pb.GetTransactionsRe
 		}
 	}
 }
-
-// GetTransactions returns a list of describing all the known transactions
-// relevant to the wallet.
-func (r *LightningRPCServer) GetTransactions(ctx context.Context,
-	req *rpc_pb.GetTransactionsRequest) (*rpc_pb.TransactionDetails, error) {
-
-	// To remain backwards compatible with the old api, default to the
-	// special case end height which will return transactions from the start
-	// height until the chain tip, including unconfirmed transactions.
-	var endHeight = btcwallet.UnconfirmedHeight
-
-	// If the user has provided an end height, we overwrite our default.
-	if req.EndHeight > 0 {
-		endHeight = req.EndHeight
-	}
-
-	var limit int32 = 0
-	// If the user has provided a limit, we overwrite our default.
-	if req.TxnsLimit != 0 {
-		limit = req.TxnsLimit
-	}
-	var skip int32 = 0
-	// If the user has provided a skip, we overwrite our default.
-	if req.TxnsSkip != 0 {
-		skip = req.TxnsSkip
-	}
-	//coinbaseExclude is default
-	var coinbase int32 = 2
-	// If the user has provided coinbase, we overwrite our default.
-	if req.Coinbase != 0 {
-		coinbase = req.Coinbase
-	}
-
-	transactions, err := r.server.cc.Wallet.ListTransactionDetails(req.StartHeight, endHeight, skip, limit, coinbase, req.Reversed)
-	if err != nil {
-		return nil, er.Native(err)
-	}
-
-	return lnrpc.RPCTransactionDetails(transactions, req.Reversed), nil
-}
+*/
 
 func (r *LightningRPCServer) DescribeGraph(ctx context.Context,
 	req *rpc_pb.ChannelGraphRequest) (*rpc_pb.ChannelGraph, error) {

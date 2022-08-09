@@ -61,8 +61,8 @@ func showCategory(category *help_pb.RestCommandCategory, level int) {
 		for _, endpoint := range category.Endpoints {
 			var command = endpoint.URI
 
-			if strings.HasPrefix(command, help.URI_prefix+"/") {
-				command = command[len(help.URI_prefix)+1:]
+			if strings.HasPrefix(command, help.URI_prefix_+"/") {
+				command = command[len(help.URI_prefix_)+1:]
 			}
 			fmt.Fprintf(os.Stdout, "%s%s%s: %s\n", levelIndentation, indentation, command, endpoint.ShortDescription)
 		}

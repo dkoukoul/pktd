@@ -12,8 +12,20 @@ import (
 	gendoc "github.com/pseudomuto/protoc-gen-doc"
 )
 
-const prologue string = `
+func prologue(packages map[string]struct{}) {
+	fmt.Print(`
 package pkthelp
+
+import (
+	"github.com/golang/protobuf/proto"
+	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/btcutil/util"
+`)
+	for p := range packages {
+		fmt.Println("    " + strconv.Quote(p))
+	}
+	fmt.Print(`
+)
 
 type Field struct {
 	Name        string
@@ -47,7 +59,11 @@ var EnumVarientType Type = Type{
 	Name: "ENUM_VARIENT",
 }
 
-`
+var CircularType Type = Type{
+	Name: "CIRCULAR",
+}
+`)
+}
 
 func desc(desc string, padding string) {
 	if len(desc) > 0 {
@@ -89,10 +105,27 @@ func main() {
 		templates = append(templates, t)
 		return nil
 	})
-	fmt.Print(prologue)
+
+	packages := make(map[string]struct{})
+	allMessages := make(map[string]string)
+	for _, t := range templates {
+		for _, f := range t.Files {
+			for _, e := range f.Messages {
+				if len(strings.Split(e.FullName, ".")) == 2 {
+					allMessages[e.FullName] = fixName(e.FullName)
+					// "name": "proto/restrpc_pb/external_pb/google_any.proto",
+					dir, _ := filepath.Split(f.Name)
+					dir = dir[:len(dir)-1] // strip trailing /
+					packages["github.com/pkt-cash/pktd/generated/"+dir] = struct{}{}
+				}
+			}
+		}
+	}
+	prologue(packages)
+
 	for _, t := range templates {
 		for _, s := range t.Scalars {
-			fmt.Printf("func mk%s() Type {\n", s.ProtoType)
+			fmt.Printf("func mk%s(_ []string) Type {\n", s.ProtoType)
 			fmt.Printf("    return Type{\n")
 			fmt.Printf("        Name: %s,\n", strconv.Quote(s.GoType))
 			fmt.Printf("    }\n")
@@ -103,7 +136,7 @@ func main() {
 	for _, t := range templates {
 		for _, f := range t.Files {
 			for _, e := range f.Enums {
-				fmt.Printf("func mk%s() Type {\n", fixName(e.FullName))
+				fmt.Printf("func mk%s(_ []string) Type {\n", fixName(e.FullName))
 				fmt.Printf("    return Type{\n")
 				fmt.Printf("        Name: %s,\n", strconv.Quote(fixName(e.FullName)))
 				desc(e.Description, "        ")
@@ -121,10 +154,21 @@ func main() {
 			}
 		}
 	}
+
 	for _, t := range templates {
 		for _, f := range t.Files {
+			// "name": "proto/restrpc_pb/external_pb/google_any.proto",
 			for _, e := range f.Messages {
-				fmt.Printf("func mk%s() Type {\n", fixName(e.FullName))
+				fmt.Printf("func mk%s(stack []string) Type {\n", fixName(e.FullName))
+				fmt.Printf("    if util.Contains(stack, %s) {\n", strconv.Quote(e.FullName))
+				fmt.Printf("        return Type {\n")
+				fmt.Printf("            Name: %s,\n", strconv.Quote(fixName(e.FullName)))
+				fmt.Printf("            Description: []string{\n")
+				fmt.Printf("            	\"CIRCULAR REFERENCE, FIELDS OMITTED\",\n")
+				fmt.Printf("            },\n")
+				fmt.Printf("        }\n")
+				fmt.Printf("    }\n")
+				fmt.Printf("    stack = append(stack, %s)\n", strconv.Quote(e.FullName))
 				fmt.Printf("    return Type{\n")
 				fmt.Printf("        Name: %s,\n", strconv.Quote(fixName(e.FullName)))
 				desc(e.Description, "        ")
@@ -137,7 +181,7 @@ func main() {
 						if f.Label == "repeated" {
 							fmt.Printf("                Repeated: true,\n")
 						}
-						fmt.Printf("                Type: mk%s(),\n", fixName(f.FullType))
+						fmt.Printf("                Type: mk%s(stack),\n", fixName(f.FullType))
 						fmt.Printf("            },\n")
 					}
 					fmt.Printf("        },\n")
@@ -147,6 +191,16 @@ func main() {
 			}
 		}
 	}
+	fmt.Printf("func Help(msg proto.Message) (Type, er.R) {\n")
+	fmt.Printf("    // If we....\n")
+	for k, n := range allMessages {
+		fmt.Printf("    if _, ok := msg.(*%s); ok {\n", k)
+		fmt.Printf("        return mk%s([]string{}), nil\n", n)
+		fmt.Printf("    }\n")
+	}
+	fmt.Printf("    var ret Type\n")
+	fmt.Printf("    return ret, er.Errorf(\"no help for type [%%T]\", msg)\n")
+	fmt.Printf("}\n")
 
 	var categoryRegexp *regexp.Regexp
 	var shortDescriptionRegexp *regexp.Regexp
@@ -199,8 +253,8 @@ func main() {
 						}
 						fmt.Printf("        },\n")
 					}
-					fmt.Printf("        Req: mk%s(),\n", fixName(m.RequestFullType))
-					fmt.Printf("        Res: mk%s(),\n", fixName(m.ResponseFullType))
+					fmt.Printf("        Req: mk%s([]string{}),\n", fixName(m.RequestFullType))
+					fmt.Printf("        Res: mk%s([]string{}),\n", fixName(m.ResponseFullType))
 					fmt.Printf("    }\n")
 					fmt.Printf("}\n")
 				}

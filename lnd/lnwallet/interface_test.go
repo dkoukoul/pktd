@@ -3290,7 +3290,7 @@ func runTests(t *testing.T,
 		CoinType:    keychain.CoinTypeTestnet,
 		// wallet starts in recovery mode
 		RecoveryWindow: 2,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("unable to create btcwallet: %v", err)
 	}
@@ -3314,7 +3314,7 @@ func runTests(t *testing.T,
 		CoinType:    keychain.CoinTypeTestnet,
 		// wallet starts without recovery mode
 		RecoveryWindow: 0,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("unable to create btcwallet: %v", err)
 	}

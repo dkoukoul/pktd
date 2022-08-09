@@ -102,7 +102,7 @@ service Lightning {
     wallet are sent over.
     */
     rpc SubscribeTransactions (GetTransactionsRequest)
-        returns (stream Transaction);
+        returns (stream ContextualTransaction);
 
     /*
     $pld.category: `Transaction`
@@ -763,37 +763,12 @@ message Utxo {
     int64 confirmations = 6;
 }
 
-message Transaction {
-    // The transaction hash
-    string tx_hash = 1;
-
-    // The transaction amount, denominated in satoshis
-    int64 amount = 2;
-
-    // The number of confirmations
-    int32 num_confirmations = 3;
-
-    // The hash of the block this transaction was included in
-    string block_hash = 4;
-
-    // The height of the block this transaction was included in
-    int32 block_height = 5;
-
-    // Timestamp of this transaction
-    int64 time_stamp = 6;
-
-    // Fees paid for this transaction
-    int64 total_fees = 7;
-
-    // Addresses that received funds for this transaction
-    repeated string dest_addresses = 8;
-
-    // The raw transaction hex.
-    bytes raw_tx_hex = 9;
-
-    // A label that was optionally set on transaction broadcast.
-    string label = 10;
+enum CoinbaseSelector {
+    COINBASES_INCLUDED = 0;
+    COINBASES_EXCLUDED = 1;
+    COINBASES_ONLY = 2;
 }
+
 message GetTransactionsRequest {
     /*
     The height from which to list transactions, inclusive.
@@ -808,20 +783,37 @@ message GetTransactionsRequest {
     default to this option.
     */
     int32 end_height = 2;
+
+    // Return no more than this number of transactions from those within
+    // the range of start_height to end_height.
     int32 txns_limit = 3;
+
+    // Skip this number of the first transactions, to be used with txns_limit
+    // so as to allow windowing over the set of all txns.
     int32 txns_skip = 4;
-    int32 coinbase = 5;
+
+    // Whether to include, exclude, or only provide coinbase (mining) transactions.
+    CoinbaseSelector coinbase = 5;
+
     /*
     If set, the payments returned will result from seeking backwards from the
     specified index offset. This can be used to paginate backwards. The order
     of the returned payments is always oldest first (ascending index order).
     */
     bool reversed = 6;
+
+    // If true, the transactions will include exact details of every tx input
+    // rather than simply including the list of addresses which paid in.
+    bool vin_detail = 7;
+
+    // If true, the result will include the binary representation of the
+    // transactions. Otherwise this array will be empty.
+    bool tx_bin = 8;
 }
 
 message TransactionDetails {
     // The list of transactions relevant to the wallet.
-    repeated Transaction transactions = 1;
+    repeated ContextualTransaction transactions = 1;
 }
 
 message FeeLimit {
@@ -3982,14 +3974,33 @@ message CreateTransactionRequest{
     // Addresses which can be selected for sourcing funds from
     repeated string from_address = 3;
 
-    // Output an electrum format transaction
+    // Output an electrum format transaction, this format carries additional payload for enabling
+    // transactions to be signed off-line, including multi-signature.
     bool electrum_format = 4;
+
+    // If not empty-string, this address will be used for making change
     string change_address = 5;
+
+    // Do not source funds from any transaction outputs less than this block height
     int32 input_min_height = 6;
+
+    // Do not source funds from any transaction outputs unless they have at least this many confirms
     int32 min_conf = 7;
-    bool vote = 8;
+
+    reserved 8;
+
+    // Do not make inputs to source funds from any more than this number of previous transaction outputs
     int32 max_inputs = 9;
+
+    // Create a "named lock" for all outputs which are to be spent, this allows you to prevent further
+    // invocations of create transaction from trying to reference the same coins.
+    // The name is entirely your choice.
+    // The locked outputs will be unlocked on restart of the wallet, or by using the wallet/unspent/lock/create
+    // with unlock = true, or if the transaction is sent to the chain (in which case they become permanently
+    // unusable),
     string autolock = 10;
+
+    // Whether to sign the transaction.
     bool sign = 11;
 }
 
@@ -4190,6 +4201,30 @@ message Vout {
 
     // A Network Steward vote, if present
     Vote vote = 5;
+}
+
+message ContextualTransaction {
+    // The decoded transaction
+    TransactionInfo tx = 1;
+
+    // The binary form of the transaction
+    bytes tx_bin = 2;
+
+    // The number of confirmations, 0 for loose / mempool txns
+    int32 num_confirmations = 3;
+
+    // The hash of the block this transaction was included in
+    // empty string for loose / mempool txns
+    string block_hash = 4;
+
+    // The height of the block this transaction was included in
+    // 0 for loose / mempool txns
+    int32 block_height = 5;
+
+    // For transactions in a block, the time declared in the block.
+    // For loose / mempool transactions, the time we first noticed them.
+    // Seconds since the epoch.
+    int64 time = 6;
 }
 
 // The result of the util/transaction/decode request

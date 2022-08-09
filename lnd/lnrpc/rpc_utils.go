@@ -1,62 +1,8 @@
 package lnrpc
 
 import (
-	"sort"
-
 	"github.com/pkt-cash/pktd/btcutil/er"
-	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
-	"github.com/pkt-cash/pktd/lnd/lnwallet"
 )
-
-// RPCTransactionDetails returns a set of rpc transaction details.
-func RPCTransactionDetails(txns []*lnwallet.TransactionDetail, reversed bool) *rpc_pb.TransactionDetails {
-	txDetails := &rpc_pb.TransactionDetails{
-		Transactions: make([]*rpc_pb.Transaction, len(txns)),
-	}
-
-	for i, tx := range txns {
-		var destAddresses []string
-		for _, destAddress := range tx.DestAddresses {
-			destAddresses = append(destAddresses, destAddress.EncodeAddress())
-		}
-
-		// We also get unconfirmed transactions, so BlockHash can be
-		// nil.
-		blockHash := ""
-		if tx.BlockHash != nil {
-			blockHash = tx.BlockHash.String()
-		}
-
-		txDetails.Transactions[i] = &rpc_pb.Transaction{
-			TxHash:           tx.Hash.String(),
-			Amount:           int64(tx.Value),
-			NumConfirmations: tx.NumConfirmations,
-			BlockHash:        blockHash,
-			BlockHeight:      tx.BlockHeight,
-			TimeStamp:        tx.Timestamp,
-			TotalFees:        tx.TotalFees,
-			DestAddresses:    destAddresses,
-			RawTxHex:         tx.RawTx,
-			Label:            tx.Label,
-		}
-	}
-
-	// Sort transactions by number of confirmations rather than height so
-	// that unconfirmed transactions (height =0; confirmations =-1) will
-	// follow the most recently set of confirmed transactions. If we sort
-	// by height, unconfirmed transactions will follow our oldest
-	// transactions, because they have lower block heights.
-	sort.Slice(txDetails.Transactions, func(i, j int) bool {
-		if !reversed {
-			return txDetails.Transactions[i].NumConfirmations <
-				txDetails.Transactions[j].NumConfirmations
-		}
-		return txDetails.Transactions[i].NumConfirmations >
-			txDetails.Transactions[j].NumConfirmations
-	})
-
-	return txDetails
-}
 
 // ExtractMinConfs extracts the minimum number of confirmations that each
 // output used to fund a transaction should satisfy.

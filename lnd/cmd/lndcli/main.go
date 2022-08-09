@@ -327,7 +327,7 @@ func executeCommand(command string, payload string) error {
 	var response *http.Response
 	var err error
 
-	commandURI := pldServer + help.URI_prefix + "/" + command
+	commandURI := pldServer + help.URI_prefix_ + "/" + command
 
 	//	if there's no payload, use HTTP GET method to invoke pld command, otherwise use POST method
 	if len(payload) == 0 {

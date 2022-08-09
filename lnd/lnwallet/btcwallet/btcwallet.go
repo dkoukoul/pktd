@@ -14,6 +14,7 @@ import (
 	"github.com/pkt-cash/pktd/chaincfg"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
 	"github.com/pkt-cash/pktd/lnd/keychain"
+	"github.com/pkt-cash/pktd/lnd/lnrpc/apiv1"
 	"github.com/pkt-cash/pktd/lnd/lnwallet"
 	"github.com/pkt-cash/pktd/lnd/lnwallet/chainfee"
 	"github.com/pkt-cash/pktd/neutrino"
@@ -76,7 +77,7 @@ var _ lnwallet.BlockChainIO = (*BtcWallet)(nil)
 
 // New returns a new fully initialized instance of BtcWallet given a valid
 // configuration struct.
-func New(cfg Config) (*BtcWallet, er.R) {
+func New(cfg Config, api *apiv1.Apiv1) (*BtcWallet, er.R) {
 	// Ensure the wallet exists or create it when the create flag is set.
 	netDir := NetworkDir(cfg.DataDir, cfg.NetParams)
 
@@ -112,7 +113,7 @@ func New(cfg Config) (*BtcWallet, er.R) {
 			// set up.
 			wallet, err = loader.CreateNewWallet(
 				pubPass, cfg.PrivatePass, []byte(hex.EncodeToString(cfg.HdSeed)),
-				cfg.Birthday, nil,
+				cfg.Birthday, nil, api,
 			)
 			if err != nil {
 				return nil, err
@@ -121,7 +122,7 @@ func New(cfg Config) (*BtcWallet, er.R) {
 			// Wallet has been created and been initialized at
 			// this point, open it along with all the required DB
 			// namespaces, and the DB itself.
-			wallet, err = loader.OpenExistingWallet(pubPass, false)
+			wallet, err = loader.OpenExistingWallet(pubPass, false, api)
 			if err != nil {
 				return nil, err
 			}
