@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sync"
 
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/pktconfig/version"
@@ -108,7 +107,9 @@ func walletMain() er.R {
 	// Create and start chain RPC client so it's ready to connect to
 	// the wallet when loaded later.
 	if !cfg.NoInitialLoad {
-		go rpcClientConnectLoop(legacyRPCServer, loader)
+		if err := rpcClientConnectLoop(legacyRPCServer, loader); err != nil {
+			return err
+		}
 	}
 
 	loader.RunAfterLoad(func(w *wallet.Wallet) {
@@ -139,74 +140,31 @@ func walletMain() er.R {
 // The legacy RPC is optional.  If set, the connected RPC client will be
 // associated with the server for RPC passthrough and to enable additional
 // methods.
-func rpcClientConnectLoop(legacyRPCServer *legacyrpc.Server, loader *wallet.Loader) {
-
-	for {
-		netDir := networkDir(cfg.AppDataDir.Value, activeNet.Params)
-		spvdb, err := walletdb.Create("bdb",
-			filepath.Join(netDir, "neutrino.db"), false)
-		defer spvdb.Close()
-		if err != nil {
-			log.Errorf("Unable to create Neutrino DB: %s", err)
-			continue
-		}
-		cp := cfg.ConnectPeers
-		chainService, err := neutrino.NewChainService(
-			neutrino.Config{
-				DataDir:      netDir,
-				Database:     spvdb,
-				ChainParams:  *activeNet.Params,
-				ConnectPeers: cp,
-				AddPeers:     cfg.AddPeers,
-			})
-		if err != nil {
-			log.Errorf("Couldn't create Neutrino ChainService: %s", err)
-			continue
-		}
-		legacyRPCServer.SetChainServer(chainService)
-		err = chainService.Start()
-		if err != nil {
-			log.Errorf("Couldn't start Neutrino client: %s", err)
-		}
-
-		// Rather than inlining this logic directly into the loader
-		// callback, a function variable is used to avoid running any of
-		// this after the client disconnects by setting it to nil.  This
-		// prevents the callback from associating a wallet loaded at a
-		// later time with a client that has already disconnected.  A
-		// mutex is used to make this concurrent safe.
-		associateRPCClient := func(w *wallet.Wallet) {
-			w.SynchronizeRPC(chainService)
-		}
-		mu := new(sync.Mutex)
-		loader.RunAfterLoad(func(w *wallet.Wallet) {
-			mu.Lock()
-			associate := associateRPCClient
-			mu.Unlock()
-			if associate != nil {
-				associate(w)
-			}
-		})
-
-		mu.Lock()
-		associateRPCClient = nil
-		mu.Unlock()
-
-		loadedWallet, ok := loader.LoadedWallet()
-		if ok {
-			// Do not attempt a reconnect when the wallet was
-			// explicitly stopped.
-			if loadedWallet.ShuttingDown() {
-				return
-			}
-
-			loadedWallet.SetChainSynced(false)
-
-			// TODO: Rework the wallet so changing the RPC client
-			// does not require stopping and restarting everything.
-			loadedWallet.Stop()
-			loadedWallet.WaitForShutdown()
-			loadedWallet.Start()
-		}
+func rpcClientConnectLoop(legacyRPCServer *legacyrpc.Server, loader *wallet.Loader) er.R {
+	netDir := networkDir(cfg.AppDataDir.Value, activeNet.Params)
+	spvdb, err := walletdb.Create("bdb", filepath.Join(netDir, "neutrino.db"), false)
+	if err != nil {
+		return er.Errorf("Unable to create Neutrino DB: %s", err)
 	}
+	cp := cfg.ConnectPeers
+	chainService, err := neutrino.NewChainService(
+		neutrino.Config{
+			DataDir:      netDir,
+			Database:     spvdb,
+			ChainParams:  *activeNet.Params,
+			ConnectPeers: cp,
+			AddPeers:     cfg.AddPeers,
+		})
+	if err != nil {
+		return er.Errorf("Couldn't create Neutrino ChainService: %s", err)
+	}
+	legacyRPCServer.SetChainServer(chainService)
+	err = chainService.Start()
+	if err != nil {
+		log.Errorf("Couldn't start Neutrino client: %s", err)
+	}
+	loader.RunAfterLoad(func(w *wallet.Wallet) {
+		w.SynchronizeRPC(chainService)
+	})
+	return nil
 }
