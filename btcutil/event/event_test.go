@@ -14,15 +14,14 @@ type secretNumber struct {
 
 func TestEventSimple(t *testing.T) {
 	sn := secretNumber{3}
-	ee := event.NewEmitter[secretNumber]("my emitter")
-	ok := false
+	ee := event.NewEmitter[*secretNumber]("my emitter")
 	var active sync.WaitGroup
 	var done sync.WaitGroup
 
 	for i := 0; i < 10; i++ {
 		active.Add(1)
 		event.GoWg(&done, func(loop *event.Loop) {
-			ee.On(loop, func(sn secretNumber) {
+			ee.On(loop, func(sn *secretNumber) {
 				assert.Equal(t, sn.n, 3)
 				sn.n = 5
 				loop.CurrentHandler().Cancel()
@@ -32,14 +31,12 @@ func TestEventSimple(t *testing.T) {
 	}
 
 	active.Wait()
-	ee.TryEmit(sn)
+	ee.TryEmit(&sn)
 	done.Wait()
-	assert.True(t, ok)
+	assert.Equal(t, 5, sn.n)
 }
 
 func TestMulti(t *testing.T) {
-	sn3 := secretNumber{3}
-	sn7 := secretNumber{7}
 	ee1 := event.NewEmitter[secretNumber]("my emitter")
 	ee2 := event.NewEmitter[secretNumber]("my emitter2")
 	var active sync.WaitGroup
@@ -72,8 +69,8 @@ func TestMulti(t *testing.T) {
 
 	active.Wait()
 	for i := 0; i < 5; i++ {
-		ee1.TryEmit(sn3)
-		ee2.TryEmit(sn7)
+		ee1.TryEmit(secretNumber{3})
+		ee2.TryEmit(secretNumber{7})
 	}
 	done.Wait()
 }
