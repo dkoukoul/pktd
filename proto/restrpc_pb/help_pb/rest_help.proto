@@ -28,12 +28,20 @@ enum F {
     STREAMING = 5;
 }
 
+// A brief description of an endpoint for use in the main /ai/v1/help
+message EndpointSimple {
+    // The path to get help about the specific endpoint
+    string help_path = 1;
+    // A very brief description of the endpoint
+    string brief = 2;
+}
+
 // The response which is sent back when querying the generic /api/v1/help
 message Category{
     // A description of the category of RPC endpoints
     repeated string description = 2;
     // The endpoints in this category
-    map<string, string> endpoints = 3;
+    map<string, EndpointSimple> endpoints = 3;
     // Sub-categories if any
     map<string, Category> categories = 4;
 }

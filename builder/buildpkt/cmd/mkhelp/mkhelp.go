@@ -17,7 +17,7 @@ func prologue(packages map[string]struct{}) {
 package pkthelp
 
 import (
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/btcutil/util"
 `)

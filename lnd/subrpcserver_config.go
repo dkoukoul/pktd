@@ -11,7 +11,6 @@ import (
 	"github.com/pkt-cash/pktd/lnd/htlcswitch"
 	"github.com/pkt-cash/pktd/lnd/invoices"
 	"github.com/pkt-cash/pktd/lnd/lncfg"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/autopilotrpc"
 	"github.com/pkt-cash/pktd/lnd/lnrpc/chainrpc"
 	"github.com/pkt-cash/pktd/lnd/lnrpc/invoicesrpc"
 	"github.com/pkt-cash/pktd/lnd/lnrpc/routerrpc"
@@ -44,10 +43,6 @@ type subRPCServerConfigs struct {
 	// also requests keys and addresses under control of the backing
 	// wallet.
 	WalletKitRPC *walletrpc.Config `group:"walletrpc" namespace:"walletrpc"`
-
-	// AutopilotRPC is a sub-RPC server that exposes methods on the running
-	// autopilot as a gRPC service.
-	AutopilotRPC *autopilotrpc.Config `group:"autopilotrpc" namespace:"autopilotrpc"`
 
 	// ChainRPC is a sub-RPC server that exposes functionality allowing a
 	// client to be notified of certain on-chain events (new blocks,
@@ -163,13 +158,6 @@ func (s *subRPCServerConfigs) PopulateDependencies(cfg *Config,
 			)
 			subCfgValue.FieldByName("ChainParams").Set(
 				reflect.ValueOf(activeNetParams),
-			)
-
-		case *autopilotrpc.Config:
-			subCfgValue := extractReflectValue(subCfg)
-
-			subCfgValue.FieldByName("Manager").Set(
-				reflect.ValueOf(atpl),
 			)
 
 		case *chainrpc.Config:

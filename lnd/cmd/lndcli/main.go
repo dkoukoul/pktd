@@ -16,16 +16,21 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pkt-cash/pktd/generated/pkthelp"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/restrpc/help"
-)
-
-var (
-	pldServer string
+	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/btcutil/util"
+	"github.com/pkt-cash/pktd/generated/proto/restrpc_pb/help_pb"
 )
 
 func main() {
+	if err := main1(); err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: %s", err)
+		os.Exit(100)
+	}
+}
+
+func main1() er.R {
 	var showRequestPayload bool
+	pldServer := "http://localhost:8080"
 
 	//	parse command line arguments
 	flag.StringVar(&pldServer, "pld_server", "http://localhost:8080", "set the pld server URL")
@@ -38,98 +43,72 @@ func main() {
 		pldServer = "http://" + pldServer
 	}
 
-	var err error
-
-	switch len(flag.Args()) {
-	//	print the main help if no arguments are available
-	case 0:
-		err = getMasterHelp()
+	if len(flag.Args()) == 0 {
+		return getMasterHelp(pldServer)
+	}
 
 	//	one or more arguments means the help + command
 	//		or command to be executed followed by arguments to build request payload
-	default:
-		var command = flag.Args()[0]
+	command := flag.Args()[0]
+	isHelp := false
 
-		//	if the user wants help on a command
-		if command == "help" {
-
-			switch len(flag.Args()) {
-			case 1:
-				err = getMasterHelp()
-
-			case 2:
-				err = getCommandHelp(flag.Args()[1])
-
-			default:
-				fmt.Fprintf(os.Stderr, "error: unexpected arguments for help on command %v\n", flag.Args()[2:])
-			}
-			break
+	//	if the user wants help on a command
+	if command == "help" {
+		if len(flag.Args()) == 1 {
+			return getMasterHelp(pldServer)
 		}
+		isHelp = true
+		command = flag.Args()[1]
+	}
+	help, err := getEndpointHelp(pldServer + "/api/v1/help/" + command)
+	if err != nil {
+		return err
+	}
+	if isHelp {
+		if len(flag.Args()) == 2 {
+			return printCommandHelp(help)
+		} else {
+			return er.Errorf("error: unexpected arguments for help on command %v\n", flag.Args()[2:])
+		}
+	}
 
-		//	first argument is a pld command followed by arguments to build request payload
-		var requestPayload string
+	//	first argument is a pld command followed by arguments to build request payload
+	requestPayload, err := formatRequestPayload(help, flag.Args()[1:])
+	if err != nil {
+		return err
+	}
+	//	if necessary, indent the request payload before show it
+	if showRequestPayload {
+		var requestPayloadMap map[string]interface{}
 
-		requestPayload, err = formatRequestPayload(command, flag.Args()[1:])
+		err = er.E(json.Unmarshal([]byte(requestPayload), &requestPayloadMap))
 		if err != nil {
-			break
-		}
-		//	if necessary, indent the request payload before show it
-		if showRequestPayload {
-			var requestPayloadMap map[string]interface{}
-
-			err = json.Unmarshal([]byte(requestPayload), &requestPayloadMap)
+		} else {
+			prettyRequestPayload, err := er.E1(json.MarshalIndent(requestPayloadMap, "", "    "))
 			if err != nil {
 			} else {
-				prettyRequestPayload, err := json.MarshalIndent(requestPayloadMap, "", "    ")
-				if err != nil {
-				} else {
-					fmt.Fprintf(os.Stdout, "[trace]: request payload: %s\n", string(prettyRequestPayload))
-				}
+				fmt.Fprintf(os.Stdout, "[trace]: request payload: %s\n", string(prettyRequestPayload))
 			}
 		}
-
-		//	send the request payload to pld
-		err = executeCommand(command, requestPayload)
 	}
 
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %s\n", err)
-	}
+	//	send the request payload to pld
+	return executeCommand(pldServer, command, requestPayload)
 }
 
 //	based on pld's command path, parse the CLI arguments to build the request payload
-func formatRequestPayload(commandPath string, arguments []string) (string, error) {
-
-	//	search all pld commands for help on command path
-	var commandHelp pkthelp.Method
-	var commandFound bool
-	var allowGet bool
-
-	for _, commandInfo := range help.CommandInfoData {
-		if (commandPath[0] == '/' && commandInfo.Path == commandPath) || commandInfo.Path == "/"+commandPath {
-			if commandInfo.HelpInfo != nil {
-				commandHelp = commandInfo.HelpInfo()
-				commandFound = true
-				allowGet = commandInfo.AllowGet
-				break
-			}
-		}
-	}
-
-	if !commandFound {
-		return "", errors.New("invalid pld command: " + commandPath)
-	}
+func formatRequestPayload(endpointHelp *help_pb.EndpointHelp, arguments []string) (string, er.R) {
 
 	//	build request payload based on request's help info hierarchy
 	var parsedArgument []bool = make([]bool, len(arguments))
 	var requestPayload string
 
-	if len(commandHelp.Req.Fields) > 0 {
-		for _, requestField := range commandHelp.Req.Fields {
+	if endpointHelp.Request != nil {
+		for _, requestField := range endpointHelp.Request.Fields {
 
-			formattedField, err := formatRequestField("", &requestField, arguments, &parsedArgument)
+			formattedField, err := formatRequestField("", requestField, arguments, &parsedArgument)
 			if err != nil {
-				return "", errors.New("error parsing arguments: " + err.Error())
+				return "", er.New("error parsing arguments: " + err.Error())
 			}
 
 			if len(formattedField) > 0 {
@@ -140,7 +119,7 @@ func formatRequestPayload(commandPath string, arguments []string) (string, error
 			}
 		}
 	}
-	if len(requestPayload) == 0 && allowGet {
+	if len(requestPayload) == 0 && util.Contains(endpointHelp.Features, help_pb.F_ALLOW_GET) {
 		requestPayload = ""
 	} else {
 		requestPayload = "{ " + requestPayload + " }"
@@ -150,7 +129,7 @@ func formatRequestPayload(commandPath string, arguments []string) (string, error
 	if len(arguments) > 0 {
 		for i := 0; i < len(parsedArgument); i++ {
 			if !parsedArgument[i] {
-				return "", errors.New("invalid command argument: " + arguments[i])
+				return "", er.New("invalid command argument: " + arguments[i])
 			}
 		}
 	}
@@ -160,7 +139,7 @@ func formatRequestPayload(commandPath string, arguments []string) (string, error
 
 //	check if there's a CLI argument for a specific payload field,
 //	in which case, returs the field formatted accordingly to it's data type
-func formatRequestField(fieldHierarchy string, requestField *pkthelp.Field, arguments []string, parsedArgument *[]bool) (string, error) {
+func formatRequestField(fieldHierarchy string, requestField *help_pb.Field, arguments []string, parsedArgument *[]bool) (string, error) {
 
 	var formattedField string
 
@@ -294,9 +273,9 @@ func formatRequestField(fieldHierarchy string, requestField *pkthelp.Field, argu
 			var err error
 
 			if len(fieldHierarchy) == 0 {
-				formattedSubField, err = formatRequestField(requestField.Name, &requestSubField, arguments, parsedArgument)
+				formattedSubField, err = formatRequestField(requestField.Name, requestSubField, arguments, parsedArgument)
 			} else {
-				formattedSubField, err = formatRequestField(fieldHierarchy+"."+requestField.Name, &requestSubField, arguments, parsedArgument)
+				formattedSubField, err = formatRequestField(fieldHierarchy+"."+requestField.Name, requestSubField, arguments, parsedArgument)
 			}
 			if err != nil {
 				return "", err
@@ -322,23 +301,23 @@ func formatRequestField(fieldHierarchy string, requestField *pkthelp.Field, argu
 }
 
 //	invoke pld's REST endpoint and try to parse error messages eventually returned by the server
-func executeCommand(command string, payload string) error {
+func executeCommand(pldServer string, command string, payload string) er.R {
 
 	var response *http.Response
-	var err error
+	var errr error
 
-	commandURI := pldServer + help.URI_prefix_ + "/" + command
+	commandURI := pldServer + "/api/v1/" + command
 
 	//	if there's no payload, use HTTP GET method to invoke pld command, otherwise use POST method
 	if len(payload) == 0 {
-		response, err = http.Get(commandURI)
-		if err != nil {
-			return errors.New("fail executing pld command: " + err.Error())
+		response, errr = http.Get(commandURI)
+		if errr != nil {
+			return er.New("fail executing pld command: " + errr.Error())
 		}
 	} else {
-		response, err = http.Post(commandURI, "application/json", strings.NewReader(payload))
-		if err != nil {
-			return errors.New("fail executing pld command: " + err.Error())
+		response, errr = http.Post(commandURI, "application/json", strings.NewReader(payload))
+		if errr != nil {
+			return er.New("fail executing pld command: " + errr.Error())
 		}
 	}
 	defer response.Body.Close()
@@ -348,9 +327,8 @@ func executeCommand(command string, payload string) error {
 		fmt.Fprintf(os.Stderr, "fail reading command response payload from pld server: %s", err)
 		panic(-1)
 	}
-	err = checkForServerError(responsePayload)
-	if err != nil {
-		return errors.New(err.Error() + "\nTry \"pldctl help " + command + "\" for more informaton on this command")
+	if err := checkForServerError(responsePayload); err != nil {
+		return er.New(err.Message() + "\nTry \"pldctl help " + command + "\" for more informaton on this command")
 	}
 
 	fmt.Fprintf(os.Stdout, "%s\n", responsePayload)
@@ -364,7 +342,7 @@ type pldErrorResponse struct {
 }
 
 //	parse a response payload to check if it indicates an error messages returned by the server
-func checkForServerError(responsePayload []byte) error {
+func checkForServerError(responsePayload []byte) er.R {
 	var errorResponse pldErrorResponse
 
 	err := json.Unmarshal(responsePayload, &errorResponse)
@@ -377,7 +355,7 @@ func checkForServerError(responsePayload []byte) error {
 				stackTrace += step + "\n"
 			}
 
-			return errors.New("pld returned an error message: " + errorResponse.Message + "\n\npld stack trace: " + stackTrace)
+			return er.New("pld returned an error message: " + errorResponse.Message + "\n\npld stack trace: " + stackTrace)
 		}
 	}
 

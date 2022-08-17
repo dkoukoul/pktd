@@ -19,7 +19,7 @@ import (
 	"github.com/pkt-cash/pktd/generated/proto/meta_pb"
 	"github.com/pkt-cash/pktd/generated/proto/restrpc_pb/rest_pb"
 	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/restrpc"
+	"github.com/pkt-cash/pktd/lnd/lnrpc/apiv1"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -208,7 +208,7 @@ func sendJSonCommand(conn *websocket.Conn, endpoint string, requestPayload inter
 	}
 
 	//	marshal the request message to a JSon
-	var req = restrpc.WebSocketJSonRequest{
+	var req = apiv1.WebSocketJSonRequest{
 		Endpoint:  endpoint,
 		RequestId: uuid.New().String(),
 		Payload:   payload,
@@ -244,14 +244,14 @@ func sendJSonCommand(conn *websocket.Conn, endpoint string, requestPayload inter
 	}
 
 	//	unmarshal the response message
-	var resp restrpc.WebSocketJSonResponse
+	var resp apiv1.WebSocketJSonResponse
 
 	err = jsoniter.Unmarshal(respJsonMsg, &resp)
 	if err != nil {
 		return errors.New("Fail unmarshling response message: " + err.Error())
 	}
 
-	if resp.Error.HttpCode != 0 {
+	if resp.Error.Message != "" {
 		return errors.New("Error response received from pld: " + resp.Error.Message)
 	}
 

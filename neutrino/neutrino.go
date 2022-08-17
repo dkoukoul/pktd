@@ -326,7 +326,7 @@ func (sp *ServerPeer) invTxn(inv *wire.MsgInv) {
 		}
 		return nil
 	}); err != nil {
-		log.Error("Failed to process inv message [%v]", err)
+		log.Errorf("Failed to process inv message [%v]", err)
 		return
 	}
 	gdmsg := wire.NewMsgGetData()

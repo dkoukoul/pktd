@@ -7,6 +7,7 @@ import (
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/chaincfg"
 	"github.com/pkt-cash/pktd/generated/proto/meta_pb"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd/lnwallet"
 	"github.com/pkt-cash/pktd/neutrino"
 	"github.com/pkt-cash/pktd/pktlog/log"
@@ -46,8 +47,8 @@ func (m *MetaService) Init(
 // ChangePassword changes the password of the wallet and sends the new password
 // across the UnlockPasswords channel to automatically unlock the wallet if
 // successful.
-func (m *MetaService) ChangePassword0(ctx context.Context,
-	in *meta_pb.ChangePasswordRequest) (*meta_pb.ChangePasswordResponse, er.R) {
+func (m *MetaService) ChangePassword(ctx context.Context,
+	in *meta_pb.ChangePasswordRequest) (*rpc_pb.Null, er.R) {
 
 	//	fetch current wallet passphrase from request
 	var walletPassphrase []byte
@@ -162,12 +163,12 @@ func (m *MetaService) ChangePassword0(ctx context.Context,
 			"%v", err)
 	}
 
-	return &meta_pb.ChangePasswordResponse{}, nil
+	return nil, nil
 }
 
 //	CheckPassword just verifies if the password of the wallet is valid, and is
 //	meant to be used independent of wallet's state being unlocked or locked.
-func (m *MetaService) CheckPassword0(
+func (m *MetaService) CheckPassword(
 	ctx context.Context,
 	req *meta_pb.CheckPasswordRequest,
 ) (*meta_pb.CheckPasswordResponse, er.R) {

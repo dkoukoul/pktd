@@ -121,11 +121,7 @@ type UnlockerService struct {
 	walletPath string
 
 	api *apiv1.Apiv1
-
-	walletunlocker_pb.UnimplementedWalletUnlockerServer
 }
-
-var _ walletunlocker_pb.WalletUnlockerServer = (*UnlockerService)(nil)
 
 // New creates and returns a new UnlockerService.
 func New(chainDir string, params *chaincfg.Params, noFreelistSync bool,
@@ -234,12 +230,6 @@ func extractChanBackups(chanBackups *rpc_pb.ChanBackupSnapshot) *ChannelsToRecov
 	return &backups
 }
 
-func (u *UnlockerService) InitWallet(ctx context.Context,
-	in *walletunlocker_pb.InitWalletRequest) (*walletunlocker_pb.InitWalletResponse, error) {
-	res, err := u.InitWallet0(ctx, in)
-	return res, er.Native(err)
-}
-
 // InitWallet is used when lnd is starting up for the first time to fully
 // initialize the daemon and its internal wallet. At the very least a wallet
 // password must be provided. This will be used to encrypt sensitive material
@@ -252,8 +242,8 @@ func (u *UnlockerService) InitWallet(ctx context.Context,
 // Alternatively, this can be used along with the GenSeed RPC to obtain a
 // seed, then present it to the user. Once it has been verified by the user,
 // the seed can be fed into this RPC in order to commit the new wallet.
-func (u *UnlockerService) InitWallet0(ctx context.Context,
-	in *walletunlocker_pb.InitWalletRequest) (*walletunlocker_pb.InitWalletResponse, er.R) {
+func (u *UnlockerService) InitWallet(ctx context.Context,
+	in *walletunlocker_pb.InitWalletRequest) (*rpc_pb.Null, er.R) {
 
 	//	fetch wallet passphrase from request
 	var walletPassphrase []byte
@@ -357,7 +347,7 @@ func (u *UnlockerService) InitWallet0(ctx context.Context,
 	case u.InitMsgs <- initMsg:
 		select {
 		case <-initMsg.Complete:
-			return &walletunlocker_pb.InitWalletResponse{}, nil
+			return nil, nil
 
 		case <-ctx.Done():
 			return nil, ErrUnlockTimeout.Default()
@@ -368,16 +358,10 @@ func (u *UnlockerService) InitWallet0(ctx context.Context,
 	}
 }
 
-func (u *UnlockerService) UnlockWallet(ctx context.Context,
-	in *walletunlocker_pb.UnlockWalletRequest) (*walletunlocker_pb.UnlockWalletResponse, error) {
-	_, err := u.UnlockWallet0(ctx, in)
-	return &walletunlocker_pb.UnlockWalletResponse{}, er.Native(err)
-}
-
 // UnlockWallet sends the password provided by the incoming UnlockWalletRequest
 // over the UnlockMsgs channel in case it successfully decrypts an existing
 // wallet found in the chain's wallet database directory.
-func (u *UnlockerService) UnlockWallet0(ctx context.Context,
+func (u *UnlockerService) UnlockWallet(ctx context.Context,
 	in *walletunlocker_pb.UnlockWalletRequest) (*rpc_pb.Null, er.R) {
 
 	//	fetch wallet passphrase from request

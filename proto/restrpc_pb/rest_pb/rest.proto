@@ -23,13 +23,12 @@ option go_package = "github.com/pkt-cash/pktd/generated/proto/restrpc_pb/rest_pb
  * https://github.com/lightninglabs/lightning-api
  */
 
-message RestEmptyResponse{
-}
-
-//  WebSocket request and response JSon messages
+//  WebSocket error result
 message WebSocketError {
-    uint32 http_code = 1;
+    // Error message
     string message = 2;
+    // The calling stack where the error occurred
+    repeated string stack = 3;
 }
 
 //  WebSocket request and response protobuf messages

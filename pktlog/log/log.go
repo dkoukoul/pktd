@@ -310,27 +310,27 @@ func Txid(str string) string {
 }
 
 func GreenBg(str string) string {
-	return color(BgGreen + fgBlack, str)
+	return color(BgGreen+fgBlack, str)
 }
 
 func BgYellow(str string) string {
-	return color(bgYellow + fgBlack, str)
+	return color(bgYellow+fgBlack, str)
 }
 
 func Coins(amount float64) string {
-	return color(Bright + FgGreen, strconv.FormatFloat(amount, 'f', 4, 64))
+	return color(Bright+FgGreen, strconv.FormatFloat(amount, 'f', 4, 64))
 }
 
 func Address(addr string) string {
-	return color(Bright + FgMagenta, addr)
+	return color(Bright+FgMagenta, addr)
 }
 
 func IpAddr(addr string) string {
-	return color(Bright + fgRed, addr)
+	return color(Bright+fgRed, addr)
 }
 
 func Int(num int) string {
-	return color(Bright + fgYellow, strconv.FormatInt(int64(num), 10))
+	return color(Bright+fgYellow, strconv.FormatInt(int64(num), 10))
 }
 
 // Appends a header in the default format 'YYYY-MM-DD hh:mm:ss.sss [LVL] TAG: '.

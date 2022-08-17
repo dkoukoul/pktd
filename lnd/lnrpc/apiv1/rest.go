@@ -3,13 +3,14 @@ package apiv1
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"reflect"
 	"strings"
 
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/mux"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/btcutil/lock"
@@ -21,8 +22,6 @@ import (
 )
 
 const _api_v1_ = "/api/v1/"
-
-//const _help = "help"
 
 // Functions
 
@@ -40,40 +39,16 @@ func parentCat(cat string) string {
 	return cat[:idx]
 }
 
-func categorize(
-	out *help_pb.Category,
-	shortDesc string,
-	path []string,
-	fpath []string,
-	cats map[string][]string,
-) {
-	if len(path) < 1 {
-		panic("path empty")
+func catName(cat string) string {
+	return cat[strings.LastIndex(cat, "/")+1:]
+}
+
+func epName(epPath string, cat string) string {
+	out := strings.Replace(epPath, cat, "", 1)
+	if len(out) > 0 && out[0] == '/' {
+		out = out[1:]
 	}
-	fpath = append(fpath, path[0])
-	var cat *help_pb.Category
-	if c, ok := out.Categories[path[0]]; ok {
-		cat = c
-	} else {
-		desc := []string{"TODO"}
-		if d, ok := cats[strings.Join(fpath, "/")]; ok {
-			desc = d
-		}
-		cat = &help_pb.Category{
-			Description: append(desc, strings.Join(fpath, "/")),
-			Categories:  make(map[string]*help_pb.Category),
-			Endpoints:   make(map[string]string),
-		}
-		if out.Categories == nil {
-			out.Categories = make(map[string]*help_pb.Category)
-		}
-		out.Categories[path[0]] = cat
-	}
-	if len(path) > 1 {
-		categorize(cat, shortDesc, path[1:], fpath, cats)
-	} else {
-		cat.Endpoints[path[0]] = shortDesc
-	}
+	return out
 }
 
 func typeOf[T any]() reflect.Type {
@@ -81,7 +56,7 @@ func typeOf[T any]() reflect.Type {
 }
 
 func toPm[T proto.Message]() proto.Message {
-	return reflect.New(typeOf[T]()).Elem().Interface().(proto.Message)
+	return reflect.New(typeOf[T]().Elem()).Interface().(proto.Message)
 }
 
 //	convert	pkthelp.type to REST help proto struct
@@ -113,8 +88,13 @@ func trimSplit(s string) []string {
 
 func unmarshal(r *http.Request, m proto.Message, isJson bool) er.R {
 	if isJson {
-		if err := jsonpb.Unmarshal(r.Body, m); err != nil {
+		if b, err := ioutil.ReadAll(r.Body); err != nil {
 			return er.E(err)
+		} else {
+			log.Infof("Unmarshal: [%s] to [%#T]", string(b), m)
+			if err := protojson.Unmarshal(b, m); err != nil {
+				return er.E(err)
+			}
 		}
 	} else {
 		if b, err := io.ReadAll(r.Body); err != nil {
@@ -130,15 +110,15 @@ func marshal(w http.ResponseWriter, m proto.Message, isJson bool) er.R {
 		return nil
 	}
 	if isJson {
-		marshaler := jsonpb.Marshaler{
-			OrigName:     false,
-			EnumsAsInts:  false,
-			EmitDefaults: true,
-			Indent:       "\t",
+		marshaler := protojson.MarshalOptions{
+			Multiline:       true,
+			EmitUnpopulated: false,
+			UseEnumNumbers:  false,
+			Indent:          "\t",
 		}
-		if s, err := marshaler.MarshalToString(m); err != nil {
+		if b, err := marshaler.Marshal(m); err != nil {
 			return er.E(err)
-		} else if _, err := io.WriteString(w, s); err != nil {
+		} else if _, err := w.Write(b); err != nil {
 			return er.E(err)
 		}
 	} else {
@@ -343,8 +323,8 @@ func Endpoint[Q proto.Message, R proto.Message](
 		return
 	}
 	a.internal.funcs.W().In(func(funcs *map[string]*endpoint) er.R {
-		(*funcs)[_api_v1_+path] = &endpoint{
-			path:     _api_v1_ + path,
+		(*funcs)[path] = &endpoint{
+			path:     path,
 			mkReq:    toPm[Q],
 			category: a.category,
 			helpRes: help_pb.EndpointHelp{
@@ -379,7 +359,9 @@ func Deregister(a *Apiv1, path string) er.R {
 
 type epInfo struct {
 	shortDesc string
-	path      string
+	category  string
+	name      string
+	helpPath  string
 }
 
 func (a *Apiv1) masterHelp() (*help_pb.Category, er.R) {
@@ -392,7 +374,9 @@ func (a *Apiv1) masterHelp() (*help_pb.Category, er.R) {
 					func() string { return ep.helpRes.Description[0] },
 					"<UNDEFINED>",
 				),
-				cat: ep.category,
+				category: ep.category,
+				name:     epName(ep.path, ep.category),
+				helpPath: _api_v1_ + "help/" + ep.path,
 			})
 		}
 		return nil
@@ -407,14 +391,51 @@ func (a *Apiv1) masterHelp() (*help_pb.Category, er.R) {
 	res := help_pb.Category{
 		Description: []string{"PLD - The PKT Lightning Daemon REST interface"},
 		Categories:  make(map[string]*help_pb.Category),
-		Endpoints:   make(map[string]string),
+		Endpoints:   make(map[string]*help_pb.EndpointSimple),
+	}
+	categorized := make(map[string]*help_pb.Category)
+	categorized[""] = &res
+	for len(cats) > 0 {
+		forwardProgress := false
+		for cat, desc := range cats {
+			if pcat, ok := categorized[parentCat(cat)]; ok {
+				hcat := &help_pb.Category{
+					Description: desc,
+					Categories:  make(map[string]*help_pb.Category),
+					Endpoints:   make(map[string]*help_pb.EndpointSimple),
+				}
+				pcat.Categories[catName(cat)] = hcat
+				categorized[cat] = hcat
+				delete(cats, cat)
+				forwardProgress = true
+			}
+		}
+		if !forwardProgress {
+			log.Warnf("categories which cannot be categorized: [%v]", cats)
+			break
+		}
 	}
 	for _, epi := range eps {
-		path := util.Filter(strings.Split(epi.cat, "/"), func(s string) bool { return s != "" })
-		log.Infof("Endpoint: %v", path)
-		categorize(&res, epi.shortDesc, path, []string{}, cats)
+		if cat, ok := categorized[epi.category]; ok {
+			cat.Endpoints[epi.name] = &help_pb.EndpointSimple{
+				HelpPath: epi.helpPath,
+				Brief:    epi.shortDesc,
+			}
+		} else {
+			log.Warnf("Uncategorized endpoint: [%s // %s]", epi.category, epi.name)
+		}
 	}
 	return &res, nil
+}
+
+func send404(res http.ResponseWriter, path string) er.R {
+	return respondError(res,
+		404,
+		fmt.Sprintf(
+			"No such endpoint [%s], use /api/v1/help to see the full list",
+			path,
+		),
+	)
 }
 
 func New() (*Apiv1, *mux.Router) {
@@ -428,45 +449,53 @@ func New() (*Apiv1, *mux.Router) {
 
 	//	Handle everything in the 404 handler, because this allows us to *remove* endpoints.
 	r.NotFoundHandler = http.HandlerFunc(func(res http.ResponseWriter, r *http.Request) {
-		if strings.Index(r.URL.Path, _api_v1_+"help/") == 0 {
-			// handle this as a help req
-			p := strings.Replace(r.URL.Path, _api_v1_+"help/", _api_v1_, 1)
-			if err := out.internal.funcs.R().In(func(funcs *map[string]*endpoint) er.R {
-				if ep, ok := (*funcs)[p]; ok {
-					return ep.respondHelp(res, r)
-				}
-				return respondError(res,
-					404,
-					fmt.Sprintf(
-						"No such help endpoint [%s], use /api/v1/help to see the full list",
-						r.URL.Path,
-					),
-				)
-			}); err != nil {
-				log.Warnf("Error responding to RPC req: [%s]", err)
+		if strings.Index(r.URL.Path, _api_v1_) != 0 {
+			send404(res, r.URL.Path)
+			return
+		}
+		path := strings.Replace(r.URL.Path, _api_v1_, "", 1)
+		isHelp := false
+		if strings.Index(path, "help/") == 0 {
+			isHelp = true
+			path = strings.Replace(path, "help/", "", 1)
+		}
+		var ep *endpoint
+		out.internal.funcs.R().In(func(funcs *map[string]*endpoint) er.R {
+			if e, ok := (*funcs)[path]; ok {
+				ep = e
 			}
+			return nil
+		})
+		var err er.R
+		if ep == nil {
+			err = send404(res, r.URL.Path)
+		} else if isHelp {
+			err = ep.respondHelp(res, r)
 		} else {
-			if err := out.internal.funcs.R().In(func(funcs *map[string]*endpoint) er.R {
-				if ep, ok := (*funcs)[r.URL.Path]; ok {
-					return ep.serveHTTP(res, r)
-				}
-				return respondError(res,
-					404,
-					fmt.Sprintf(
-						"No such endpoint [%s], use /api/v1/help to see the full list",
-						r.URL.Path,
-					),
-				)
-			}); err != nil {
-				log.Warnf("Error responding to RPC req: [%s]", err)
-			}
+			err = ep.serveHTTP(res, r)
+		}
+		if err != nil {
+			log.Warnf("Error responding to RPC req: [%s]", err)
 		}
 	})
 
 	//	add a handler for websocket endpoint
-	r.Handle(_api_v1_+"meta/websocket", http.HandlerFunc(func(httpResponse http.ResponseWriter, httpRequest *http.Request) {
-		// webSocketHandler(&out, httpResponse, httpRequest) TODO
+	r.Handle(_api_v1_+"websocket", http.HandlerFunc(func(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+		webSocketHandler(&out, httpResponse, httpRequest)
 	}))
+
+	Endpoint(
+		&out,
+		"websocket",
+		`
+		Special endpoint for initiating a websocket connection
+		
+		This allows further endpoint requests, including streaming endpoints, over the websocket.
+		`,
+		func(_ *rpc_pb.Null) (*rpc_pb.Null, er.R) {
+			return nil, nil
+		},
+	)
 
 	// Finally, register the master help endpoint
 	Endpoint(

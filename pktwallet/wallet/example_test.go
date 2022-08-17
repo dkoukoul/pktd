@@ -38,7 +38,7 @@ func testWallet(t *testing.T) (*Wallet, func()) {
 		&chaincfg.TestNet3Params, dir, "wallet.db", true, 250,
 	)
 	w, err := loader.CreateNewWallet(pubPass, privPass,
-		[]byte(hex.EncodeToString(seed)), time.Now(), nil)
+		[]byte(hex.EncodeToString(seed)), time.Now(), nil, nil)
 	if err != nil {
 		t.Fatalf("unable to create wallet: %v", err)
 	}

@@ -63,7 +63,7 @@ func createTestWalletWithPw(t *testing.T, pubPw, privPw []byte, dir string,
 	netDir := btcwallet.NetworkDir(dir, netParams)
 	loader := wallet.NewLoader(netParams, netDir, testWalletFilename, true, 0)
 	_, err := loader.CreateNewWallet(
-		pubPw, privPw, []byte(hex.EncodeToString(testSeed)), time.Time{}, nil,
+		pubPw, privPw, []byte(hex.EncodeToString(testSeed)), time.Time{}, nil, nil,
 	)
 	util.RequireNoErr(t, err)
 
@@ -113,7 +113,7 @@ func TestGenSeed(t *testing.T) {
 		_ = os.RemoveAll(testDir)
 	}()
 
-	service := walletunlocker.New(testDir, testNetParams, true, "", testWalletFilename)
+	service := walletunlocker.New(testDir, testNetParams, true, "", testWalletFilename, nil)
 
 	// Now that the service has been created, we'll ask it to generate a
 	// new seed for us given a test passphrase.
@@ -184,7 +184,7 @@ func TestGenSeedInvalidEntropy(t *testing.T) {
 	defer func() {
 		_ = os.RemoveAll(testDir)
 	}()
-	service := walletunlocker.New(testDir, testNetParams, true, "", testWalletFilename)
+	service := walletunlocker.New(testDir, testNetParams, true, "", testWalletFilename, nil)
 
 	// Now that the service has been created, we'll ask it to generate a
 	// new seed for us given a test passphrase. However, we'll be using an
@@ -216,7 +216,7 @@ func TestInitWallet(t *testing.T) {
 	}()
 
 	// Create new UnlockerService.
-	service := walletunlocker.New(testDir, testNetParams, true, "", testWalletFilename)
+	service := walletunlocker.New(testDir, testNetParams, true, "", testWalletFilename, nil)
 
 	// Once we have the unlocker service created, we'll now instantiate a
 	// new cipher seed and its mnemonic.
@@ -240,7 +240,7 @@ func TestInitWallet(t *testing.T) {
 	go func() {
 		_, err := service.InitWallet(ctx, req)
 		if err != nil {
-			errChan <- er.E(err)
+			errChan <- err
 			return
 		}
 		log.Debugf(">>> TestInitWallet [1] InitWallet() finished with success")
@@ -271,9 +271,12 @@ func TestInitWallet(t *testing.T) {
 
 	// Now calling InitWallet should fail, since a wallet already exists in
 	// the directory.
-	_, errr = service.InitWallet(ctx, req)
-	require.Error(t, errr)
-	require.Contains(t, errr.Error(), "wallet already exists")
+	_, err := service.InitWallet(ctx, req)
+	if err == nil {
+		t.Fail()
+	} else {
+		require.Contains(t, err.Message(), "wallet already exists")
+	}
 }
 
 // TestInitWalletInvalidCipherSeed tests that if we attempt to create a wallet
@@ -290,7 +293,7 @@ func TestCreateWalletInvalidEntropy(t *testing.T) {
 	}()
 
 	// Create new UnlockerService.
-	service := walletunlocker.New(testDir, testNetParams, true, "", testWalletFilename)
+	service := walletunlocker.New(testDir, testNetParams, true, "", testWalletFilename, nil)
 
 	// We'll attempt to init the wallet with an invalid cipher seed and
 	// passphrase.
@@ -301,9 +304,12 @@ func TestCreateWalletInvalidEntropy(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, errr = service.InitWallet(ctx, req)
-	require.Error(t, errr)
-	require.Contains(t, errr.Error(), "Expected a 15 word seed")
+	_, err := service.InitWallet(ctx, req)
+	if err == nil {
+		t.Fail()
+	} else {
+		require.Contains(t, err.Message(), "Expected a 15 word seed")
+	}
 }
 
 // TestUnlockWallet checks that trying to unlock non-existing wallet fail, that
@@ -321,7 +327,7 @@ func TestUnlockWallet(t *testing.T) {
 	}()
 
 	// Create new UnlockerService.
-	service := walletunlocker.New(testDir, testNetParams, true, "", testWalletFilename)
+	service := walletunlocker.New(testDir, testNetParams, true, "", testWalletFilename, nil)
 
 	ctx := context.Background()
 	req := &walletunlocker_pb.UnlockWalletRequest{
@@ -331,8 +337,11 @@ func TestUnlockWallet(t *testing.T) {
 
 	// Should fail to unlock non-existing wallet.
 	_, err := service.UnlockWallet(ctx, req)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "wallet not found")
+	if err == nil {
+		t.Fail()
+	} else {
+		require.Contains(t, err.Message(), "wallet not found")
+	}
 
 	// Create a wallet we can try to unlock.
 	createTestWallet(t, testDir, testNetParams)
@@ -342,15 +351,18 @@ func TestUnlockWallet(t *testing.T) {
 		WalletPassphraseBin: []byte("wrong-ofc"),
 	}
 	_, err = service.UnlockWallet(ctx, wrongReq)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid passphrase for master private key")
+	if err == nil {
+		t.Fail()
+	} else {
+		require.Contains(t, err.Message(), "invalid passphrase for master private key")
+	}
 
 	// With the correct password, we should be able to unlock the wallet.
 	errChan := make(chan er.R, 1)
 	go func() {
 		_, err := service.UnlockWallet(ctx, req)
 		if err != nil {
-			errChan <- er.E(err)
+			errChan <- err
 		}
 	}()
 

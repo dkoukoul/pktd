@@ -3946,18 +3946,25 @@ message ImportPrivKeyResponse{
 
 message ListLockUnspentRequest{}
 
-message ListLockUnspentResponse{
-    repeated string locked_unspent = 1;
+message LockedUtxos {
+    // The name of the lock, emptystring for uncategorized locks
+    string lock_name = 1;
+
+    // The utxos of this grouping
+    repeated OutPoint utxos = 2;
 }
 
-message LockUnspentTransaction {
-    string txid = 1;
-    int32 vout = 2;
+message ListLockUnspentResponse{
+    // The unspent transactions which have been locked, grouped by lock name
+    repeated LockedUtxos locked_unspents = 1;
 }
+
 message LockUnspentRequest{
-    bool unlock = 1;
-    repeated LockUnspentTransaction transactions = 2;
-    string lockname = 3;
+    // The transactions to lock
+    repeated OutPoint transactions = 1;
+    // An optional lock name to assign to them, so they can be batch-unlocked
+    // If this is the empty string then it will be disregarded
+    string lockname = 2;
 }
 
 message LockUnspentResponse{
@@ -3969,6 +3976,7 @@ message CreateTransactionRequest{
     string to_address = 1;
 
     // Number of PKT to send
+    // Specify Infinity to send as much as possible in a single transaction.
     double amount = 2;
 
     // Addresses which can be selected for sourcing funds from
@@ -4081,11 +4089,25 @@ message BcastTransactionResponse{
 }
 
 message SendFromRequest{
+    // The address to send funds to
     string to_address = 1;
+    // The amount of coins to send denominated in whole PKT.
+    // Infinity means send as much as possible.
+    // The most amount possible is based on the fees and limited maximum number of inputs.
+    // To completely sweep an address, you may need to call this endpoint multiple times.
     double amount = 2;
+    // List of addresses to source funds from
+    // NOTE: In place of addresses, you MAY use UTXO identifiers (i.e. TXID + ":" + output number)
+    // You can mix and match addresses and identifiers.
     repeated string from_address = 3;
+    // Do not source funds from any payment with less than this number of confirmations
+    // default 1 = anything which is in the blockchain at all
     int32 min_conf = 4;
+    // Do not source funds from any more inputs than this
+    // default 0 = no limit
     int32 max_inputs = 5;
+    // Do not source funds from any payments OLDER (lower block height) than this number
+    // default 0 = no limit
     int32 min_height = 6;
 }
 

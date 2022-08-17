@@ -1,36 +1,37 @@
+// NOTICE: This entire file is DEPRECATED
+// Please avoid adding new endpoints to this file, instead add them where
+// the business logic is. See pktwallet/wallet.go for an example of how to
+// do this well.
+// Endpoints which are relevant to different business logic should be moved
+// where appropriate.
 package lnd
 
 import (
 	"context"
 	"strconv"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkt-cash/pktd/btcjson"
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/btcutil/util"
 	"github.com/pkt-cash/pktd/connmgr/banmgr"
 	"github.com/pkt-cash/pktd/generated/proto/meta_pb"
 	"github.com/pkt-cash/pktd/generated/proto/restrpc_pb/help_pb"
 	"github.com/pkt-cash/pktd/generated/proto/routerrpc_pb"
 	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
+	"github.com/pkt-cash/pktd/generated/proto/verrpc_pb"
 	"github.com/pkt-cash/pktd/generated/proto/walletunlocker_pb"
-	"github.com/pkt-cash/pktd/lnd/chainreg"
+	"github.com/pkt-cash/pktd/generated/proto/wtclientrpc_pb"
 	"github.com/pkt-cash/pktd/lnd/lnrpc"
 	"github.com/pkt-cash/pktd/lnd/lnrpc/apiv1"
 	"github.com/pkt-cash/pktd/lnd/lnrpc/routerrpc"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/verrpc"
 	"github.com/pkt-cash/pktd/lnd/lnrpc/wtclientrpc"
 	"github.com/pkt-cash/pktd/lnd/walletunlocker"
 	"github.com/pkt-cash/pktd/neutrino"
+	"github.com/pkt-cash/pktd/pktconfig/version"
 	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
 	"github.com/pkt-cash/pktd/pktwallet/wallet"
+	"google.golang.org/protobuf/proto"
 )
-
-// type RpcFunc struct {
-// 	command string
-// 	req     proto.Message
-// 	res     proto.Message
-// 	f       func(c *RpcContext, m proto.Message) (proto.Message, er.R)
-// }
 
 func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 	lightning := apiv1.DefineCategory(
@@ -57,7 +58,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		is a participant in.
 		`,
 		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.ListChannelsRequest) (*rpc_pb.ListChannelsResponse, er.R) {
-			return er.E1(rs.ListChannels(context.TODO(), req))
+			return rs.ListChannels(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -76,7 +77,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		then be used to manually progress the channel funding flow.
 		`,
 		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.OpenChannelRequest) (*rpc_pb.ChannelPoint, er.R) {
-			return er.E1(rs.OpenChannelSync(context.TODO(), req))
+			return rs.OpenChannelSync(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -94,8 +95,8 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		specified, then a default lax, block confirmation target is used.
 		`,
 		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.CloseChannelRequest) (*rpc_pb.Null, er.R) {
-			// TODO streaming
-			return nil, er.E(rs.CloseChannel(req, nil))
+			// TODO(cjd): streaming
+			return nil, rs.CloseChannel(req, nil)
 		}),
 	)
 	apiv1.Endpoint(
@@ -112,7 +113,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		build.
 		`,
 		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.AbandonChannelRequest) (*rpc_pb.AbandonChannelResponse, er.R) {
-			return er.E1(rs.AbandonChannel(context.TODO(), req))
+			return rs.AbandonChannel(req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -125,8 +126,8 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		categorized in local/remote, pending local/remote and unsettled local/remote
 		balances.
 		`,
-		withRpc(c, func(rs *LightningRPCServer, _ *rpc_pb.Null) (*rpc_pb.ChannelBalanceResponse, er.R) {
-			return er.E1(rs.ChannelBalance(context.TODO(), nil))
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.Null) (*rpc_pb.ChannelBalanceResponse, er.R) {
+			return rs.ChannelBalance(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -140,8 +141,8 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		workflow and is waiting for confirmations for the funding txn, or is in the
 		process of closure, either initiated cooperatively or non-cooperatively.
 		`,
-		withRpc(c, func(rs *LightningRPCServer, _ *rpc_pb.Null) (*rpc_pb.PendingChannelsResponse, er.R) {
-			return er.E1(rs.PendingChannels(context.TODO(), nil))
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.Null) (*rpc_pb.PendingChannelsResponse, er.R) {
+			return rs.PendingChannels(context.TODO(), req)
 		}),
 		help_pb.F_ALLOW_GET,
 	)
@@ -155,7 +156,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		this node was a participant in.
 		`,
 		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.ClosedChannelsRequest) (*rpc_pb.ClosedChannelsResponse, er.R) {
-			return er.E1(rs.ClosedChannels(context.TODO(), req))
+			return rs.ClosedChannels(context.TODO(), req)
 		}),
 		help_pb.F_ALLOW_GET,
 	)
@@ -168,8 +169,8 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		GetNetworkInfo returns some basic stats about the known channel graph from
 		the point of view of the node.
 		`,
-		withRpc(c, func(rs *LightningRPCServer, _ *rpc_pb.Null) (*rpc_pb.NetworkInfo, er.R) {
-			return er.E1(rs.GetNetworkInfo(context.TODO(), nil))
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.Null) (*rpc_pb.NetworkInfo, er.R) {
+			return rs.GetNetworkInfo(req)
 		}),
 		help_pb.F_ALLOW_GET,
 	)
@@ -182,8 +183,8 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		FeeReport allows the caller to obtain a report detailing the current fee
 		schedule enforced by the node globally for each channel.
 		`,
-		withRpc(c, func(rs *LightningRPCServer, _ *rpc_pb.Null) (*rpc_pb.FeeReportResponse, er.R) {
-			return er.E1(rs.FeeReport(context.TODO(), nil))
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.Null) (*rpc_pb.FeeReportResponse, er.R) {
+			return rs.FeeReport(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -196,7 +197,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		schedule enforced by the node globally for each channel.
 		`,
 		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.PolicyUpdateRequest) (*rpc_pb.PolicyUpdateResponse, er.R) {
-			return er.E1(rs.UpdateChannelPolicy(context.TODO(), nil))
+			return rs.UpdateChannelPolicy(context.TODO(), req)
 		}),
 	)
 
@@ -221,20 +222,9 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		method once lnd is running, or via the InitWallet and UnlockWallet methods
 		from the WalletUnlocker service.
 		`,
-		func(req *rpc_pb.ExportChannelBackupRequest) (*rpc_pb.ChannelBackup, er.R) {
-			//	invoke Lightning export chan backup command
-			cc, errr := c.withRpcServer()
-			if cc != nil {
-				channelBackupResp, err := cc.ExportChannelBackup(context.TODO(), req)
-				if err != nil {
-					return nil, er.E(err)
-				} else {
-					return channelBackupResp, nil
-				}
-			} else {
-				return nil, errr
-			}
-		},
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.ExportChannelBackupRequest) (*rpc_pb.ChannelBackup, er.R) {
+			return rs.ExportChannelBackup(context.TODO(), req)
+		}),
 	)
 
 	apiv1.Endpoint(
@@ -247,22 +237,9 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		snapshot. This method will accept either a packed Single or a packed Multi.
 		Specifying both will result in an error.
 		`,
-		func(req *rpc_pb.ChanBackupSnapshot) (*rpc_pb.VerifyChanBackupResponse, er.R) {
-			//	invoke Lightning verify chan backup command
-			cc, errr := c.withRpcServer()
-			if cc != nil {
-				var verifyChanBackupResp *rpc_pb.VerifyChanBackupResponse
-
-				verifyChanBackupResp, err := cc.VerifyChanBackup(context.TODO(), req)
-				if err != nil {
-					return nil, er.E(err)
-				} else {
-					return verifyChanBackupResp, nil
-				}
-			} else {
-				return nil, errr
-			}
-		},
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.ChanBackupSnapshot) (*rpc_pb.VerifyChanBackupResponse, er.R) {
+			return rs.VerifyChanBackup(context.TODO(), req)
+		}),
 	)
 
 	apiv1.Endpoint(
@@ -276,22 +253,9 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		remaining within the channel. If we are able to unpack the backup, then the
 		new channel will be shown under listchannels, as well as pending channels.
 		`,
-		func(req *rpc_pb.RestoreChanBackupRequest) (*rpc_pb.RestoreBackupResponse, er.R) {
-			//	invoke Lightning restore chan backup command
-			cc, errr := c.withRpcServer()
-			if cc != nil {
-				var restoreBackupResp *rpc_pb.RestoreBackupResponse
-
-				restoreBackupResp, err := cc.RestoreChannelBackups(context.TODO(), req)
-				if err != nil {
-					return nil, er.E(err)
-				} else {
-					return restoreBackupResp, nil
-				}
-			} else {
-				return nil, errr
-			}
-		},
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.RestoreChanBackupRequest) (*rpc_pb.RestoreBackupResponse, er.R) {
+			return rs.RestoreChannelBackups(context.TODO(), req)
+		}),
 	)
 
 	//	>>> lightning/graph subCategory commands
@@ -311,22 +275,9 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		the node directional specific routing policy which includes: the time lock
 		delta, fee information, etc.
 		`,
-		func(req *rpc_pb.ChannelGraphRequest) (*rpc_pb.ChannelGraph, er.R) {
-			//	get graph description info
-			cc, errr := c.withRpcServer()
-			if cc != nil {
-				var channelGraphResp *rpc_pb.ChannelGraph
-
-				channelGraphResp, err := cc.DescribeGraph(context.TODO(), req)
-				if err != nil {
-					return nil, er.E(err)
-				} else {
-					return channelGraphResp, nil
-				}
-			} else {
-				return nil, errr
-			}
-		},
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.ChannelGraphRequest) (*rpc_pb.ChannelGraph, er.R) {
+			return rs.DescribeGraph(context.TODO(), req)
+		}),
 	)
 	apiv1.Endpoint(
 		lightningGraph,
@@ -337,20 +288,9 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		Returns node metrics calculated from the graph. Currently
 		the only supported metric is betweenness centrality of individual nodes.
 		`,
-		func(req *rpc_pb.NodeMetricsRequest) (*rpc_pb.NodeMetricsResponse, er.R) {
-			//	get node metrics info
-			cc, errr := c.withRpcServer()
-			if cc != nil {
-				nodeMetricsResp, err := cc.GetNodeMetrics(context.TODO(), req)
-				if err != nil {
-					return nil, er.E(err)
-				} else {
-					return nodeMetricsResp, nil
-				}
-			} else {
-				return nil, errr
-			}
-		},
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.NodeMetricsRequest) (*rpc_pb.NodeMetricsResponse, er.R) {
+			return rs.GetNodeMetrics(context.TODO(), req)
+		}),
 	)
 	apiv1.Endpoint(
 		lightningGraph,
@@ -363,20 +303,9 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		uniquely identifies the location of transaction's funding output within the
 		blockchain.
 		`,
-		func(req *rpc_pb.ChanInfoRequest) (*rpc_pb.ChannelEdge, er.R) {
-			//	get chan info
-			cc, errr := c.withRpcServer()
-			if cc != nil {
-				channelEdgeResp, err := cc.GetChanInfo(context.TODO(), req)
-				if err != nil {
-					return nil, er.E(err)
-				} else {
-					return channelEdgeResp, nil
-				}
-			} else {
-				return nil, errr
-			}
-		},
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.ChanInfoRequest) (*rpc_pb.ChannelEdge, er.R) {
+			return rs.GetChanInfo(context.TODO(), req)
+		}),
 	)
 	apiv1.Endpoint(
 		lightningGraph,
@@ -387,20 +316,9 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		Returns the latest advertised, aggregated, and authenticated
 		channel information for the specified node identified by its public key.
 		`,
-		func(req *rpc_pb.NodeInfoRequest) (*rpc_pb.NodeInfo, er.R) {
-			//	get node info
-			cc, errr := c.withRpcServer()
-			if cc != nil {
-				nodeInfoResp, err := cc.GetNodeInfo(context.TODO(), req)
-				if err != nil {
-					return nil, er.E(err)
-				} else {
-					return nodeInfoResp, nil
-				}
-			} else {
-				return nil, errr
-			}
-		},
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.NodeInfoRequest) (*rpc_pb.NodeInfo, er.R) {
+			return rs.GetNodeInfo(context.TODO(), req)
+		}),
 	)
 
 	//	>>> lightning/invoice subCategory commands
@@ -416,20 +334,9 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		duplicated invoices are rejected, therefore all invoices *must* have a
 		unique payment preimage.
 		`,
-		func(req *rpc_pb.Invoice) (*rpc_pb.AddInvoiceResponse, er.R) {
-			//	add an invoice
-			cc, errr := c.withRpcServer()
-			if cc != nil {
-				addInvoiceResp, err := cc.AddInvoice(context.TODO(), req)
-				if err != nil {
-					return nil, er.E(err)
-				} else {
-					return addInvoiceResp, nil
-				}
-			} else {
-				return nil, errr
-			}
-		},
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.Invoice) (*rpc_pb.AddInvoiceResponse, er.R) {
+			return rs.AddInvoice(context.TODO(), req)
+		}),
 	)
 	apiv1.Endpoint(
 		lightningInvoice,
@@ -441,13 +348,9 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		The passed payment hash *must* be exactly 32 bytes, if not, an error is
 		returned.
 		`,
-		func(req *rpc_pb.PaymentHash) (*rpc_pb.Invoice, er.R) {
-			if cc, err := c.withRpcServer(); cc != nil {
-				return er.E1(cc.LookupInvoice(context.TODO(), req))
-			} else {
-				return nil, err
-			}
-		},
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.PaymentHash) (*rpc_pb.Invoice, er.R) {
+			return rs.LookupInvoice(context.TODO(), req)
+		}),
 	)
 	apiv1.Endpoint(
 		lightningInvoice,
@@ -464,7 +367,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		Backwards pagination is also supported through the Reversed flag.
 		`,
 		withRpc(c, func(cc *LightningRPCServer, req *rpc_pb.ListInvoiceRequest) (*rpc_pb.ListInvoiceResponse, er.R) {
-			return er.E1(cc.ListInvoices(context.TODO(), req))
+			return cc.ListInvoices(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -478,7 +381,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		payment request.
 		`,
 		withRpc(c, func(cc *LightningRPCServer, req *rpc_pb.PayReqString) (*rpc_pb.PayReq, er.R) {
-			return er.E1(cc.DecodePayReq(context.TODO(), req))
+			return cc.DecodePayReq(context.TODO(), req)
 		}),
 	)
 
@@ -492,7 +395,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		SendPayment sends payments through the Lightning Network
 		`,
 		withRpc(c, func(cc *LightningRPCServer, req *rpc_pb.SendRequest) (*rpc_pb.SendResponse, er.R) {
-			return er.E1(cc.SendPaymentSync(context.TODO(), req))
+			return cc.SendPaymentSync(context.TODO(), req)
 		}),
 	)
 	// TODO(cjd): Streaming
@@ -508,7 +411,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 	// 	`,
 	// 	false,
 	// 	withRouter(c, func(rs *routerrpc.Server, req *routerrpc_pb.SendPaymentRequest) (*rpc_pb.Null, er.R) {
-	// 		return er.E1(rs.SendPaymentV2(context.TODO(), req))
+	// 		return rs.SendPaymentV2(context.TODO(), req)
 	// 	}),
 	// )
 	apiv1.Endpoint(
@@ -523,7 +426,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		swaps.
 		`,
 		withRouter(c, func(rs *routerrpc.Server, req *routerrpc_pb.SendToRouteRequest) (*rpc_pb.HTLCAttempt, er.R) {
-			return er.E1(rs.SendToRouteV2(context.TODO(), req))
+			return rs.SendToRouteV2(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -535,7 +438,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
     	ListPayments returns a list of all outgoing payments.
 		`,
 		withRpc(c, func(cc *LightningRPCServer, req *rpc_pb.ListPaymentsRequest) (*rpc_pb.ListPaymentsResponse, er.R) {
-			return er.E1(cc.ListPayments(context.TODO(), req))
+			return cc.ListPayments(context.TODO(), req)
 		}),
 	)
 	// TODO(cjd): Streaming only
@@ -550,7 +453,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 	// 	`,
 	// 	false,
 	// 	withRouter(c, func(rs *routerrpc.Server, req *routerrpc_pb.TrackPaymentRequest) (*rpc_pb.HTLCAttempt, er.R) {
-	// 		return er.E1(rs.TrackPaymentV2(context.TODO(), req))
+	// 		return rs.TrackPaymentV2(context.TODO(), req)
 	// 	}),
 	// )
 	apiv1.Endpoint(
@@ -566,7 +469,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		present within the Sphinx packet encapsulated within the HTLC.
 		`,
 		withRpc(c, func(cc *LightningRPCServer, req *rpc_pb.QueryRoutesRequest) (*rpc_pb.QueryRoutesResponse, er.R) {
-			return er.E1(cc.QueryRoutes(context.TODO(), req))
+			return cc.QueryRoutes(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -585,7 +488,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		the caller to skip a series of records.
 		`,
 		withRpc(c, func(cc *LightningRPCServer, req *rpc_pb.ForwardingHistoryRequest) (*rpc_pb.ForwardingHistoryResponse, er.R) {
-			return er.E1(cc.ForwardingHistory(context.TODO(), req))
+			return cc.ForwardingHistory(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -597,8 +500,8 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		QueryMissionControl exposes the internal mission control state to callers.
 		It is a development feature.
 		`,
-		withRouter(c, func(rs *routerrpc.Server, _ *rpc_pb.Null) (*routerrpc_pb.QueryMissionControlResponse, er.R) {
-			return er.E1(rs.QueryMissionControl(context.TODO(), nil))
+		withRouter(c, func(rs *routerrpc.Server, req *rpc_pb.Null) (*routerrpc_pb.QueryMissionControlResponse, er.R) {
+			return rs.QueryMissionControl(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -611,7 +514,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		given node pair and amount.
 		`,
 		withRouter(c, func(rs *routerrpc.Server, req *routerrpc_pb.QueryProbabilityRequest) (*routerrpc_pb.QueryProbabilityResponse, er.R) {
-			return er.E1(rs.QueryProbability(context.TODO(), req))
+			return rs.QueryProbability(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -623,8 +526,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		ResetMissionControl clears all mission control state and starts with a clean slate.
 		`,
 		withRouter(c, func(rs *routerrpc.Server, req *rpc_pb.Null) (*rpc_pb.Null, er.R) {
-			_, err := rs.ResetMissionControl(context.TODO(), nil)
-			return nil, er.E(err)
+			return rs.ResetMissionControl(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -638,7 +540,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		calculate the correct fees and time locks.
 		`,
 		withRouter(c, func(rs *routerrpc.Server, req *routerrpc_pb.BuildRouteRequest) (*routerrpc_pb.BuildRouteResponse, er.R) {
-			return er.E1(rs.BuildRoute(context.TODO(), req))
+			return rs.BuildRoute(context.TODO(), req)
 		}),
 	)
 
@@ -656,8 +558,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		distinct from establishing a channel with a peer.
 		`,
 		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.ConnectPeerRequest) (*rpc_pb.Null, er.R) {
-			_, err := er.E1(rs.ConnectPeer(context.TODO(), req))
-			return nil, err
+			return rs.ConnectPeer(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -671,8 +572,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		with the target peer, then this action will be not be allowed.
 		`,
 		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.DisconnectPeerRequest) (*rpc_pb.Null, er.R) {
-			_, err := er.E1(rs.DisconnectPeer(context.TODO(), req))
-			return nil, err
+			return rs.DisconnectPeer(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -683,9 +583,85 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 
 		ListPeers returns a verbose listing of all currently active peers.
 		`,
-		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.Null) (*rpc_pb.ListPeersResponse, er.R) {
-			_, err := er.E1(rs.ListPeers(context.TODO(), nil))
-			return nil, err
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.ListPeersRequest) (*rpc_pb.ListPeersResponse, er.R) {
+			return rs.ListPeers(context.TODO(), req)
+		}),
+	)
+
+	lightningWatchtower := apiv1.DefineCategory(lightning, "watchtower",
+		"Watchtowers identify and react to malicious activity on the Lightning Network")
+	apiv1.Endpoint(
+		lightningWatchtower,
+		"",
+		`
+		Display information about all registered watchtowers
+	
+		ListTowers returns the list of watchtowers registered with the client.
+		`,
+		withWtclient(c, func(rs *wtclientrpc.WatchtowerClient, req *wtclientrpc_pb.ListTowersRequest) (*wtclientrpc_pb.ListTowersResponse, er.R) {
+			return rs.ListTowers(context.TODO(), req)
+		}),
+	)
+	apiv1.Endpoint(
+		lightningWatchtower,
+		"stats",
+		`
+		Display the session stats of the watchtower client
+
+		Stats returns the in-memory statistics of the client since startup.
+		`,
+		withWtclient(c, func(rs *wtclientrpc.WatchtowerClient, req *rpc_pb.Null) (*wtclientrpc_pb.StatsResponse, er.R) {
+			return rs.Stats(context.TODO(), req)
+		}),
+	)
+	apiv1.Endpoint(
+		lightningWatchtower,
+		"create",
+		`
+		Register a watchtower to use for future sessions/backups
+	
+		AddTower adds a new watchtower reachable at the given address and
+		considers it for new sessions. If the watchtower already exists, then
+		any new addresses included will be considered when dialing it for
+		session negotiations and backups.
+		`,
+		withWtclient(c, func(rs *wtclientrpc.WatchtowerClient, req *wtclientrpc_pb.AddTowerRequest) (*rpc_pb.Null, er.R) {
+			return rs.AddTower(context.TODO(), req)
+		}),
+	)
+	apiv1.Endpoint(
+		lightningWatchtower,
+		"delete",
+		`
+		Remove a watchtower to prevent its use for future sessions/backups
+	
+		RemoveTower removes a watchtower from being considered for future session
+		negotiations and from being used for any subsequent backups until it's added
+		again. If an address is provided, then this RPC only serves as a way of
+		removing the address from the watchtower instead.
+		`,
+		withWtclient(c, func(rs *wtclientrpc.WatchtowerClient, req *wtclientrpc_pb.RemoveTowerRequest) (*rpc_pb.Null, er.R) {
+			return rs.RemoveTower(context.TODO(), req)
+		}),
+	)
+	apiv1.Endpoint(
+		lightningWatchtower,
+		"towerinfo",
+		`
+		Display information about a specific registered watchtower
+		`,
+		withWtclient(c, func(rs *wtclientrpc.WatchtowerClient, req *wtclientrpc_pb.GetTowerInfoRequest) (*wtclientrpc_pb.Tower, er.R) {
+			return rs.GetTowerInfo(context.TODO(), req)
+		}),
+	)
+	apiv1.Endpoint(
+		lightningWatchtower,
+		"towerpolicy",
+		`
+		Display the active watchtower client policy configuration
+		`,
+		withWtclient(c, func(rs *wtclientrpc.WatchtowerClient, req *wtclientrpc_pb.PolicyRequest) (*wtclientrpc_pb.PolicyResponse, er.R) {
+			return rs.Policy(context.TODO(), req)
 		}),
 	)
 
@@ -703,8 +679,8 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		level, or in a granular fashion to specify the logging for a target
 		sub-system.
 		`,
-		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.DebugLevelRequest) (*rpc_pb.DebugLevelResponse, er.R) {
-			return er.E1(rs.DebugLevel(context.TODO(), req))
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.DebugLevelRequest) (*rpc_pb.Null, er.R) {
+			return rs.DebugLevel(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -719,7 +695,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		`,
 		func(m *rpc_pb.Null) (*meta_pb.GetInfo2Response, er.R) {
 			var ni rpc_pb.NeutrinoInfo
-			if n, _ := c.withNeutrino(); n != nil {
+			if n := c.MaybeNeutrino; n != nil {
 				neutrinoPeers := n.Peers()
 				for i := range neutrinoPeers {
 					var peerDesc rpc_pb.PeerDesc
@@ -799,7 +775,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 			}
 
 			var walletInfo *rpc_pb.WalletInfo
-			if w, _ := c.withWallet(); w != nil {
+			if w := c.MaybeWallet; w != nil {
 				mgrStamp := w.Manager.SyncedTo()
 				walletStats := &rpc_pb.WalletStats{}
 				w.ReadStats(func(ws *btcjson.WalletStats) {
@@ -828,7 +804,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 
 			// Get Lightning info
 			var lightning *rpc_pb.GetInfoResponse
-			if cc, _ := c.withRpcServer(); cc != nil {
+			if cc := c.MaybeRpcServer; cc != nil {
 				if l, err := cc.GetInfo(context.TODO(), nil); err != nil {
 					return nil, er.E(err)
 				} else {
@@ -853,53 +829,32 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		a graceful shutdown of the daemon.
 		`,
 		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.Null) (*rpc_pb.Null, er.R) {
-			_, err := er.E1(rs.StopDaemon(context.TODO(), nil))
-			return nil, err
+			return rs.StopDaemon(context.TODO(), req)
 		}),
 	)
+	apiv1.Endpoint(
+		meta,
+		"version",
+		`
+		Display pld version info
 
-	/*
-		//	service daemon version  -  URI /meta/version
-		{
-			command: help.CommandVersion,
-			req:     nil,
-			res:     (*verrpc_pb.Version)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get daemon version
-				cc, errr := c.withVerRPCServer()
-				if cc != nil {
-					var versionResp *verrpc_pb.Version
-
-					versionResp, err := cc.GetVersion(context.TODO(), nil)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return versionResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
+		GetVersion returns the current version and build information of the running
+		daemon.
+		`,
+		func(req *rpc_pb.Null) (*verrpc_pb.Version, er.R) {
+			return &verrpc_pb.Version{
+				Commit:        "UNKNOWN",
+				CommitHash:    "UNKNOWN",
+				BuildTags:     []string{"UNKNOWN"},
+				GoVersion:     "UNKNOWN",
+				Version:       version.Version(),
+				AppMajor:      uint32(version.AppMajorVersion()),
+				AppMinor:      uint32(version.AppMinorVersion()),
+				AppPatch:      uint32(version.AppPatchVersion()),
+				AppPreRelease: util.If(version.IsPrerelease(), "true", "false"),
+			}, nil
 		},
-		//	service force pld crash  -  URI /meta/crash
-		{
-			command: help.CommandCrash,
-			req:     nil,
-			res:     (*rest_pb.RestEmptyResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				var someVariable *string = nil
-
-				//	dereference o nil pointer to force a core dump
-				if len(*someVariable) == 0 {
-					return nil, nil
-				}
-
-				return &rest_pb.RestEmptyResponse{}, nil
-			},
-		},
-	*/
+	)
 
 	// wallet category commands
 	wallet := apiv1.DefineCategory(a, "wallet", "APIs for management of on-chain (non-Lightning) payments")
@@ -913,8 +868,8 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		confirmed unspent outputs and all unconfirmed unspent outputs under control
 		of the wallet.
 		`,
-		withRpc(c, func(rs *LightningRPCServer, _ *rpc_pb.Null) (*rpc_pb.WalletBalanceResponse, er.R) {
-			return er.E1(rs.WalletBalance(context.TODO(), nil))
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.Null) (*rpc_pb.WalletBalanceResponse, er.R) {
+			return rs.WalletBalance(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -927,8 +882,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		automatically unlock the wallet database if successful.
 		`,
 		withMeta(c, func(rs *lnrpc.MetaService, req *meta_pb.ChangePasswordRequest) (*rpc_pb.Null, er.R) {
-			_, err := rs.ChangePassword0(context.TODO(), req)
-			return nil, err
+			return rs.ChangePassword(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -940,7 +894,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
     	CheckPassword verify that the password in the request is valid for the wallet.
 		`,
 		withMeta(c, func(rs *lnrpc.MetaService, req *meta_pb.CheckPasswordRequest) (*meta_pb.CheckPasswordResponse, er.R) {
-			return rs.CheckPassword0(context.TODO(), req)
+			return rs.CheckPassword(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -964,35 +918,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		wallet.
 		`,
 		withUnlocker(c, func(rs *walletunlocker.UnlockerService, req *walletunlocker_pb.InitWalletRequest) (*rpc_pb.Null, er.R) {
-			_, err := rs.InitWallet0(context.TODO(), req)
-			return nil, err
-		}),
-	)
-	apiv1.Endpoint(
-		wallet,
-		"getsecret",
-		`
-		Get a secret
-
-    	This provides which is generated using the wallet's private keys,
-		this can be used as a password for another application. It will be
-		the same as long as this wallet exists, even if it is re-recovered from seed.
-		`,
-		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.GetSecretRequest) (*rpc_pb.GetSecretResponse, er.R) {
-			return er.E1(rs.GetSecret(context.TODO(), req))
-		}),
-	)
-	apiv1.Endpoint(
-		wallet,
-		"seed",
-		`
-		Get the wallet seed words for this wallet
-
-    	Get the wallet seed words for this wallet, this seed is returned in an
-		ENCRYPTED form (using the wallet passphrase as key). The output is 15 words.
-		`,
-		withRpc(c, func(rs *LightningRPCServer, _ *rpc_pb.Null) (*rpc_pb.GetWalletSeedResponse, er.R) {
-			return er.E1(rs.GetWalletSeed(context.TODO(), nil))
+			return rs.InitWallet(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -1004,7 +930,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		Required at startup of pld to provide a password to unlock the wallet database.
 		`,
 		withUnlocker(c, func(rs *walletunlocker.UnlockerService, req *walletunlocker_pb.UnlockWalletRequest) (*rpc_pb.Null, er.R) {
-			return rs.UnlockWallet0(context.TODO(), req)
+			return rs.UnlockWallet(context.TODO(), req)
 		}),
 	)
 
@@ -1019,8 +945,8 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 
 		Find out how the wallet is currently configured to vote in a network steward election.
 		`,
-		withRpc(c, func(rs *LightningRPCServer, _ *rpc_pb.Null) (*rpc_pb.GetNetworkStewardVoteResponse, er.R) {
-			return er.E1(rs.GetNetworkStewardVote(context.TODO(), nil))
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.Null) (*rpc_pb.GetNetworkStewardVoteResponse, er.R) {
+			return rs.GetNetworkStewardVote(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -1032,8 +958,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		Configure the wallet to vote for a network steward when making payments (note: payments to segwit addresses cannot vote)
 		`,
 		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.SetNetworkStewardVoteRequest) (*rpc_pb.Null, er.R) {
-			_, e := er.E1(rs.SetNetworkStewardVote(context.TODO(), req))
-			return nil, e
+			return rs.SetNetworkStewardVote(context.TODO(), req)
 		}),
 	)
 
@@ -1051,7 +976,7 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		it will appear as "not found" even if the transaction is real.
 		`,
 		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.GetTransactionRequest) (*rpc_pb.GetTransactionResponse, er.R) {
-			return er.E1(rs.GetTransaction(context.TODO(), req))
+			return rs.GetTransaction(context.TODO(), req)
 		}),
 	)
 	apiv1.Endpoint(
@@ -1067,753 +992,336 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 		autolock field.
 		`,
 		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.CreateTransactionRequest) (*rpc_pb.CreateTransactionResponse, er.R) {
-			return er.E1(rs.CreateTransaction(context.TODO(), req))
+			return rs.CreateTransaction(context.TODO(), req)
+		}),
+	)
+	// TODO(cjd): I don't like this endpoint, use sendfrom
+	// apiv1.Endpoint(
+	// 	walletTransaction,
+	// 	"sendcoins",
+	// 	`
+	// 	Send bitcoin on-chain to an address
+
+	// 	SendCoins executes a request to send coins to a particular address. Unlike
+	// 	SendMany, this RPC call only allows creating a single output at a time. If
+	// 	neither target_conf, or sat_per_byte are set, then the internal wallet will
+	// 	consult its fee model to determine a fee for the default confirmation
+	// 	target.
+	// 	`,
+	// 	withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.SendCoinsRequest) (*rpc_pb.SendCoinsResponse, er.R) {
+	// 		return rs.SendCoins(context.TODO(), req)
+	// 	}),
+	// )
+	apiv1.Endpoint(
+		walletTransaction,
+		"sendfrom",
+		`
+		Authors, signs, and sends a transaction which sources funds from specific addresses
+
+		SendFrom authors, signs, and sends a transaction which sources it's funds
+		from specific addresses.
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.SendFromRequest) (*rpc_pb.SendFromResponse, er.R) {
+			return rs.SendFrom(context.TODO(), req)
+		}),
+	)
+	// TODO(cjd): This is not written right, needs to be addressed
+	// apiv1.Endpoint(
+	// 	walletTransaction,
+	// 	"sendmany",
+	// 	`
+	// 	Send PKT on-chain to multiple addresses
+
+	// 	SendMany handles a request for a transaction that creates multiple specified
+	// 	outputs in parallel. If neither target_conf, or sat_per_byte are set, then
+	// 	the internal wallet will consult its fee model to determine a fee for the
+	// 	default confirmation target.
+	// 	`,
+	// 	withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.SendManyRequest) (*rpc_pb.SendManyResponse, er.R) {
+	// 		return rs.SendMany(context.TODO(), req)
+	// 	}),
+	// )
+	apiv1.Endpoint(
+		walletTransaction,
+		"decode",
+		`
+		Parse a binary representation of a transaction into it's relevant data
+
+		Parse a binary or hex encoded transaction and returns a structured description of it.
+		This endpoint also uses information from the wallet, if possible, to fill in additional
+		data such as the amounts of the transaction inputs - data which is not present inside of the
+		transaction itself. If the relevant data is not in the wallet, some info about the transaction
+		will be missing such as input amounts and fees.
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.DecodeRawTransactionRequest) (*rpc_pb.TransactionInfo, er.R) {
+			return rs.DecodeRawTransaction(context.TODO(), req)
+		}))
+
+	walletUnspent := apiv1.DefineCategory(wallet, "unspent",
+		"Detected unspent transactions associated with one of our wallet addresses")
+	apiv1.Endpoint(
+		walletUnspent,
+		"",
+		`
+		List utxos available for spending
+
+		ListUnspent returns a list of all utxos spendable by the wallet with a
+		number of confirmations between the specified minimum and maximum.
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.ListUnspentRequest) (*rpc_pb.ListUnspentResponse, er.R) {
+			return rs.ListUnspent(context.TODO(), req)
 		}),
 	)
 
-	/*
-		//	service sendcoins  -  URI /wallet/transaction/sendcoins
-		{
-			command: help.CommandSendCoins,
-			req:     (*rpc_pb.SendCoinsRequest)(nil),
-			res:     (*rpc_pb.SendCoinsResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				sendCoinsReq, ok := m.(*rpc_pb.SendCoinsRequest)
-				if !ok {
-					return nil, er.New("Argument is not a SendCoinsRequest")
-				}
-
-				//	send coins to one addresses
-				cc, errr := c.withRpcServer()
-				if cc != nil {
-					var sendCoinsResp *rpc_pb.SendCoinsResponse
-
-					sendCoinsResp, err := cc.SendCoins(context.TODO(), sendCoinsReq)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return sendCoinsResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-		//	Sendfrom  -  URI /wallet/transaction/sendfrom
-		{
-			command: help.CommandSendFrom,
-			req:     (*rpc_pb.SendFromRequest)(nil),
-			res:     (*rpc_pb.SendFromResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-				req, ok := m.(*rpc_pb.SendFromRequest)
-				if !ok {
-					return nil, er.New("Argument is not a SendFromRequest")
-				}
-				if server, err := c.withRpcServer(); server != nil {
-					if l, err := server.SendFrom(context.TODO(), req); err != nil {
-						return nil, er.E(err)
-					} else {
-						return l, nil
-					}
-				} else {
-					return nil, err
-				}
-			},
-		},
-		//	service sendmany  -  URI /wallet/transaction/sendmany
-		{
-			command: help.CommandSendMany,
-			req:     (*rpc_pb.SendManyRequest)(nil),
-			res:     (*rpc_pb.SendManyResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				sendManyReq, ok := m.(*rpc_pb.SendManyRequest)
-				if !ok {
-					return nil, er.New("Argument is not a SendManyRequest")
-				}
-
-				//	send coins to many addresses
-				cc, errr := c.withRpcServer()
-				if cc != nil {
-					var sendManyResp *rpc_pb.SendManyResponse
-
-					sendManyResp, err := cc.SendMany(context.TODO(), sendManyReq)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return sendManyResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-
-		//	>>> wallet/unspent subCategory command
-
-		// URI /wallet/loosetxn/watch
-		{
-			command: "LooseTransactionsWatch",
-			req:     nil,
-			res:     nil,
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-				w, err := c.withWallet()
-				if err != nil {
-					return nil, err
-				}
-				w.WatchLooseTransactions()
-				return nil, nil
-			},
-		},
-		// URI /wallet/loosetxn/stopwatch
-		{
-			command: "LooseTransactionsStopWatch",
-			req:     nil,
-			res:     nil,
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-				w, err := c.withWallet()
-				if err != nil {
-					return nil, err
-				}
-				w.StopWatchLooseTransactions()
-				return nil, nil
-			},
-		},
-		// URI /wallet/loosetxn
-		{
-			command: "LooseTransactions",
-			req:     nil,
-			res:     (*rpc_pb.LooseTxnRes)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-				w, err := c.withWallet()
-				if err != nil {
-					return nil, err
-				}
-				ret := w.WatchingLooseTransactions()
-				return &rpc_pb.LooseTxnRes{IsWatching: ret}, nil
-			},
-		},
-
-		//	service listunspent  -  URI /wallet/unspent
-		{
-			command: help.CommandListUnspent,
-			req:     (*rpc_pb.ListUnspentRequest)(nil),
-			res:     (*rpc_pb.ListUnspentResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				listUnspentReq, ok := m.(*rpc_pb.ListUnspentRequest)
-				if !ok {
-					return nil, er.New("Argument is not a ListUnspentRequest")
-				}
-
-				//	get a list of available utxos
-				cc, errr := c.withRpcServer()
-				if cc != nil {
-					var listUnspentResp *rpc_pb.ListUnspentResponse
-
-					listUnspentResp, err := cc.ListUnspent(context.TODO(), listUnspentReq)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return listUnspentResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-		//	Resync  -  URI /wallet/unspent/resync
-		{
-			command: help.CommandResync,
-			req:     (*rpc_pb.ReSyncChainRequest)(nil),
-			res:     (*rest_pb.RestEmptyResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-				req, ok := m.(*rpc_pb.ReSyncChainRequest)
-				if !ok {
-					return nil, er.New("Argument is not a ReSyncChainRequest")
-				}
-				if server, err := c.withRpcServer(); server != nil {
-					if _, err := server.ReSync(context.TODO(), req); err != nil {
-						return nil, er.E(err)
-					} else {
-						return &rest_pb.RestEmptyResponse{}, nil
-					}
-				} else {
-					return nil, err
-				}
-			},
-		},
-		//	StopResync  -  URI /wallet/unspent/stopresync
-		{
-			command: help.CommandStopResync,
-			req:     nil,
-			res:     (*rpc_pb.StopReSyncResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-				if server, err := c.withRpcServer(); server != nil {
-					if l, err := server.StopReSync(context.TODO(), nil); err != nil {
-						return nil, er.E(err)
-					} else {
-						return l, nil
-					}
-				} else {
-					return nil, err
-				}
-			},
-		},
-
-		//	>>> wallet/unspent/lock subCategory command
-
-		//	service listlockunspent  -  URI /wallet/unspent/lock
-		{
-			command: help.CommandListLockUnspent,
-			req:     nil,
-			res:     (*rpc_pb.ListLockUnspentResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	invoke wallet list lock unspent command
-				cc, errr := c.withRpcServer()
-				if cc != nil {
-					var listLockUnspentResp *rpc_pb.ListLockUnspentResponse
-
-					listLockUnspentResp, err := cc.ListLockUnspent(context.TODO(), nil)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return listLockUnspentResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-		//	service lockunspent  -  URI /wallet/unspent/lock/create
-		{
-			command: help.CommandLockUnspent,
-			req:     (*rpc_pb.LockUnspentRequest)(nil),
-			res:     (*rpc_pb.LockUnspentResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				lockUnspentReq, ok := m.(*rpc_pb.LockUnspentRequest)
-				if !ok {
-					return nil, er.New("Argument is not a LockUnspentRequest")
-				}
-
-				//	invoke wallet lock unspent command
-				cc, errr := c.withRpcServer()
-				if cc != nil {
-					var lockUnspentResp *rpc_pb.LockUnspentResponse
-
-					lockUnspentResp, err := cc.LockUnspent(context.TODO(), lockUnspentReq)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return lockUnspentResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-
-		//	>>> wallet/address subCategory command
-
-		//	GetAddressBalances  -  URI /wallet/address/balances
-		{
-			command: help.CommandGetAddressBalances,
-			req:     (*rpc_pb.GetAddressBalancesRequest)(nil),
-			res:     (*rpc_pb.GetAddressBalancesResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-				req, ok := m.(*rpc_pb.GetAddressBalancesRequest)
-				if !ok {
-					return nil, er.New("Argument is not a GetAddressBalancesRequest")
-				}
-				if server, err := c.withRpcServer(); server != nil {
-					if l, err := server.GetAddressBalances(context.TODO(), req); err != nil {
-						return nil, er.E(err)
-					} else {
-						return l, nil
-					}
-				} else {
-					return nil, err
-				}
-			},
-		},
-		//	New wallet address  -  URI /wallet/address/create
-		//	requires unlocked wallet -> access to rpcServer
-		{
-			command: help.CommandNewAddress,
-			req:     (*rpc_pb.GetNewAddressRequest)(nil),
-			res:     (*rpc_pb.GetNewAddressResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-				req, ok := m.(*rpc_pb.GetNewAddressRequest)
-				if !ok {
-					return nil, er.New("Argument is not a GetNewAddressRequest")
-				}
-				if server, err := c.withRpcServer(); server != nil {
-					if l, err := server.GetNewAddress(context.TODO(), req); err != nil {
-						return nil, er.E(err)
-					} else {
-						return l, nil
-					}
-				} else {
-					return nil, err
-				}
-			},
-		},
-		//	service dumpprivkey  -  URI /wallet/address/dumpprivkey
-		{
-			command: help.CommandDumpPrivkey,
-			req:     (*rpc_pb.DumpPrivKeyRequest)(nil),
-			res:     (*rpc_pb.DumpPrivKeyResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				dumpPrivKeyReq, ok := m.(*rpc_pb.DumpPrivKeyRequest)
-				if !ok {
-					return nil, er.New("Argument is not a DumpPrivKeyRequest")
-				}
-
-				//	invoke wallet dump private key command
-				cc, errr := c.withRpcServer()
-				if cc != nil {
-					var dumpPrivKeyResp *rpc_pb.DumpPrivKeyResponse
-
-					dumpPrivKeyResp, err := cc.DumpPrivKey(context.TODO(), dumpPrivKeyReq)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return dumpPrivKeyResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-		//	service importprivkey  -  URI /wallet/address/import
-		{
-			command: help.CommandImportPrivkey,
-			req:     (*rpc_pb.ImportPrivKeyRequest)(nil),
-			res:     (*rpc_pb.ImportPrivKeyResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				importPrivKeyReq, ok := m.(*rpc_pb.ImportPrivKeyRequest)
-				if !ok {
-					return nil, er.New("Argument is not a ImportPrivKeyRequest")
-				}
-
-				//	invoke wallet import private key command
-				cc, errr := c.withRpcServer()
-				if cc != nil {
-					var importPrivKeyResp *rpc_pb.ImportPrivKeyResponse
-
-					importPrivKeyResp, err := cc.ImportPrivKey(context.TODO(), importPrivKeyReq)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return importPrivKeyResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-		//	service signmessage  -  URI /wallet/address/signmessage
-		{
-			command: help.CommandSignMessage,
-			req:     (*rpc_pb.SignMessageRequest)(nil),
-			res:     (*rpc_pb.SignMessageResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				signMessageReq, ok := m.(*rpc_pb.SignMessageRequest)
-				if !ok {
-					return nil, er.New("Argument is not a SignMessageRequest")
-				}
-
-				//	invoke wallet sign message command
-				cc, errr := c.withRpcServer()
-				if cc != nil {
-					var signMessageResp *rpc_pb.SignMessageResponse
-
-					signMessageResp, err := cc.SignMessage(context.TODO(), signMessageReq)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return signMessageResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-		//	Decode transaction service  -  URI /wallet/transaction/decode
-		{
-			command: help.CommandDecodeRawTransaction,
-			req:     (*rpc_pb.DecodeRawTransactionRequest)(nil),
-			res:     (*rpc_pb.TransactionInfo)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				decodeReq, ok := m.(*rpc_pb.DecodeRawTransactionRequest)
-				if !ok {
-					return nil, er.New("Argument is not a DecodeRawTransactionRequest")
-				}
-
-				//	generate a new seed
-				cc, errr := c.withRpcServer()
-				if cc != nil {
-					var decodeResp *rpc_pb.TransactionInfo
-
-					decodeResp, err := cc.DecodeRawTransaction(context.TODO(), decodeReq)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return decodeResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-		//	>>> neutrino category command
-
-		//	service bcasttransaction  -  URI /neutrino/bcasttransaction
-		{
-			command: help.CommandBcastTransaction,
-			req:     (*rpc_pb.BcastTransactionRequest)(nil),
-			res:     (*rpc_pb.BcastTransactionResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				bcastTransactionReq, ok := m.(*rpc_pb.BcastTransactionRequest)
-				if !ok {
-					return nil, er.New("Argument is not a BcastTransactionRequest")
-				}
-
-				//	invoke Lightning broadcast transaction in chain command
-				cc, errr := c.withRpcServer()
-				if cc != nil {
-					var bcastTransactionResp *rpc_pb.BcastTransactionResponse
-
-					bcastTransactionResp, err := cc.BcastTransaction(context.TODO(), bcastTransactionReq)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return bcastTransactionResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-		//	service estimatefee  -  URI /neutrino/estimatefee
-		{
-			command: help.CommandEstimateFee,
-			req:     (*rpc_pb.EstimateFeeRequest)(nil),
-			res:     (*rpc_pb.EstimateFeeResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				estimateFeeReq, ok := m.(*rpc_pb.EstimateFeeRequest)
-				if !ok {
-					return nil, er.New("Argument is not a EstimateFeeRequest")
-				}
-
-				//	get estimate fee info
-				cc, errr := c.withRpcServer()
-				if cc != nil {
-					var estimateFeeResp *rpc_pb.EstimateFeeResponse
-
-					estimateFeeResp, err := cc.EstimateFee(context.TODO(), estimateFeeReq)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return estimateFeeResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-
-		//	>>> util/seed subCategory command
-
-		//	Change Passphrase service  -  URI /util/seed/changepassphrase
-		{
-			command: help.CommandChangeSeedPassphrase,
-			req:     (*rpc_pb.ChangeSeedPassphraseRequest)(nil),
-			res:     (*rpc_pb.ChangeSeedPassphraseResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				changeSeedPassphraseReq, ok := m.(*rpc_pb.ChangeSeedPassphraseRequest)
-				if !ok {
-					return nil, er.New("Argument is not a ChangeSeedPassphraseRequest")
-				}
-
-				//	invoke Lightning change seed passphrase command
-				cc, errr := c.withRpcServer()
-				if cc != nil {
-					var changeSeedPassphraseResp *rpc_pb.ChangeSeedPassphraseResponse
-
-					changeSeedPassphraseResp, err := cc.ChangeSeedPassphrase(context.TODO(), changeSeedPassphraseReq)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return changeSeedPassphraseResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-		//	GenSeed service  -  URI /util/seed/create
-		{
-			command: help.CommandGenSeed,
-			req:     (*walletunlocker_pb.GenSeedRequest)(nil),
-			res:     (*walletunlocker_pb.GenSeedResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				genSeedReq, ok := m.(*walletunlocker_pb.GenSeedRequest)
-				if !ok {
-					return nil, er.New("Argument is not a GenSeedRequest")
-				}
-
-				//	generate a new seed
-				cc, errr := c.withUnlocker()
-				if cc != nil {
-					var genSeedResp *walletunlocker_pb.GenSeedResponse
-
-					genSeedResp, err := cc.GenSeed0(context.TODO(), genSeedReq)
-					if err != nil {
-						return nil, err
-					} else {
-						return genSeedResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-
-		//	>>> wtclient/tower subCategory command
-
-		//	service CreateWatchTower  -  URI /wtclient/tower/create
-		{
-			command: help.CommandCreateWatchTower,
-			req:     (*wtclientrpc_pb.AddTowerRequest)(nil),
-			res:     (*rest_pb.RestEmptyResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				addTowerReq, ok := m.(*wtclientrpc_pb.AddTowerRequest)
-				if !ok {
-					return nil, er.New("Argument is not a AddTowerRequest")
-				}
-
-				//	invoke wallet get transactions command
-				cc, errr := c.withWatchTowerClient()
-
-				if cc != nil {
-					_, err := cc.AddTower(context.TODO(), addTowerReq)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return &rest_pb.RestEmptyResponse{}, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-		//	service RemoveWatchTower  -  URI /wtclient/tower/remove
-		{
-			command: help.CommandRemoveTower,
-			req:     (*wtclientrpc_pb.RemoveTowerRequest)(nil),
-			res:     (*rest_pb.RestEmptyResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				removeTowerReq, ok := m.(*wtclientrpc_pb.RemoveTowerRequest)
-				if !ok {
-					return nil, er.New("Argument is not a RemoveTowerRequest")
-				}
-
-				//	invoke wallet get transactions command
-				cc, errr := c.withWatchTowerClient()
-
-				if cc != nil {
-					_, err := cc.RemoveTower(context.TODO(), removeTowerReq)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return &rest_pb.RestEmptyResponse{}, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-		//	service ListTowers  -  URI /wtclient/tower
-		{
-			command: help.CommandListTowers,
-			req:     (*wtclientrpc_pb.ListTowersRequest)(nil),
-			res:     (*wtclientrpc_pb.ListTowersResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				listTowersReq, ok := m.(*wtclientrpc_pb.ListTowersRequest)
-				if !ok {
-					return nil, er.New("Argument is not a ListTowersRequest")
-				}
-
-				//	invoke wallet get transactions command
-				cc, errr := c.withWatchTowerClient()
-
-				if cc != nil {
-					var listTowersResp *wtclientrpc_pb.ListTowersResponse
-
-					listTowersResp, err := cc.ListTowers(context.TODO(), listTowersReq)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return listTowersResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-		//	service GetTowerInfo  -  URI /wtclient/tower/getinfo
-		{
-			command: help.CommandGetTowerInfo,
-			req:     (*wtclientrpc_pb.GetTowerInfoRequest)(nil),
-			res:     (*wtclientrpc_pb.Tower)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				getTowerInfoReq, ok := m.(*wtclientrpc_pb.GetTowerInfoRequest)
-				if !ok {
-					return nil, er.New("Argument is not a GetTowerInfoRequest")
-				}
-
-				//	invoke wallet get transactions command
-				cc, errr := c.withWatchTowerClient()
-
-				if cc != nil {
-					var towerResp *wtclientrpc_pb.Tower
-
-					towerResp, err := cc.GetTowerInfo(context.TODO(), getTowerInfoReq)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return towerResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-		//	service GetTowerStats  -  URI /wtclient/tower/stats
-		{
-			command: help.CommandGetTowerStats,
-			req:     nil,
-			res:     (*wtclientrpc_pb.StatsResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				statsReq, ok := m.(*wtclientrpc_pb.StatsRequest)
-				if !ok {
-					return nil, er.New("Argument is not a StatsRequest")
-				}
-
-				//	invoke wallet get transactions command
-				cc, errr := c.withWatchTowerClient()
-
-				if cc != nil {
-					var statsResp *wtclientrpc_pb.StatsResponse
-
-					statsResp, err := cc.Stats(context.TODO(), statsReq)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return statsResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-		//	service GetTowerPolicy  -  URI /wtclient/tower/policy
-		{
-			command: help.CommandGetTowerPolicy,
-			req:     (*wtclientrpc_pb.PolicyRequest)(nil),
-			res:     (*wtclientrpc_pb.PolicyResponse)(nil),
-			f: func(c *RpcContext, m proto.Message) (proto.Message, er.R) {
-
-				//	get the request payload
-				policyReq, ok := m.(*wtclientrpc_pb.PolicyRequest)
-				if !ok {
-					return nil, er.New("Argument is not a PolicyRequest")
-				}
-
-				//	invoke wallet get transactions command
-				cc, errr := c.withWatchTowerClient()
-
-				if cc != nil {
-					var policyResp *wtclientrpc_pb.PolicyResponse
-
-					policyResp, err := cc.Policy(context.TODO(), policyReq)
-					if err != nil {
-						return nil, er.E(err)
-					} else {
-						return policyResp, nil
-					}
-				} else {
-					return nil, errr
-				}
-			},
-		},
-	*/
+	walletUnspentLock := apiv1.DefineCategory(walletUnspent, "lock",
+		`
+		Unspent outputs which are locked
+
+		Locking of unspent outputs prevent them from being used as funding for transaction/create
+		or transaction/sendcoins, etc. This is useful when creating multiple transactions which are
+		not sent to the chain (yet). Locking the outputs will prevent each subsequent transaction
+		from trying to source the same funds, making mutually invalid transactions.
+
+		Locked outputs can be grouped with "named" locks, so that they can be unlocked as a group.
+		This is useful when one transaction may source many unspent outputs, they can be locked
+		with the name/purpose of that transaction.
+		`)
+	apiv1.Endpoint(
+		walletUnspentLock,
+		"",
+		`
+		List utxos which are locked
+
+		Returns an set of outpoints marked as locked by using /wallet/unspent/lock/create
+		These are batched by group name.
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.Null) (*rpc_pb.ListLockUnspentResponse, er.R) {
+			return rs.ListLockUnspent(context.TODO(), req)
+		}),
+	)
+	apiv1.Endpoint(
+		walletUnspentLock,
+		"create",
+		`
+		Lock one or more unspent outputs
+
+		You may optionally specify a group name. You may call this endpoint
+		multiple times with the same group name to add more unspents to the group.
+		NOTE: The lock group name "none" is reserved.
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.LockUnspentRequest) (*rpc_pb.Null, er.R) {
+			return rs.LockUnspent(context.TODO(), req)
+		}),
+	)
+	apiv1.Endpoint(
+		walletUnspentLock,
+		"delete",
+		`
+		Remove one or a group of locks
+
+		If a lock name is specified, all locks with that name will be unlocked
+		in addition to all unspents that are specifically identified. If the literal
+		word "none" is specified as the lock name, all uncategorized locks will be removed.
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.LockUnspentRequest) (*rpc_pb.Null, er.R) {
+			return rs.UnlockUnspent(context.TODO(), req)
+		}),
+	)
+	apiv1.Endpoint(
+		walletUnspentLock,
+		"deleteall",
+		`
+		Remove every lock, including all categories.
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.Null) (*rpc_pb.Null, er.R) {
+			return rs.UnlockAllUnspent(context.TODO(), req)
+		}),
+	)
+
+	walletAddress := apiv1.DefineCategory(wallet, "address",
+		`
+		Management of PKT addresses in the wallet
+
+		The root keys of this wallet can be used to derive as many addresses as you need.
+		If you recover your wallet from seed, all of the same addresses will derive again
+		in the same order. The public does not know that these addresses are linked to the
+		same wallet unless you spend from multiple of them in the same transaction.
+
+		Each address can be pay, be paid, hold a balance, and generally be used as it's own
+		wallet.
+		`)
+	apiv1.Endpoint(
+		walletAddress,
+		"resync",
+		`
+		Re-scan the chain for transactions
+
+		Scan the chain for transactions which may not have been recorded in the wallet's
+		database. This endpoint returns instantly and completes in the background.
+		Use meta/getinfo to follow up on the status.
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.ReSyncChainRequest) (*rpc_pb.Null, er.R) {
+			return rs.ReSync(context.TODO(), req)
+		}),
+	)
+	apiv1.Endpoint(
+		walletAddress,
+		"stopresync",
+		`
+		Stop the currently active resync job
+
+		Only one resync job can take place at a time, this will stop the active one if any.
+		This endpoint errors if there is no currently active resync job.
+		Check meta/getinfo to see if there is a resync job ongoing.
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.Null) (*rpc_pb.Null, er.R) {
+			return rs.StopReSync(context.TODO(), req)
+		}),
+	)
+	apiv1.Endpoint(
+		walletAddress,
+		"balances",
+		`
+		Compute and display balances for each address in the wallet
+
+		This computes and returns the current balances of every address, as well as the
+		number of unspent outputs, unconfirmed coins and other information.
+		In a wallet with many outputs, this endpoint can take a long time.
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.GetAddressBalancesRequest) (*rpc_pb.GetAddressBalancesResponse, er.R) {
+			return rs.GetAddressBalances(context.TODO(), req)
+		}),
+	)
+	apiv1.Endpoint(
+		walletAddress,
+		"create",
+		`
+		Generates a new address
+
+		Generates a new payment address
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.GetNewAddressRequest) (*rpc_pb.GetNewAddressResponse, er.R) {
+			return rs.GetNewAddress(context.TODO(), req)
+		}),
+	)
+	apiv1.Endpoint(
+		walletAddress,
+		"dumpprivkey",
+		`
+		Returns the private key that controls a wallet address
+
+		Returns the private key in WIF encoding that controls some wallet address.
+		Note that if the private key of an address falls into the wrong hands, all
+		funds on THAT ADDRESS can be stolen. However no other addresses in the wallet
+		are affected.
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.DumpPrivKeyRequest) (*rpc_pb.DumpPrivKeyResponse, er.R) {
+			return rs.DumpPrivKey(context.TODO(), req)
+		}),
+	)
+	apiv1.Endpoint(
+		walletAddress,
+		"import",
+		`
+		Imports a WIF-encoded private key
+
+		Imports a WIF-encoded private key to the wallet.
+		Funds from this key/address will be spendable once it is imported.
+		NOTE: Imported addresses will NOT be recovered if you recover your
+		wallet from seed as they are not mathmatically derived from the seed.
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.ImportPrivKeyRequest) (*rpc_pb.ImportPrivKeyResponse, er.R) {
+			return rs.ImportPrivKey(context.TODO(), req)
+		}),
+	)
+	apiv1.Endpoint(
+		walletAddress,
+		"signmessage",
+		`
+		Signs a message using the private key of a payment address
+
+		SignMessage signs a message with an address's private key. The returned
+		signature string can be verified using a utility such as:
+		https://github.com/cjdelisle/pkt-checksig
+
+		NOTE: Only legacy style addresses (mixed capital and lower case letters,
+		beginning with a 'p') can currently be used to sign messages.
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.SignMessageRequest) (*rpc_pb.SignMessageResponse, er.R) {
+			return rs.SignMessage(context.TODO(), req)
+		}),
+	)
+
+	neutrino := apiv1.DefineCategory(a, "neutrino",
+		"The Neutrino interface which is used to communicate with the p2p nodes in the network")
+	apiv1.Endpoint(
+		neutrino,
+		"bcasttransaction",
+		`
+		Broadcast a transaction to the network
+
+		Broadcast a transaction to the network so it can be logged in the chain.
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.BcastTransactionRequest) (*rpc_pb.BcastTransactionResponse, er.R) {
+			return rs.BcastTransaction(context.TODO(), req)
+		}),
+	)
+
+	// We're not doing estimatefee because it is unreliable and a bad API
+	// apiv1.Endpoint(
+	// 	neutrino,
+	// 	"estimatefee",
+	// 	`
+	// 	Get fee estimates for sending coins on-chain to one or more addresses
+
+	// 	`,
+	// 	withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.EstimateFeeRequest) (*rpc_pb.EstimateFeeResponse, er.R) {
+	// 		return rs.EstimateFee(context.TODO(), req)
+	// 	}),
+	// )
+
+	util := apiv1.DefineCategory(a, "util",
+		"Stateless utility functions which do not affect, not query, the node in any way")
+	utilSeed := apiv1.DefineCategory(util, "seed",
+		"Manipulation of mnemonic seed phrases which represent wallet keys")
+	apiv1.Endpoint(
+		utilSeed,
+		"changepassphrase",
+		`
+		Alter the passphrase which is used to encrypt a wallet seed
+
+		The old seed words are transformed into a new seed words,
+		representing the same seed but encrypted with a different passphrase.
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.ChangeSeedPassphraseRequest) (*rpc_pb.ChangeSeedPassphraseResponse, er.R) {
+			return rs.ChangeSeedPassphrase(context.TODO(), req)
+		}),
+	)
+	apiv1.Endpoint(
+		utilSeed,
+		"create",
+		`
+		Create a secret seed
+
+		This allows you to statelessly create a new wallet seed.
+		This seed can then be used to initialize a wallet.
+		`,
+		withUnlocker(c, func(rs *walletunlocker.UnlockerService, req *walletunlocker_pb.GenSeedRequest) (*walletunlocker_pb.GenSeedResponse, er.R) {
+			return rs.GenSeed0(context.TODO(), req)
+		}),
+	)
 }
 
 type RpcContext struct {
-	MaybeCC               *chainreg.ChainControl
 	MaybeNeutrino         *neutrino.ChainService
 	MaybeWallet           *wallet.Wallet
 	MaybeRpcServer        *LightningRPCServer
 	MaybeWalletUnlocker   *walletunlocker.UnlockerService
 	MaybeMetaService      *lnrpc.MetaService
-	MaybeVerRPCServer     *verrpc.Server
 	MaybeRouterServer     *routerrpc.Server
 	MaybeWatchTowerClient *wtclientrpc.WatchtowerClient
 }
 
-func with(thing interface{}, name string) er.R {
-	if thing == nil {
-		return er.Errorf("Could not call function because [%s] is not yet ready", name)
-	}
-	return nil
-}
-func (c *RpcContext) withCC() (*chainreg.ChainControl, er.R) {
-	return c.MaybeCC, with(c.MaybeCC, "ChainController")
-}
-func (c *RpcContext) withNeutrino() (*neutrino.ChainService, er.R) {
-	return c.MaybeNeutrino, with(c.MaybeNeutrino, "Neutrino")
-}
-func (c *RpcContext) withWallet() (*wallet.Wallet, er.R) {
-	return c.MaybeWallet, with(c.MaybeWallet, "Wallet")
-}
-func (c *RpcContext) withRpcServer() (*LightningRPCServer, er.R) {
-	return c.MaybeRpcServer, with(c.MaybeRpcServer, "LightningServer")
-}
 func withRpc[Q, R proto.Message](
 	c *RpcContext,
 	f func(*LightningRPCServer, Q) (R, er.R),
@@ -1850,12 +1358,6 @@ func withMeta[Q, R proto.Message](
 		return f(c.MaybeMetaService, q)
 	}
 }
-func (c *RpcContext) withVerRPCServer() (*verrpc.Server, er.R) {
-	return c.MaybeVerRPCServer, with(c.MaybeVerRPCServer, "VersionerService")
-}
-func (c *RpcContext) withRouterServer() (*routerrpc.Server, er.R) {
-	return c.MaybeRouterServer, with(c.MaybeRouterServer, "RouterServer")
-}
 func withRouter[Q, R proto.Message](
 	c *RpcContext,
 	f func(*routerrpc.Server, Q) (R, er.R),
@@ -1868,7 +1370,15 @@ func withRouter[Q, R proto.Message](
 		return f(c.MaybeRouterServer, q)
 	}
 }
-
-func (c *RpcContext) withWatchTowerClient() (*wtclientrpc.WatchtowerClient, er.R) {
-	return c.MaybeWatchTowerClient, with(c.MaybeWatchTowerClient, "WatchTowerClient")
+func withWtclient[Q, R proto.Message](
+	c *RpcContext,
+	f func(*wtclientrpc.WatchtowerClient, Q) (R, er.R),
+) func(Q) (R, er.R) {
+	return func(q Q) (R, er.R) {
+		if c.MaybeWatchTowerClient == nil {
+			var none R
+			return none, er.Errorf("Could not call function because MaybeWatchTowerClient is not yet ready")
+		}
+		return f(c.MaybeWatchTowerClient, q)
+	}
 }

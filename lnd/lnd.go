@@ -28,7 +28,9 @@ import (
 	"github.com/pkt-cash/pktd/lnd/lncfg"
 	"github.com/pkt-cash/pktd/lnd/lnrpc"
 	"github.com/pkt-cash/pktd/lnd/lnrpc/apiv1"
-	"github.com/pkt-cash/pktd/lnd/lnrpc/verrpc"
+	"github.com/pkt-cash/pktd/lnd/lnrpc/autopilotrpc"
+	"github.com/pkt-cash/pktd/lnd/lnrpc/routerrpc"
+	"github.com/pkt-cash/pktd/lnd/lnrpc/wtclientrpc"
 	"github.com/pkt-cash/pktd/lnd/lnwallet"
 	"github.com/pkt-cash/pktd/lnd/signal"
 	"github.com/pkt-cash/pktd/lnd/tor"
@@ -247,7 +249,6 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 		log.Error(err)
 		return err
 	}
-	restContext.MaybeCC = activeChainControl
 
 	// Finally before we start the server, we'll register the "holy
 	// trinity" of interface for our current "home chain" with the active
@@ -404,6 +405,18 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 		return err
 	}
 
+	if server.towerClient != nil {
+		wtclient, err := wtclientrpc.New(&wtclientrpc.Config{
+			Active:   true,
+			Client:   server.towerClient,
+			Resolver: cfg.net.ResolveTCPAddr,
+		})
+		if err != nil {
+			return err
+		}
+		restContext.MaybeWatchTowerClient = wtclient
+	}
+
 	// Set up an autopilot manager from the current config. This will be
 	// used to manage the underlying autopilot agent, starting and stopping
 	// it at will.
@@ -426,6 +439,7 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 		return err
 	}
 	defer atplManager.Stop()
+	autopilotrpc.Register(atplManager, api.Category("lightning"))
 
 	// Initialize, and register our implementation of the gRPC interface
 	// exported by the rpcServer.
@@ -450,6 +464,12 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 		return err
 	}
 	defer rpcServer.Stop()
+
+	routerRpc, err := routerrpc.New(cfg.SubRPCServers.RouterRPC)
+	if err != nil {
+		return err
+	}
+	restContext.MaybeRouterServer = routerRpc
 
 	// We have brought up the RPC server so we can now cause the wallet/create
 	// or wallet/unlock to complete.
@@ -534,9 +554,6 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 		}
 		defer tower.Stop()
 	}
-
-	//	force the initialization the verRPC
-	_ = new(verrpc.Server)
 
 	// Wait for shutdown signal from either a graceful server stop or from
 	// the interrupt handler.

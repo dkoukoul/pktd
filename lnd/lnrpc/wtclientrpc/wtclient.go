@@ -5,24 +5,14 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/pkt-cash/pktd/btcec"
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/generated/proto/wtclientrpc_pb"
 	"github.com/pkt-cash/pktd/lnd/lncfg"
 	"github.com/pkt-cash/pktd/lnd/lnwire"
 	"github.com/pkt-cash/pktd/lnd/watchtower"
 	"github.com/pkt-cash/pktd/lnd/watchtower/wtclient"
-	"github.com/pkt-cash/pktd/pktlog/log"
-	"google.golang.org/grpc"
-)
-
-const (
-	// subServerName is the name of the sub rpc server. We'll use this name
-	// to register ourselves, and we also require that the main
-	// SubServerConfigDispatcher instance recognizes it as the name of our
-	// RPC service.
-	subServerName = "WatchtowerClientRPC"
 )
 
 // ErrWtclientNotActive signals that RPC calls cannot be processed
@@ -36,12 +26,7 @@ var ErrWtclientNotActive = er.GenericErrorType.CodeWithDetail("ErrWtclientNotAct
 // TODO(wilmer): better name?
 type WatchtowerClient struct {
 	cfg Config
-	wtclientrpc_pb.UnimplementedWatchtowerClientServer
 }
-
-// A compile time check to ensure that WatchtowerClient fully implements the
-// WatchtowerClientWatchtowerClient gRPC service.
-var _ wtclientrpc_pb.WatchtowerClientServer = (*WatchtowerClient)(nil)
 
 // New returns a new instance of the wtclientrpc WatchtowerClient sub-server.
 // We also return the set of permissions for the macaroons that we may create
@@ -50,63 +35,6 @@ var _ wtclientrpc_pb.WatchtowerClientServer = (*WatchtowerClient)(nil)
 // macaroons we need, then we'll return with an error.
 func New(cfg *Config) (*WatchtowerClient, er.R) {
 	return &WatchtowerClient{cfg: *cfg}, nil
-}
-
-// Start launches any helper goroutines required for the WatchtowerClient to
-// function.
-//
-// NOTE: This is part of the lnrpc.SubWatchtowerClient interface.
-func (c *WatchtowerClient) Start() er.R {
-	return nil
-}
-
-// Stop signals any active goroutines for a graceful closure.
-//
-// NOTE: This is part of the lnrpc.SubServer interface.
-func (c *WatchtowerClient) Stop() er.R {
-	return nil
-}
-
-// Name returns a unique string representation of the sub-server. This can be
-// used to identify the sub-server and also de-duplicate them.
-//
-// NOTE: This is part of the lnrpc.SubServer interface.
-func (c *WatchtowerClient) Name() string {
-	return subServerName
-}
-
-// RegisterWithRootServer will be called by the root gRPC server to direct a sub
-// RPC server to register itself with the main gRPC root server. Until this is
-// called, each sub-server won't be able to have requests routed towards it.
-//
-// NOTE: This is part of the lnrpc.SubServer interface.
-func (c *WatchtowerClient) RegisterWithRootServer(grpcServer *grpc.Server) er.R {
-	// We make sure that we register it with the main gRPC server to ensure
-	// all our methods are routed properly.
-	wtclientrpc_pb.RegisterWatchtowerClientServer(grpcServer, c)
-
-	log.Debugf("WatchtowerClient RPC server successfully registered " +
-		"with  root gRPC server")
-
-	return nil
-}
-
-// RegisterWithRestServer will be called by the root REST mux to direct a sub
-// RPC server to register itself with the main REST mux server. Until this is
-// called, each sub-server won't be able to have requests routed towards it.
-//
-// NOTE: This is part of the lnrpc.SubServer interface.
-func (c *WatchtowerClient) RegisterWithRestServer(ctx context.Context,
-	mux *runtime.ServeMux, dest string, opts []grpc.DialOption) er.R {
-
-	// We make sure that we register it with the main REST server to ensure
-	// all our methods are routed properly.
-	// err := wtclientrpc_pb.RegisterWatchtowerClientHandlerFromEndpoint(ctx, mux, dest, opts)
-	// if err != nil {
-	// 	return er.E(err)
-	// }
-
-	return nil
 }
 
 // isActive returns nil if the watchtower client is initialized so that we can
@@ -123,22 +51,22 @@ func (c *WatchtowerClient) isActive() er.R {
 // included will be considered when dialing it for session negotiations and
 // backups.
 func (c *WatchtowerClient) AddTower(ctx context.Context,
-	req *wtclientrpc_pb.AddTowerRequest) (*wtclientrpc_pb.AddTowerResponse, error) {
+	req *wtclientrpc_pb.AddTowerRequest) (*rpc_pb.Null, er.R) {
 
 	if err := c.isActive(); err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
 	pubKey, err := btcec.ParsePubKey(req.Pubkey, btcec.S256())
 	if err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 	addr, errr := lncfg.ParseAddressString(
 		req.Address, strconv.Itoa(watchtower.DefaultPeerPort),
 		c.cfg.Resolver,
 	)
 	if errr != nil {
-		return nil, er.Native(er.Errorf("invalid address %v: %v", req.Address, errr))
+		return nil, er.Errorf("invalid address %v: %v", req.Address, errr)
 	}
 
 	towerAddr := &lnwire.NetAddress{
@@ -146,10 +74,10 @@ func (c *WatchtowerClient) AddTower(ctx context.Context,
 		Address:     addr,
 	}
 	if err := c.cfg.Client.AddTower(towerAddr); err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
-	return &wtclientrpc_pb.AddTowerResponse{}, nil
+	return nil, nil
 }
 
 // RemoveTower removes a watchtower from being considered for future session
@@ -157,15 +85,15 @@ func (c *WatchtowerClient) AddTower(ctx context.Context,
 // again. If an address is provided, then this RPC only serves as a way of
 // removing the address from the watchtower instead.
 func (c *WatchtowerClient) RemoveTower(ctx context.Context,
-	req *wtclientrpc_pb.RemoveTowerRequest) (*wtclientrpc_pb.RemoveTowerResponse, error) {
+	req *wtclientrpc_pb.RemoveTowerRequest) (*rpc_pb.Null, er.R) {
 
 	if err := c.isActive(); err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
 	pubKey, err := btcec.ParsePubKey(req.Pubkey, btcec.S256())
 	if err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
 	var addr net.Addr
@@ -175,29 +103,29 @@ func (c *WatchtowerClient) RemoveTower(ctx context.Context,
 			c.cfg.Resolver,
 		)
 		if err != nil {
-			return nil, er.Native(er.Errorf("unable to parse tower "+
-				"address %v: %v", req.Address, err))
+			return nil, er.Errorf("unable to parse tower "+
+				"address %v: %v", req.Address, err)
 		}
 	}
 
 	if err := c.cfg.Client.RemoveTower(pubKey, addr); err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
-	return &wtclientrpc_pb.RemoveTowerResponse{}, nil
+	return nil, nil
 }
 
 // ListTowers returns the list of watchtowers registered with the client.
 func (c *WatchtowerClient) ListTowers(ctx context.Context,
-	req *wtclientrpc_pb.ListTowersRequest) (*wtclientrpc_pb.ListTowersResponse, error) {
+	req *wtclientrpc_pb.ListTowersRequest) (*wtclientrpc_pb.ListTowersResponse, er.R) {
 
 	if err := c.isActive(); err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
 	towers, err := c.cfg.Client.RegisteredTowers()
 	if err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
 	rpcTowers := make([]*wtclientrpc_pb.Tower, 0, len(towers))
@@ -211,20 +139,20 @@ func (c *WatchtowerClient) ListTowers(ctx context.Context,
 
 // GetTowerInfo retrieves information for a registered watchtower.
 func (c *WatchtowerClient) GetTowerInfo(ctx context.Context,
-	req *wtclientrpc_pb.GetTowerInfoRequest) (*wtclientrpc_pb.Tower, error) {
+	req *wtclientrpc_pb.GetTowerInfoRequest) (*wtclientrpc_pb.Tower, er.R) {
 
 	if err := c.isActive(); err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
 	pubKey, err := btcec.ParsePubKey(req.Pubkey, btcec.S256())
 	if err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
 	tower, err := c.cfg.Client.LookupTower(pubKey)
 	if err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
 	return marshallTower(tower, req.IncludeSessions), nil
@@ -232,10 +160,10 @@ func (c *WatchtowerClient) GetTowerInfo(ctx context.Context,
 
 // Stats returns the in-memory statistics of the client since startup.
 func (c *WatchtowerClient) Stats(ctx context.Context,
-	req *wtclientrpc_pb.StatsRequest) (*wtclientrpc_pb.StatsResponse, error) {
+	req *rpc_pb.Null) (*wtclientrpc_pb.StatsResponse, er.R) {
 
 	if err := c.isActive(); err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
 	stats := c.cfg.Client.Stats()
@@ -250,10 +178,10 @@ func (c *WatchtowerClient) Stats(ctx context.Context,
 
 // Policy returns the active watchtower client policy configuration.
 func (c *WatchtowerClient) Policy(ctx context.Context,
-	req *wtclientrpc_pb.PolicyRequest) (*wtclientrpc_pb.PolicyResponse, error) {
+	req *wtclientrpc_pb.PolicyRequest) (*wtclientrpc_pb.PolicyResponse, er.R) {
 
 	if err := c.isActive(); err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
 	policy := c.cfg.Client.Policy()

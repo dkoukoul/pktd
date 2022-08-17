@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/generated/proto/routerrpc_pb"
@@ -17,16 +16,8 @@ import (
 	"github.com/pkt-cash/pktd/lnd/routing/route"
 	"github.com/pkt-cash/pktd/pktlog/log"
 
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-)
-
-const (
-	// subServerName is the name of the sub rpc server. We'll use this name
-	// to register ourselves, and we also require that the main
-	// SubServerConfigDispatcher instance recognize as the name of our
-	subServerName = "RouterRPC"
 )
 
 var (
@@ -53,13 +44,7 @@ type Server struct {
 	cfg *Config
 
 	quit chan struct{}
-
-	routerrpc_pb.UnimplementedRouterServer
 }
-
-// A compile time check to ensure that Server fully implements the RouterServer
-// gRPC service.
-var _ routerrpc_pb.RouterServer = (*Server)(nil)
 
 // New creates a new instance of the RouterServer given a configuration struct
 // that contains all external dependencies. If the target macaroon exists, and
@@ -81,66 +66,6 @@ func New(cfg *Config) (*Server, er.R) {
 	}
 
 	return routerServer, nil
-}
-
-// Start launches any helper goroutines required for the rpcServer to function.
-//
-// NOTE: This is part of the lnrpc.SubServer interface.
-func (s *Server) Start() er.R {
-	return nil
-}
-
-// Stop signals any active goroutines for a graceful closure.
-//
-// NOTE: This is part of the lnrpc.SubServer interface.
-func (s *Server) Stop() er.R {
-	return nil
-}
-
-// Name returns a unique string representation of the sub-server. This can be
-// used to identify the sub-server and also de-duplicate them.
-//
-// NOTE: This is part of the lnrpc.SubServer interface.
-func (s *Server) Name() string {
-	return subServerName
-}
-
-// RegisterWithRootServer will be called by the root gRPC server to direct a
-// sub RPC server to register itself with the main gRPC root server. Until this
-// is called, each sub-server won't be able to have requests routed towards it.
-//
-// NOTE: This is part of the lnrpc.SubServer interface.
-func (s *Server) RegisterWithRootServer(grpcServer *grpc.Server) er.R {
-	// We make sure that we register it with the main gRPC server to ensure
-	// all our methods are routed properly.
-	routerrpc_pb.RegisterRouterServer(grpcServer, s)
-
-	log.Debugf("Router RPC server successfully register with root gRPC " +
-		"server")
-
-	return nil
-}
-
-// RegisterWithRestServer will be called by the root REST mux to direct a sub
-// RPC server to register itself with the main REST mux server. Until this is
-// called, each sub-server won't be able to have requests routed towards it.
-//
-// NOTE: This is part of the lnrpc.SubServer interface.
-func (s *Server) RegisterWithRestServer(ctx context.Context,
-	mux *runtime.ServeMux, dest string, opts []grpc.DialOption) er.R {
-
-	// We make sure that we register it with the main REST server to ensure
-	// all our methods are routed properly.
-	// errr := RegisterRouterHandlerFromEndpoint(ctx, mux, dest, opts)
-	// if errr != nil {
-	// 	log.Errorf("Could not register Router REST server "+
-	// 		"with root REST server: %v", errr)
-	// 	return er.E(errr)
-	// }
-
-	log.Debugf("Router REST server successfully registered with " +
-		"root REST server")
-	return nil
 }
 
 // SendPaymentV2 attempts to route a payment described by the passed
@@ -225,20 +150,20 @@ func (s *Server) EstimateRouteFee(ctx context.Context,
 // SendToRouteV2 sends a payment through a predefined route. The response of this
 // call contains structured error information.
 func (s *Server) SendToRouteV2(ctx context.Context,
-	req *routerrpc_pb.SendToRouteRequest) (*rpc_pb.HTLCAttempt, error) {
+	req *routerrpc_pb.SendToRouteRequest) (*rpc_pb.HTLCAttempt, er.R) {
 
 	if req.Route == nil {
-		return nil, er.Native(er.Errorf("unable to send, no routes provided"))
+		return nil, er.Errorf("unable to send, no routes provided")
 	}
 
 	route, err := s.cfg.RouterBackend.UnmarshallRoute(req.Route)
 	if err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
 	hash, err := lntypes.MakeHash(req.PaymentHash)
 	if err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
 	// Pass route to the router. This call returns the full htlc attempt
@@ -253,38 +178,24 @@ func (s *Server) SendToRouteV2(ctx context.Context,
 			*attempt,
 		)
 		if err != nil {
-			return nil, er.Native(err)
+			return nil, err
 		}
 		return rpcAttempt, nil
 	}
-
-	// Transform user errors to grpc code.
-	if channeldb.ErrPaymentInFlight.Is(err) ||
-		channeldb.ErrAlreadyPaid.Is(err) {
-
-		return nil, status.Error(codes.AlreadyExists, err.String())
-	}
-
-	return nil, er.Native(err)
+	return nil, err
 }
 
 // ResetMissionControl clears all mission control state and starts with a clean
 // slate.
 func (s *Server) ResetMissionControl(ctx context.Context,
-	req *routerrpc_pb.ResetMissionControlRequest) (*routerrpc_pb.ResetMissionControlResponse, error) {
-
-	err := s.cfg.RouterBackend.MissionControl.ResetHistory()
-	if err != nil {
-		return nil, er.Native(err)
-	}
-
-	return &routerrpc_pb.ResetMissionControlResponse{}, nil
+	_ *rpc_pb.Null) (*rpc_pb.Null, er.R) {
+	return nil, s.cfg.RouterBackend.MissionControl.ResetHistory()
 }
 
 // QueryMissionControl exposes the internal mission control state to callers. It
 // is a development feature.
 func (s *Server) QueryMissionControl(ctx context.Context,
-	req *routerrpc_pb.QueryMissionControlRequest) (*routerrpc_pb.QueryMissionControlResponse, error) {
+	_ *rpc_pb.Null) (*routerrpc_pb.QueryMissionControlResponse, er.R) {
 
 	snapshot := s.cfg.RouterBackend.MissionControl.GetHistorySnapshot()
 
@@ -332,16 +243,16 @@ func toRPCPairData(data *routing.TimedPairResult) *routerrpc_pb.PairData {
 // QueryProbability returns the current success probability estimate for a
 // given node pair and amount.
 func (s *Server) QueryProbability(ctx context.Context,
-	req *routerrpc_pb.QueryProbabilityRequest) (*routerrpc_pb.QueryProbabilityResponse, error) {
+	req *routerrpc_pb.QueryProbabilityRequest) (*routerrpc_pb.QueryProbabilityResponse, er.R) {
 
 	fromNode, err := route.NewVertexFromBytes(req.FromNode)
 	if err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
 	toNode, err := route.NewVertexFromBytes(req.ToNode)
 	if err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
 	amt := lnwire.MilliSatoshi(req.AmtMsat)
@@ -430,14 +341,14 @@ func (s *Server) trackPayment(paymentHash lntypes.Hash,
 
 // BuildRoute builds a route from a list of hop addresses.
 func (s *Server) BuildRoute(ctx context.Context,
-	req *routerrpc_pb.BuildRouteRequest) (*routerrpc_pb.BuildRouteResponse, error) {
+	req *routerrpc_pb.BuildRouteRequest) (*routerrpc_pb.BuildRouteResponse, er.R) {
 
 	// Unmarshall hop list.
 	hops := make([]route.Vertex, len(req.HopPubkeys))
 	for i, pubkeyBytes := range req.HopPubkeys {
 		pubkey, err := route.NewVertexFromBytes(pubkeyBytes)
 		if err != nil {
-			return nil, er.Native(err)
+			return nil, err
 		}
 		hops[i] = pubkey
 	}
@@ -459,12 +370,12 @@ func (s *Server) BuildRoute(ctx context.Context,
 		amt, hops, outgoingChan, req.FinalCltvDelta,
 	)
 	if err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
 	rpcRoute, err := s.cfg.RouterBackend.MarshallRoute(route)
 	if err != nil {
-		return nil, er.Native(err)
+		return nil, err
 	}
 
 	routeResp := &routerrpc_pb.BuildRouteResponse{

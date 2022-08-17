@@ -995,6 +995,19 @@ func (w *Wallet) GetSecret(name string) (*string, er.R) {
 	})
 	return out, err
 }
+func (w *Wallet) getSecretRPC(req *rpc_pb.GetSecretRequest) (*rpc_pb.GetSecretResponse, er.R) {
+	ptrsecret, err := w.GetSecret(req.Name)
+	secret := ""
+	if ptrsecret != nil {
+		secret = *ptrsecret
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &rpc_pb.GetSecretResponse{
+		Secret: secret,
+	}, nil
+}
 
 // CalculateBalance sums the amounts of all unspent transaction
 // outputs to addresses of a wallet and returns the balance.
@@ -1707,7 +1720,46 @@ func (w *Wallet) GetTransactions1(req *rpc_pb.GetTransactionsRequest) (*rpc_pb.T
 	return txDetails, nil
 }
 
+// GetWalletSeed
+func (w *Wallet) getWalletSeed(req *rpc_pb.GetWalletSeedRequest) (*rpc_pb.GetWalletSeedResponse, er.R) {
+	seed := w.Manager.Seed()
+	if seed == nil {
+		return nil, er.New("No seed found, this is probably a legacy wallet")
+	}
+	words, err := seed.Words("english")
+	if err != nil {
+		return nil, err
+	}
+	return &rpc_pb.GetWalletSeedResponse{
+		Seed: strings.Split(words, " "),
+	}, nil
+}
+
 func (w *Wallet) registerRpc() {
+	wallet := w.api.Category("wallet")
+	apiv1.Endpoint(
+		wallet,
+		"getsecret",
+		`
+		Get a secret
+
+		This provides which is generated using the wallet's private keys,
+		this can be used as a password for another application. It will be
+		the same as long as this wallet exists, even if it is re-recovered from seed.
+		`,
+		w.getSecretRPC,
+	)
+	apiv1.Endpoint(
+		wallet,
+		"seed",
+		`
+		Get the wallet seed words for this wallet
+
+    	Get the wallet seed words for this wallet, this seed is returned in an
+		ENCRYPTED form (using the wallet passphrase as key). The output is 15 words.
+		`,
+		w.getWalletSeed,
+	)
 	apiv1.Endpoint(
 		w.api.Category("wallet/transaction"),
 		"query",
@@ -1723,6 +1775,45 @@ func (w *Wallet) registerRpc() {
 		`,
 		func(req *rpc_pb.GetTransactionsRequest) (*rpc_pb.TransactionDetails, er.R) {
 			return w.GetTransactions1(req)
+		},
+	)
+
+	walletLoosetxns := apiv1.DefineCategory(w.api.Category("wallet"), "loosetxns",
+		`
+		Loose transactions which have not yet been logged in the blockchain
+
+		Watching for loose transactions requires more resources so should
+		only be done when we are expecting to get paid. There is no way to
+		listen to all loose transactions, but the ones which are relevant to
+		this wallet will be discovered and registered as normal unconfirmed
+		transactions.
+		`,
+	)
+	apiv1.Endpoint(walletLoosetxns,
+		"watch",
+		`
+		Enable watching for loose transactions
+		`,
+		func(_ *rpc_pb.Null) (*rpc_pb.Null, er.R) {
+			w.WatchLooseTransactions()
+			return nil, nil
+		})
+	apiv1.Endpoint(walletLoosetxns,
+		"stopwatch",
+		`
+		Disable watching for loose transactions
+		`,
+		func(_ *rpc_pb.Null) (*rpc_pb.Null, er.R) {
+			w.StopWatchLooseTransactions()
+			return nil, nil
+		})
+	apiv1.Endpoint(walletLoosetxns,
+		"",
+		`
+		Find out whether we are watching for loose transactions
+		`,
+		func(_ *rpc_pb.Null) (*rpc_pb.LooseTxnRes, er.R) {
+			return &rpc_pb.LooseTxnRes{IsWatching: w.WatchingLooseTransactions()}, nil
 		},
 	)
 }

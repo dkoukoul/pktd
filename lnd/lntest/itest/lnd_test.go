@@ -38,7 +38,6 @@ import (
 	"github.com/pkt-cash/pktd/lnd/chainreg"
 	"github.com/pkt-cash/pktd/lnd/channeldb"
 	"github.com/pkt-cash/pktd/lnd/input"
-	"github.com/pkt-cash/pktd/lnd/labels"
 	"github.com/pkt-cash/pktd/lnd/lncfg"
 	"github.com/pkt-cash/pktd/lnd/lntest"
 	"github.com/pkt-cash/pktd/lnd/lntest/wait"
@@ -2900,17 +2899,12 @@ func testChannelFundingPersistence(net *lntest.NetworkHarness, t *harnessTest) {
 		t.Fatalf("unable to convert funding txid into chainhash.Hash:"+
 			" %v", err)
 	}
-	fundingTxStr := fundingTxID.String()
 
 	// Mine a block, then wait for Alice's node to notify us that the
 	// channel has been opened. The funding transaction should be found
 	// within the newly mined block.
 	block := mineBlocks(t, net, 1, 1)[0]
 	assertTxInBlock(t, block, fundingTxID)
-
-	// Get the height that our transaction confirmed at.
-	_, height, err := net.Miner.Node.GetBestBlock()
-	util.RequireNoErr(t.t, err, "could not get best block")
 
 	// Restart both nodes to test that the appropriate state has been
 	// persisted and that both nodes recover gracefully.
@@ -2933,16 +2927,6 @@ func testChannelFundingPersistence(net *lntest.NetworkHarness, t *harnessTest) {
 	if _, err := net.Miner.Node.Generate(3); err != nil {
 		t.Fatalf("unable to mine blocks: %v", err)
 	}
-
-	// Assert that our wallet has our opening transaction with a label
-	// that does not have a channel ID set yet, because we have not
-	// reached our required confirmations.
-	tx := findTxAtHeight(ctxt, t, height, fundingTxStr, net.Alice)
-
-	// At this stage, we expect the transaction to be labelled, but not with
-	// our channel ID because our transaction has not yet confirmed.
-	label := labels.MakeLabel(labels.LabelTypeChannelOpen, nil)
-	require.Equal(t.t, label, tx.Label, "open channel label wrong")
 
 	// Both nodes should still show a single channel as pending.
 	time.Sleep(time.Second * 1)
@@ -2967,26 +2951,9 @@ func testChannelFundingPersistence(net *lntest.NetworkHarness, t *harnessTest) {
 		Index: pendingUpdate.OutputIndex,
 	}
 
-	// Re-lookup our transaction in the block that it confirmed in.
-	tx = findTxAtHeight(ctxt, t, height, fundingTxStr, net.Alice)
-
-	// Create an additional check for our channel assertion that will
-	// check that our label is as expected.
-	check := func(channel *rpc_pb.Channel) {
-		shortChanID := lnwire.NewShortChanIDFromInt(
-			channel.ChanId,
-		)
-
-		label := labels.MakeLabel(
-			labels.LabelTypeChannelOpen, &shortChanID,
-		)
-		require.Equal(t.t, label, tx.Label,
-			"open channel label not updated")
-	}
-
 	// Check both nodes to ensure that the channel is ready for operation.
 	ctxt, _ = context.WithTimeout(ctxb, defaultTimeout)
-	err = net.AssertChannelExists(ctxt, net.Alice, &outPoint, check)
+	err = net.AssertChannelExists(ctxt, net.Alice, &outPoint)
 	if err != nil {
 		t.Fatalf("unable to assert channel existence: %v", err)
 	}
@@ -3012,7 +2979,7 @@ func testChannelFundingPersistence(net *lntest.NetworkHarness, t *harnessTest) {
 // of at the target height, and finds and returns the tx with the target txid,
 // failing if it is not found.
 func findTxAtHeight(ctx context.Context, t *harnessTest, height int32,
-	target string, node *lntest.HarnessNode) *rpc_pb.Transaction {
+	target string, node *lntest.HarnessNode) *rpc_pb.ContextualTransaction {
 
 	txns, err := node.LightningClient.GetTransactions(
 		ctx, &rpc_pb.GetTransactionsRequest{
@@ -3023,7 +2990,7 @@ func findTxAtHeight(ctx context.Context, t *harnessTest, height int32,
 	require.NoError(t.t, err, "could not get transactions")
 
 	for _, tx := range txns.Transactions {
-		if tx.TxHash == target {
+		if tx.Tx.Txid == target {
 			return tx
 		}
 	}
@@ -4614,7 +4581,7 @@ func findSweepInDetails(t *testing.T, sweepTxid string,
 	require.Nil(t, sweepResp.GetTransactionIds())
 
 	for _, tx := range sweepDetails.Transactions {
-		if tx.TxHash == sweepTxid {
+		if tx.Tx.Txid == sweepTxid {
 			return true
 		}
 	}
@@ -13373,9 +13340,6 @@ func testSweepAllCoins(net *lntest.NetworkHarness, t *harnessTest) {
 		t.Fatalf("expected 2 inputs instead have %v", len(sweepTx.TxIn))
 	}
 
-	sweepTxStr := sweepTx.TxHash().String()
-	assertTxLabel(ctxb, t, ainz, sweepTxStr, sendCoinsLabel)
-
 	// While we are looking at labels, we test our label transaction command
 	// to make sure it is behaving as expected. First, we try to label our
 	// transaction with an empty label, and check that we fail as expected.
@@ -13432,8 +13396,6 @@ func testSweepAllCoins(net *lntest.NetworkHarness, t *harnessTest) {
 		t.Fatalf("could not label tx: %v", errr)
 	}
 
-	assertTxLabel(ctxb, t, ainz, sweepTxStr, newLabel)
-
 	// Finally, Ainz should now have no coins at all within his wallet.
 	balReq := &rpc_pb.WalletBalanceRequest{}
 	resp, errr := ainz.WalletBalance(ctxt, balReq)
@@ -13456,35 +13418,6 @@ func testSweepAllCoins(net *lntest.NetworkHarness, t *harnessTest) {
 	_, errr = ainz.SendCoins(ctxt, sweepReq)
 	if errr == nil {
 		t.Fatalf("sweep attempt should fail")
-	}
-}
-
-// assertTxLabel is a helper function which finds a target tx in our set
-// of transactions and checks that it has the desired label.
-func assertTxLabel(ctx context.Context, t *harnessTest,
-	node *lntest.HarnessNode, targetTx, label string) {
-
-	// List all transactions relevant to our wallet, and find the tx so that
-	// we can check the correct label has been set.
-	ctxt, cancel := context.WithTimeout(ctx, defaultTimeout)
-	defer cancel()
-
-	txResp, err := node.GetTransactions(
-		ctxt, &rpc_pb.GetTransactionsRequest{},
-	)
-	if err != nil {
-		t.Fatalf("could not get transactions: %v", err)
-	}
-
-	// Find our transaction in the set of transactions returned and check
-	// its label.
-	for _, txn := range txResp.Transactions {
-		if txn.TxHash == targetTx {
-			if txn.Label != label {
-				t.Fatalf("expected label: %v, got: %v",
-					label, txn.Label)
-			}
-		}
 	}
 }
 
