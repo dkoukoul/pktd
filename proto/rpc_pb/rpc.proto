@@ -817,6 +817,14 @@ message GetTransactionsRequest {
     of the returned payments is always oldest first (ascending index order).
     */
     bool reversed = 6;
+    /*
+    Start and end timestamp in seconds for date range for which to list transactions.
+    If date range is not provided, the query will follow start and end height parameters.
+    Both start and end timestamps must be provided.
+    start_height and end_height have precedence over start_time and end_time.
+    */
+    int64 start_timestamp = 7;
+    int64 end_timestamp = 8;
 }
 
 message TransactionDetails {
