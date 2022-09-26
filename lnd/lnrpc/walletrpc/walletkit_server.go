@@ -716,7 +716,7 @@ func (w *WalletKit) ListSweeps0(ctx context.Context,
 	// can match our list of sweeps against the list of transactions that
 	// the wallet is still tracking.
 	transactions, err := w.cfg.Wallet.ListTransactionDetails(
-		0, btcwallet.UnconfirmedHeight, 0, 0, 0, false,
+		0, btcwallet.UnconfirmedHeight, 0, 0, 0, false,0,0,
 	)
 	if err != nil {
 		return nil, err

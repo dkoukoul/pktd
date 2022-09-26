@@ -4233,8 +4233,16 @@ func (r *LightningRPCServer) GetTransactions(ctx context.Context,
 	if req.Coinbase != 0 {
 		coinbase = req.Coinbase
 	}
+	var startTimestamp int64 = 0
+	if req.StartTimestamp != 0 {
+		startTimestamp = req.StartTimestamp
+	}
+	var endTimestamp int64 = 0
+	if req.EndTimestamp != 0 {
+		endTimestamp = req.EndTimestamp
+	}
 
-	transactions, err := r.server.cc.Wallet.ListTransactionDetails(req.StartHeight, endHeight, skip, limit, coinbase, req.Reversed)
+	transactions, err := r.server.cc.Wallet.ListTransactionDetails(req.StartHeight, endHeight, skip, limit, coinbase, req.Reversed, startTimestamp, endTimestamp)
 	if err != nil {
 		return nil, er.Native(err)
 	}

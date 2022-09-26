@@ -1642,6 +1642,7 @@ func (w *Wallet) GetTransactions(
 	startBlock, endBlock *BlockIdentifier,
 	limit, skip, //0 means no limit imposed
 	coinbase int32, reversed bool,
+	startTimestamp, endTimestamp int64,
 	cancel <-chan struct{},
 ) (*GetTransactionsResult, er.R) {
 	var start, end int32 = 0, -1
@@ -1681,7 +1682,7 @@ func (w *Wallet) GetTransactions(
 			}
 		}
 	}
-	log.Infof("Default skip: %d, limit:%d, coinbase:%d\n", skip, limit, coinbase)
+
 	var res GetTransactionsResult
 	var totalTxns = 0
 	var skippedtxns int32 = 0
@@ -1707,6 +1708,14 @@ func (w *Wallet) GetTransactions(
 					} else if coinbase == coinbaseOnly {
 						txs = txs[:1]
 					}
+				}
+				//Checking for time
+				if (startTimestamp > 0) && (endTimestamp > 0) {
+					var blockTime = details[0].Block.Time.Unix()
+					if !((blockTime > startTimestamp) && (blockTime < endTimestamp)) {
+						//Block is not within the requested time range, skip it
+						txs = txs[:0]
+					} 
 				}
 				//Skipping transactions
 				if (skippedtxns + int32(len(txs))) < skip {
