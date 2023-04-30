@@ -266,7 +266,8 @@ func queryChainServiceBatch(
 	queryQuit <-chan struct{},
 
 	// options takes functional options for executing the query.
-	options ...QueryOption) {
+	options ...QueryOption,
+) {
 
 	// Starting with the set of default options, we'll apply any specified
 	// functional options to the query.
@@ -589,7 +590,8 @@ func (s *ChainService) queryAllPeers(
 		quit chan<- struct{}, peerQuit chan<- struct{}),
 
 	// options takes functional options for executing the query.
-	options ...QueryOption) {
+	options ...QueryOption,
+) {
 
 	// Starting with the set of default options, we'll apply any specified
 	// functional options to the query.
@@ -716,7 +718,8 @@ func queryChainServicePeers(
 		quit chan<- struct{}) bool,
 
 	// options takes functional options for executing the query.
-	options ...QueryOption) {
+	options ...QueryOption,
+) {
 
 	// Starting with the set of default options, we'll apply any specified
 	// functional options to the query.

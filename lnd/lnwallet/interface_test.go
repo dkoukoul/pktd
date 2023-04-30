@@ -3244,6 +3244,7 @@ func runTests(t *testing.T,
 				miningNode.P2PAddress(),
 			},
 		},
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("unable to make neutrino: %v", err)
@@ -3269,6 +3270,7 @@ func runTests(t *testing.T,
 				miningNode.P2PAddress(),
 			},
 		},
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("unable to make neutrino: %v", err)

@@ -211,7 +211,7 @@ func NewNeutrinoBackend(t *testing.T, minerAddr string) (*neutrino.ChainService,
 		ChainParams:  *NetParams,
 		ConnectPeers: []string{minerAddr},
 	}
-	spvNode, err := neutrino.NewChainService(spvConfig)
+	spvNode, err := neutrino.NewChainService(spvConfig, nil)
 	if err != nil {
 		os.RemoveAll(spvDir)
 		spvDatabase.Close()

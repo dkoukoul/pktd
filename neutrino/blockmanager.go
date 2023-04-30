@@ -766,8 +766,10 @@ func (b *blockManager) getUncheckpointedCFHeaders(
 	for peer, msg := range headers {
 		if msg.PrevFilterHeader != *filterTip {
 			sp := b.server.PeerByAddr(peer)
-			log.Infof("Peer [%s] served invalid filter header", sp.Addr())
-			sp.addBanScore(0, 33, "InvalidFilterHeader")
+			if sp != nil {
+				log.Infof("Peer [%s] served invalid filter header", sp.Addr())
+				sp.addBanScore(0, 33, "InvalidFilterHeader")
+			}
 			delete(headers, peer)
 		}
 	}
@@ -795,8 +797,10 @@ func (b *blockManager) getUncheckpointedCFHeaders(
 
 			for _, peer := range badPeers {
 				sp := b.server.PeerByAddr(peer)
-				log.Infof("Peer [%s] served invalid filter header", sp.Addr())
-				sp.addBanScore(0, 33, "InvalidFilterHeader")
+				if sp != nil {
+					log.Infof("Peer [%s] served invalid filter header", sp.Addr())
+					sp.addBanScore(0, 33, "InvalidFilterHeader")
+				}
 				delete(headers, peer)
 			}
 		}

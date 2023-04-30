@@ -158,7 +158,9 @@ func rpcClientConnectLoop(legacyRPCServer *legacyrpc.Server, loader *wallet.Load
 				ChainParams:  *activeNet.Params,
 				ConnectPeers: cp,
 				AddPeers:     cfg.AddPeers,
-			})
+			},
+			nil,
+		)
 		if err != nil {
 			log.Errorf("Couldn't create Neutrino ChainService: %s", err)
 			continue

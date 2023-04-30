@@ -1131,7 +1131,7 @@ func TestNeutrinoSync(t *testing.T) {
 	neutrino.MaxPeers = 3
 	neutrino.BanDuration = 5 * time.Second
 	neutrino.QueryPeerConnectTimeout = 10 * time.Second
-	svc, err := neutrino.NewChainService(config)
+	svc, err := neutrino.NewChainService(config, nil)
 	if err != nil {
 		t.Fatalf("Error creating ChainService: %s", err)
 	}

@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pkt-cash/pktd/btcutil/er"
+	"github.com/pkt-cash/pktd/btcutil/event"
 	"github.com/pkt-cash/pktd/btcutil/lock"
 	"github.com/pkt-cash/pktd/btcutil/util"
 	"github.com/pkt-cash/pktd/generated/pkthelp"
@@ -264,6 +265,17 @@ func DefineCategory(
 	description string,
 ) *Apiv1 {
 	return a.cat(path, &description)
+}
+
+func Stream[Q proto.Message, R proto.Message](
+	a *Apiv1,
+	name string,
+	description string,
+	ev *event.Emitter[R],
+	filter func(req Q) (func(R) bool, er.R),
+	features ...help_pb.F,
+) {
+
 }
 
 func Endpoint[Q proto.Message, R proto.Message](

@@ -149,7 +149,7 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 	}
 
 	neutrinoCS, neutrinoCleanUp, err := initNeutrinoBackend(
-		cfg, cfg.PktDir,
+		cfg, cfg.PktDir, api.Category("neutrino"),
 	)
 	if err != nil {
 		err := er.Errorf("unable to initialize neutrino "+
@@ -849,7 +849,7 @@ func initializeDatabases(ctx context.Context,
 
 // initNeutrinoBackend inits a new instance of the neutrino light client
 // backend given a target chain directory to store the chain state.
-func initNeutrinoBackend(cfg *Config, chainDir string) (*neutrino.ChainService,
+func initNeutrinoBackend(cfg *Config, chainDir string, napi *apiv1.Apiv1) (*neutrino.ChainService,
 	func(), er.R) {
 
 	// Ensure that the neutrino db path exists.
@@ -916,7 +916,7 @@ func initNeutrinoBackend(cfg *Config, chainDir string) (*neutrino.ChainService,
 	neutrino.UserAgentName = cfg.NeutrinoMode.UserAgentName
 	neutrino.UserAgentVersion = cfg.NeutrinoMode.UserAgentVersion
 
-	neutrinoCS, err := neutrino.NewChainService(config)
+	neutrinoCS, err := neutrino.NewChainService(config, napi)
 	if err != nil {
 		db.Close()
 		return nil, nil, er.Errorf("unable to create neutrino light "+

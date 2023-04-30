@@ -15,6 +15,7 @@ import (
 	"github.com/pkt-cash/pktd/btcutil/gcs/builder"
 	"github.com/pkt-cash/pktd/btcutil/lock"
 	"github.com/pkt-cash/pktd/connmgr/banmgr"
+	"github.com/pkt-cash/pktd/lnd/lnrpc/apiv1"
 	"github.com/pkt-cash/pktd/pktlog/log"
 	"github.com/pkt-cash/pktd/txscript"
 	"github.com/pkt-cash/pktd/wire/protocol"
@@ -29,6 +30,7 @@ import (
 	"github.com/pkt-cash/pktd/neutrino/cache/lru"
 	"github.com/pkt-cash/pktd/neutrino/headerfs"
 	"github.com/pkt-cash/pktd/neutrino/pushtx"
+	"github.com/pkt-cash/pktd/neutrino/sendtxstatus"
 	"github.com/pkt-cash/pktd/peer"
 	"github.com/pkt-cash/pktd/pktwallet/chain"
 	"github.com/pkt-cash/pktd/pktwallet/chainiface"
@@ -654,6 +656,9 @@ type ChainService struct {
 	// Transaction listener
 	knownTxns  lock.GenMutex[map[string]time.Time] // txid and when first seen
 	TxListener event.Emitter[wire.MsgTx]
+
+	// Send transaction
+	sts *sendtxstatus.SendTxStatus
 }
 
 var _ chainiface.Interface = (*ChainService)(nil)
@@ -675,7 +680,7 @@ type pendingFiltersReq struct {
 
 // NewChainService returns a new chain service configured to connect to the
 // network specified by chainParams. Use start to begin syncing with peers.
-func NewChainService(cfg Config) (*ChainService, er.R) {
+func NewChainService(cfg Config, napi *apiv1.Apiv1) (*ChainService, er.R) {
 	// If the user specified as function to use for name
 	// resolution, then we'll use that everywhere as well.
 	var nameResolver func(string) ([]net.IP, er.R)
@@ -718,6 +723,8 @@ func NewChainService(cfg Config) (*ChainService, er.R) {
 		banMgr:            *banmgr.New(&bmConfig),
 		knownTxns:         lock.NewGenMutex(make(map[string]time.Time), "ChainService.knownTxns"),
 		TxListener:        event.NewEmitter[wire.MsgTx]("ChainService.TxListener"),
+		sts: sendtxstatus.RegisterNew(apiv1.DefineCategory(napi, "sending",
+			"Status of transactions which are being sent out to the network")),
 	}
 
 	s.dialer = func(na net.Addr) (net.Conn, er.R) {

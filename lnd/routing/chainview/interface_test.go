@@ -786,7 +786,7 @@ var interfaceImpls = []struct {
 				ConnectPeers: []string{p2pAddr},
 			}
 
-			spvNode, err := neutrino.NewChainService(spvConfig)
+			spvNode, err := neutrino.NewChainService(spvConfig, nil)
 			if err != nil {
 				return nil, nil, err
 			}

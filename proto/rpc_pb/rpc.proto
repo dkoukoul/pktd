@@ -4281,3 +4281,74 @@ message TransactionInfo{
     // The output addresses and amounts which were paid by this transaction.
     repeated Vout vout = 9;
 }
+
+/*
+ * Transaction submit workflow:
+ * Notifying peer (1/5) (inv sent)
+ * Transaction requested (1/5)
+ * Transaction sent (1/5)
+ * Transaction rejected: (reason) -- we assume any rejection means it is invalid
+ * Transaction acknoledged (1/5)
+*/
+message Rejection {
+    // The IP address of the peer
+    string peer = 1;
+    // The reject message
+    string reason = 2;
+}
+enum SendTxState {
+    PROGRESS = 0;
+    ACKNOLEDGED = 2;
+    FAIL_REJECT = 3;
+    FAIL_OUT_OF_PEERS = 4;
+}
+message SendTxStatus {
+    // The identifier of the transaction
+    string txid = 1;
+    // The list of all peers who have been notified about this transaction
+    repeated string peers_notified = 2;
+    // The list of all peers who have been notified and then requested this transaction
+    repeated string peers_requested = 3;
+    // The list of all peers who have been sent this transaction
+    repeated string peers_sent = 4;
+    // The list of all peers who have acknoledged this transaction
+    //
+    // Nodes will not acknoledge a transaction to YOU if YOU sent it to them
+    // they only notify you if they think you don't have it.
+    //
+    // Once a transaction has been acknoledged, it is considered to have been
+    // broadcasted successfully.
+    repeated string peers_acknoledged = 5;
+    // Rejections of the transaction, if any
+    repeated Rejection rejections = 7;
+}
+message TransactionsInFlight {
+    // All transactions which are are currently broadcasting
+    repeated SendTxStatus transactions = 1;
+}
+enum SendTxEvent {
+    // This event is reported in order to show the list of peers who will be sent this txn
+    INIT = 0;
+    // Reporting when each peer is notified
+    NOTIFIED = 1;
+    // Reporting when each peer has requested the transaction
+    REQUESTED = 2;
+    // Reporting as we send the transaction to each peer
+    SENT = 3;
+    // Reporting peers who have acknoledged the transaction
+    ACKNOLEDGED = 4;
+    // Reporting any peer who sends back a reject of the transaction
+    REJECTED = 5;
+}
+message SendTxUpdate {
+    // The relevant transaction ID
+    string txid = 1;
+    // The nature of the event
+    SendTxEvent event = 2;
+    // List of relevant peers
+    // This will always be one peer only except in the case of INIT
+    // when it is reporting the list of peers we intend to send the transaction to.
+    repeated string peers = 3;
+    // This will be empty for all event types except for REJECTED, when it will explain why
+    string detail = 4;
+}
