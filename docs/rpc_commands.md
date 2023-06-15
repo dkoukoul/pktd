@@ -139,7 +139,8 @@ To access help, use `http://localhost:8080/api/v1/help` or for each command sepa
 1. Wallet balance - `/wallet/balance`
 <details>
 <summary>This API endpoint computes and displays the current balance of the wallet. The `WalletBalance` function returns the total unspent outputs (confirmed and unconfirmed), all confirmed unspent outputs, and all unconfirmed unspent outputs under the control of the wallet.</summary>
-### Request
+
+   ### Request
 
 The request for this endpoint is of type `rpc_pb_Null`.
 
