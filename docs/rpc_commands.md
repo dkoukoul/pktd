@@ -53,16 +53,69 @@ To access help, use `http://localhost:8080/api/v1/help` or for each command sepa
 </details>
 2. Open channel - `/lightning/channel/open`
 <details>
-<summary>Initiates the process of opening a new payment channel, allowing the user to establish a direct connection with another participant on the Lightning Network.</summary>
+<summary>Description: This endpoint is used to open a channel to a node or an existing peer. It allows users to specify various parameters such as funding amount, fee rate, confirmation target, privacy settings, and more.</summary>
+
+#### Request
+
+* node_pubkey: The public key of the node to open a channel with.
+* local_funding_amount: The number of "pktoshis" (the smallest unit in the Lightning Network) the wallet should commit to the channel.
+* push_sat: The number of pktoshis to push to the remote side as part of the initial commitment state.
+* target_conf: The target number of blocks that the funding transaction should be confirmed by.
+* sat_per_byte: A manual fee rate set in satoshis per byte to be used when crafting the funding transaction.
+* private: A boolean indicating whether the channel should be private (not announced to the greater network).
+* min_htlc_msat: The minimum value in millisatoshis required for incoming HTLCs on the channel.
+* remote_csv_delay: The delay required on the remote's commitment transaction. If not set, it will be scaled automatically with the channel size.
+* min_confs: The minimum number of confirmations required for each of the user's outputs used for the funding transaction.
+* spend_unconfirmed: A boolean indicating whether unconfirmed outputs should be used as inputs for the funding transaction.
+* close_address: An optional address to which funds should be paid out upon cooperative close.
+* funding_shim: An optional argument that allows the caller to intercept certain funding functionality, such as using a specific key for the commitment key or signaling interactive signing.
+* remote_max_value_in_flight_msat: The maximum amount of coins in millisatoshis that can be pending within the channel from the remote party.
+* remote_max_htlcs: The maximum number of concurrent HTLCs the remote party is allowed to add to the commitment transaction.
+* max_local_csv: The maximum CSV (CheckSequenceVerify) delay allowed for the user's own commitment transaction.
+
+#### Response
+
+* funding_txid_bytes: The transaction ID of the funding transaction in bytes.
+* funding_txid_str: The transaction ID of the funding transaction as a hex-encoded string (byte-reversed hash).
+* output_index: The index of the output of the funding transaction.
+
 </details>
 3. Close channel - `/lightning/channel/close`
 <details>
-<summary>Starts the closing procedure for a specific payment channel, allowing the user to request the closure of the channel and settle any outstanding balances.</summary>
+<summary>CloseChannel attempts to close an active channel identified by its channel outpoint (ChannelPoint). The actions of this method can additionally be augmented to attempt a force close after a timeout period in the case of an inactive peer. If a non-force close (cooperative closure) is requested, then the user can specify either a target number of blocks until the closure transaction is confirmed or a manual fee rate. If neither is specified, a default lax block confirmation target is used.</summary>
+
+#### Request
+
+* channel_point: The outpoint (txid:index) of the funding transaction. With this value, Bob will be able to generate a signature for Alice's version of the commitment transaction.
+Subfields:
+	* funding_txid_bytes: Txid of the funding transaction. ([]byte)
+	* funding_txid_str: Hex-encoded string representing the byte-reversed hash of the funding transaction. (string)
+	* output_index: The index of the output of the funding transaction. (uint32)
+
+* force: If true, then the channel will be closed forcibly. This means the current commitment transaction will be signed and broadcast. (boolean)
+* target_conf: The target number of blocks that the closure transaction should be confirmed by. (int32)
+* sat_per_byte: A manual fee rate set in sat/byte that should be used when crafting the closure transaction. (int64)
+* delivery_address: An optional address to send funds to in the case of a cooperative close. If the channel was opened with an upfront shutdown script and this field is set, the request to close will fail because the channel must pay out to the upfront shutdown address. (string)
+
+#### Respose
+Empty
 </details>
 
 4. Abandon channel - `/lightning/channel/abandon`
 <details>
-<summary>Abandons an open but not yet confirmed channel opening transaction, removing it from the mempool and freeing any locked funds.</summary>
+<summary>AbandonChannel removes all channel state from the database except for a close summary. This method can be used to get rid of permanently unusable channels due to bugs fixed in newer versions of lnd. This method can also be used to remove externally funded channels where the funding transaction was never broadcast. It is only available for non-externally funded channels in dev build.
+</summary>
+
+#### Request
+
+* channel_point: The outpoint (txid:index) of the funding transaction.
+Subfields:
+	* funding_txid_bytes: Txid of the funding transaction. ([]byte)
+	* funding_txid_str: Hex-encoded string representing the byte-reversed hash of the funding transaction. (string)
+	* output_index: The index of the output of the funding transaction. (uint32)
+
+* pending_funding_shim_only: Indicates if only pending funding shim channels should be abandoned. (boolean)
+
 </details>
 
 5. Balance for channel - `/lightning/channel/balance`
@@ -92,7 +145,15 @@ To access help, use `http://localhost:8080/api/v1/help` or for each command sepa
 
 10. Update channel policy - `/lightning/channel/policy`
  <details>
-<summary>Allows the user to update the channel policy, which includes parameters such as fee rates, channel reserve, or other channel-specific settings.</summary>
+<summary>FeeReport allows the caller to obtain a report detailing the current fee schedule enforced by the node globally for each channel.
+</summary>
+
+#### Request
+
+* 
+#### Response
+
+
 </details>
 
 11. Export channel backup - `/lightning/channel/backup/export`
@@ -100,14 +161,65 @@ To access help, use `http://localhost:8080/api/v1/help` or for each command sepa
 <summary>Initiates the process of exporting a backup of the user's channel state, allowing them to store a copy of the channel's data for recovery purposes.</summary>
 </details>
 
+#### Request
+
+
+
+#### Response
+Example:
+```json
+{
+	"chanPoint":  {
+		"fundingTxidBytes":  "nxftR5D8abN5/uD4Rfhq7zxaoUoO6eorIrnThkIara8="
+	},
+	"chanBackup":  "ruVMDrjE5hWK88szlNlV7mKnWv8jGLMySm7CRuHjO06Q1s7RCL/85b96ukNbU87uOy0AIIgVn8NTeVC2guTlT/KhoVnwBvzP8oiX34P6WUOqCZh6Ipdwf8PXgUrfnS3aZ8G1AUjwZfWOTZOM5iTGxfEXfdP2Dl3LiFgMq1ZWZT/e/vmNMkVBWwLiHZPLYgbxXh4NL5ct2ctaEMApLmkKOcq+UTqonnWc+ukpdtyOLXHrHTUoRhKbDQuuMU2L0fppPG2gAr3eSB2GS1wKKNbgoPZ8y9M1aHqVPqtn1Lxdn2CZspZabPsd8m0ZyWB9HfGMXj3SuE0NE5AsuRcHXJYc01+thwD7lrVZvaXLrncHokuA3zbmijDSdkawdyBelLg1LUOoteN8/4FvfuFsiriPpOnwh1Gk2oGFdG92M8JUcUGqZ+RdWGyIM5TRToMfgqwhQiDClrQT3TSKEdzZUF5r8q4D41kmgXqw90bn5rU4FFeMIeMVhJGxWzWb605MAUswmbHxGPjobrEgX6cGCkxBduqao91eny7tK712oQ/y2kM8zw=="
+}
+```
 12. Verify channel backup - `/lightning/channel/backup/verify`
  <details>
-<summary>Verifies the integrity and validity of a previously exported channel backup, ensuring that it can be safely restored.</summary>
+<summary>VerifyChanBackup allows a caller to verify the integrity of a channel backup snapshot. This method will accept either a packed Single or a packed Multi. Specifying both will result in an error.</summary>
+
+#### Request
+
+* single_chan_backups: The set of new channels that have been added since the last channel backup snapshot was requested.
+Subfields:
+* chan_backups: A set of single-chan static channel backups.
+Subfields:
+* chan_point: Identifies the channel that this backup belongs to.
+Subfields:
+* funding_txid_bytes: Txid of the funding transaction. ([]byte)
+* funding_txid_str: Hex-encoded string representing the byte-reversed hash of the funding transaction. (string)
+* output_index: The index of the output of the funding transaction. (uint32)
+* chan_backup: An encrypted single-chan backup. This can be passed to RestoreChannelBackups, or the WalletUnlocker Init and Unlock methods in order to trigger the recovery protocol. ([]byte)
+* multi_chan_backup: A multi-channel backup that covers all open channels currently known to lnd.
+Subfields:
+* chan_points: The set of all channels that are included in this multi-channel backup.
+Subfields:
+* funding_txid_bytes: Txid of the funding transaction. ([]byte)
+* funding_txid_str: Hex-encoded string representing the byte-reversed hash of the funding transaction. (string)
+* output_index: The index of the output of the funding transaction. (uint32)
+* multi_chan_backup: A single encrypted blob containing all the static channel backups of the channels listed above. This can be stored as a single file or blob and safely be replaced with any prior/future versions. ([]byte)
+
 </details>
 
 13. Restore channel backup - `/lightning/channel/backup/restore`
  <details>
-<summary>Initiates the process of restoring a previously exported channel backup, allowing the user to recover the channel's state from the backup file.</summary>
+<summary>RestoreChannelBackups accepts a set of singular channel backups or a single encrypted multi-chan backup and attempts to recover any funds remaining within the channel. If the backup can be unpacked successfully, the new channel will be shown under listchannels, as well as pending channels.</summary>
+
+#### Request
+
+* chan_backups: The channels to restore as a list of channel/backup pairs.
+Subfields:
+* chan_backups: A set of single-chan static channel backups.
+Subfields:
+* chan_point: Identifies the channel that this backup belongs to.
+Subfields:
+* funding_txid_bytes: Txid of the funding transaction. ([]byte)
+* funding_txid_str: Hex-encoded string representing the byte-reversed hash of the funding transaction. (string)
+* output_index: The index of the output of the funding transaction. (uint32)
+* chan_backup: An encrypted single-chan backup. This can be passed to RestoreChannelBackups, or the WalletUnlocker Init and Unlock methods in order to trigger the recovery protocol. ([]byte)
+* multi_chan_backup: The channels to restore in the packed multi-backup format. ([]byte)
+
 </details>
 
 ### Graph
@@ -124,7 +236,14 @@ To access help, use `http://localhost:8080/api/v1/help` or for each command sepa
 
 3. Get channel info - `/lightning/graph/channel`
 <details>
-<summary>Retrieves detailed information about a specific payment channel, including its ID, participants, capacity, and other channel-specific details.</summary>
+<summary>
+GetChanInfo returns the latest authenticated network announcement for the given channel identified by its channel ID, which is an 8-byte integer that uniquely identifies the location of the transaction's funding output within the blockchain.
+</summary>
+
+#### Request
+* chan_id:  The unique channel ID for the channel. The first 3 bytes represent the block height, the next 3 bytes represent the index within the block, and the last 2 bytes represent the output index for the channel. (uint64)
+#### Response
+
 </details>
 
 4. Get node info - `/lightning/graph/nodeinfo`
@@ -141,7 +260,12 @@ To access help, use `http://localhost:8080/api/v1/help` or for each command sepa
 
 2. Look up invoice - `/lightning/invoice/lookup`
 <details>
-<summary>Looks up an invoice by its payment hash, providing information about the invoice's status, amount, and other related details.</summary>
+<summary>LookupInvoice attempts to look up an invoice according to its payment hash. The passed payment hash *must* be exactly 32 bytes, if not, an error is returned.</summary>
+
+#### Request
+
+* r_hash: The hash to use to look up an invoice. (string)
+
 </details>
 
 3. List invoices - `/lightning/invoice`
@@ -171,7 +295,14 @@ To access help, use `http://localhost:8080/api/v1/help` or for each command sepa
 
 8. List payments - `/lightning/payment`
 <details>
-<summary>Retrieves a list of recent payments made on the Lightning Network, including details such as payment amounts, statuses, and timestamps.</summary>
+<summary>ListPayments returns a list of all outgoing payments.</summary>
+
+#### Request
+* include_incomplete: If set to true, the response will include payments that have not yet fully completed. This means that pending payments, as well as failed payments, will be included in the response. The indices of the payments are still tied to individual payments. (bool)
+* index_offset: The index of a payment that will be used as either the start or end of a query to determine which payments should be returned in the response. The index_offset is exclusive. If index_offset is set to zero, the query will start with the oldest payment when paginating forwards or end with the most recent payment when paginating backwards. (uint64)
+* max_payments: The maximum number of payments to be returned in the response to this query. (uint64)
+* reversed: If set to true, the payments returned will result from seeking backwards from the specified index_offset. This can be used to paginate backwards. The order of the returned payments is always oldest first, in ascending index order. (bool)
+
 </details>
 
 9. Track payment - `/lightning/payment/track` (streaming only) [TODO]
@@ -214,6 +345,19 @@ To access help, use `http://localhost:8080/api/v1/help` or for each command sepa
 1. Connect peer - `/lightning/peer/connect`
 <details>
 <summary>Establishes a connection to a remote Lightning Network peer by specifying its network address, allowing for peer-to-peer communication.</summary>
+
+#### Request
+* addr: Lightning address of the peer, in the format <pubkey>@host
+Subfields:
+* pubkey: The identity pubkey of the Lightning node (string)
+* host: The network location of the Lightning node, e.g., 69.69.69.69:1337 or localhost:10011 (string)
+* perm: If set, the daemon will attempt to persistently connect to the target peer. Otherwise, the call will be synchronous. (boolean)
+* timeout: The connection timeout value (in seconds) for this request. It won't affect other requests. (uint64)
+
+#### Response
+
+Empty
+
 </details>
 
 2. Disconnect peer - `/lightning/peer/disconnect`
@@ -797,42 +941,63 @@ Example:
 
 1. Change Passphrase service - `/util/seed/changepassphrase`
 <details>
-<summary>Changes the passphrase used to encrypt and protect the wallet seed or mnemonic.</summary>
+<summary>This endpoint is used to change the passphrase that encrypts a wallet seed.</summary>
+
+#### Request
+* current_seed_passphrase (string): An optional user-specified passphrase that currently encrypts the seed.
+* current_seed_passphrase_bin ([]byte): An optional binary representation of the current seed passphrase. If specified, it overrides current_seed_passphrase. If using JSON, this field must be base64 encoded.
+* current_seed (string array): The seed whose passphrase is going to be changed.
+* new_seed_passphrase (string): An optional user-specified passphrase that will be used to encrypt the seed with the new passphrase.
+* new_seed_passphrase_bin ([]byte): An optional binary representation of the new passphrase. If specified, it overrides new_seed_passphrase. If using JSON, this field must be base64 encoded.
+#### Response
+
+* seed (string array): The new seed words representing the same seed but encrypted with the new passphrase.
+
 </details>
 
 2. GenSeed service - `/util/seed/create`
 <details>
-<summary>Generates a new wallet seed or mnemonic for wallet creation or recovery.</summary>
+<summary>This endpoint allows you to statelessly create a new wallet seed. The seed generated by this endpoint can be used as a secret root seed to derive all private keys of the wallet.</summary>
+
+#### Request
+
+* seed_passphrase (string): An optional user-specified passphrase that will be used to encrypt the generated seed.
+* seed_passphrase_bin ([]byte): An optional binary representation of the passphrase. If specified, it overrides seed_passphrase. If using JSON, this field must be base64 encoded.
+* seed_entropy ([]byte): An optional 16-byte value generated using a Cryptographically Secure Pseudo-Random Number Generator (CSPRNG). If not specified, a fresh set of randomness will be used to create the seed. When using REST, this field must be encoded as base64.
+#### Response
+
+* seed (string array): A 15-word mnemonic that encodes the secret root seed used to generate all private keys of the wallet.
+
 </details>
 
 ### Watchtower 
 
 1. Create WatchTower - `/wtclient/tower/create`
-   <details>
+<details>
 <summary>Creates a new Watchtower, which is a dedicated server responsible for monitoring and protecting Lightning Network channels.</summary>
 </details>
 
 2. Remove WatchTower - `/wtclient/tower/remove`
-   <details>
+<details>
 <summary>Removes a previously created Watchtower from the system.</summary>
 </details>
 
 3. List towers - `/wtclient/tower`
-   <details>
+<details>
 <summary>Retrieves a list of all existing Watchtowers in the system.</summary>
 </details>
 
 4. Get tower info - `/wtclient/tower/getinfo`
-   <details>
+<details>
 <summary>Retrieves detailed information about a specific Watchtower, including its configuration and status.</summary>
 </details>
 
 5. Get tower stats - `/wtclient/tower/stats`
-   <details>
+<details>
 <summary>Retrieves statistical information and metrics about a specific Watchtower's performance.</summary>
 </details>
 
 6. Get tower policy - `/wtclient/tower/policy`
-   <details>
+<details>
 <summary>Retrieves the policy settings of a specific Watchtower, which determine its behavior and decision-making process.</summary>
 </details>
