@@ -5,7 +5,10 @@
 package lnd
 
 import (
+	"bufio"
+	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/user"
@@ -15,6 +18,8 @@ import (
 	"time"
 
 	flags "github.com/jessevdk/go-flags"
+	jsoniter "github.com/json-iterator/go"
+	"github.com/pkt-cash/pktd/btcec"
 	"github.com/pkt-cash/pktd/btcutil"
 	"github.com/pkt-cash/pktd/btcutil/er"
 	"github.com/pkt-cash/pktd/chaincfg/globalcfg"
@@ -34,6 +39,12 @@ import (
 	"github.com/pkt-cash/pktd/neutrino"
 	"github.com/pkt-cash/pktd/pktconfig/version"
 	"github.com/pkt-cash/pktd/pktlog/log"
+	"github.com/pkt-cash/pktd/pktwallet/legacy/keystore"
+	"github.com/pkt-cash/pktd/pktwallet/prompt"
+	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
+	"github.com/pkt-cash/pktd/pktwallet/wallet"
+	"github.com/pkt-cash/pktd/pktwallet/wallet/seedwords"
+	"github.com/pkt-cash/pktd/pktwallet/zero"
 )
 
 const (
@@ -448,6 +459,32 @@ func LoadConfig() (*Config, er.R) {
 	cleanCfg, err := ValidateConfig(cfg, usageMessage)
 	if err != nil {
 		return nil, err
+	}
+
+	if cfg.Create {
+		// Error if the create flag is set and the wallet already
+		// exists.
+		dbPath := wallet.WalletDbPath(cfg.PktDir, cfg.WalletFile)
+		dbFileExists, err := fileExists(dbPath)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return nil, err
+		}
+		if dbFileExists {
+			err := er.Errorf("The wallet database file `%v` "+
+				"already exists.", dbPath)
+			fmt.Fprintln(os.Stderr, err)
+			return nil, err
+		}
+
+		// Perform the initial wallet creation wizard.
+		if err := createWallet(cleanCfg); err != nil {
+			fmt.Fprintln(os.Stderr, "Unable to create wallet:", err)
+			return nil, err
+		}
+
+		// Created successfully, so exit now with success.
+		os.Exit(0)
 	}
 
 	// Warn about missing config file only after all other configuration is
@@ -1091,4 +1128,256 @@ func CleanAndExpandPath(path string) string {
 	// NOTE: The os.ExpandEnv doesn't work with Windows-style %VARIABLE%,
 	// but the variables can still be expanded via POSIX-style $VARIABLE.
 	return filepath.Clean(os.ExpandEnv(path))
+}
+
+// convertLegacyKeystore converts all of the addresses in the passed legacy
+// key store to the new waddrmgr.Manager format.  Both the legacy keystore and
+// the new manager must be unlocked.
+func convertLegacyKeystore(legacyKeyStore *keystore.Store, w *wallet.Wallet) er.R {
+	netParams := legacyKeyStore.Net()
+	blockStamp := waddrmgr.BlockStamp{
+		Height: 0,
+		Hash:   *netParams.GenesisHash,
+	}
+	for _, walletAddr := range legacyKeyStore.ActiveAddresses() {
+		switch addr := walletAddr.(type) {
+		case keystore.PubKeyAddress:
+			privKey, err := addr.PrivKey()
+			if err != nil {
+				fmt.Printf("WARN: Failed to obtain private key "+
+					"for address %v: %v\n", addr.Address(),
+					err)
+				continue
+			}
+
+			wif, err := btcutil.NewWIF((*btcec.PrivateKey)(privKey),
+				netParams, addr.Compressed())
+			if err != nil {
+				fmt.Printf("WARN: Failed to create wallet "+
+					"import format for address %v: %v\n",
+					addr.Address(), err)
+				continue
+			}
+
+			_, err = w.ImportPrivateKey(waddrmgr.KeyScopeBIP0044,
+				wif, &blockStamp, false)
+			if err != nil {
+				fmt.Printf("WARN: Failed to import private "+
+					"key for address %v: %v\n",
+					addr.Address(), err)
+				continue
+			}
+
+		case keystore.ScriptAddress:
+			_, err := w.ImportP2SHRedeemScript(addr.Script())
+			if err != nil {
+				fmt.Printf("WARN: Failed to import "+
+					"pay-to-script-hash script for "+
+					"address %v: %v\n", addr.Address(), err)
+				continue
+			}
+
+		default:
+			fmt.Printf("WARN: Skipping unrecognized legacy "+
+				"keystore type: %T\n", addr)
+			continue
+		}
+	}
+
+	return nil
+}
+
+func fileExists(filePath string) (bool, er.R) {
+	_, errr := os.Stat(filePath)
+	if errr != nil {
+		if os.IsNotExist(errr) {
+			return false, nil
+		}
+		return false, er.E(errr)
+	}
+	return true, nil
+}
+
+type WalletSetupCfg struct {
+	Passphrase       *string `json:"passphrase"`
+	PublicPassphrase *string `json:"viewpassphrase"`
+	Seed             *string `json:"seed"`
+	SeedPassphrase   *string `json:"seedpassphrase"`
+}
+
+// createWallet prompts the user for information needed to generate a new wallet
+// and generates the wallet accordingly.  The new wallet will reside at the
+// provided path.
+func createWallet(cfg *Config) er.R {
+	//dbDir := networkDir(cfg.AppDataDir.Value, activeNet.Params)
+	// TODO(cjd): noFreelistSync ?
+	//loader := wallet.NewLoader(activeNet.Params, dbDir, cfg.Wallet, false, 250)
+	loader := wallet.NewLoader(cfg.ActiveNetParams.Params, cfg.PktDir, cfg.WalletFile, false, 250)
+
+	keystorePath := filepath.Join(cfg.networkDir, keystore.Filename)
+	var legacyKeyStore *keystore.Store
+	_, errr := os.Stat(keystorePath)
+	if errr != nil && !os.IsNotExist(errr) {
+		// A stat error not due to a non-existant file should be
+		// returned to the caller.
+		return er.E(errr)
+	} else if errr == nil {
+		// Keystore file exists.
+		var err er.R
+		//legacyKeyStore, err = keystore.OpenDir(netDir)
+		legacyKeyStore, err = keystore.OpenDir(cfg.networkDir)
+		if err != nil {
+			return err
+		}
+	}
+
+	fi, err := os.Stdin.Stat()
+	if err != nil {
+		panic("createWallet: os.Stdin.Stat failure.")
+	}
+	tty := false
+	var privPass []byte
+	pubPass := []byte(wallet.InsecurePubPassphrase)
+	var seedInput []byte
+	var seed *seedwords.Seed
+	setupCfg := WalletSetupCfg{}
+	if (fi.Mode() & os.ModeCharDevice) != 0 {
+		tty = true
+	} else if bytes, err := ioutil.ReadAll(os.Stdin); err != nil {
+		return er.E(err)
+	} else if err := jsoniter.Unmarshal(bytes, &setupCfg); err != nil {
+		return er.E(err)
+	} else {
+		if setupCfg.Passphrase != nil {
+			privPass = []byte(*setupCfg.Passphrase)
+		}
+		if setupCfg.PublicPassphrase != nil {
+			pubPass = []byte(*setupCfg.PublicPassphrase)
+		}
+		if setupCfg.Seed != nil {
+			if decoded, err := hex.DecodeString(*setupCfg.Seed); err == nil {
+				zero.Bytes(decoded)
+				seedInput = []byte(*setupCfg.Seed)
+			} else {
+				seedEnc, err := seedwords.SeedFromWords(*setupCfg.Seed)
+				if err != nil {
+					return err
+				}
+				var bs []byte
+				if setupCfg.SeedPassphrase != nil {
+					bs = []byte(*setupCfg.SeedPassphrase)
+				}
+				if setupCfg.SeedPassphrase != nil || !seedEnc.NeedsPassphrase() {
+					s, err := seedEnc.Decrypt(bs, false)
+					if err != nil {
+						return err
+					}
+					seed = s
+				} else {
+					return er.New("The provided seed requires a passphrase")
+				}
+			}
+		} else {
+			if s, err := seedwords.RandomSeed(); err != nil {
+				return err
+			} else {
+				seed = s
+			}
+		}
+	}
+
+	// Start by prompting for the private passphrase.  When there is an
+	// existing keystore, the user will be promped for that passphrase,
+	// otherwise they will be prompted for a new one.
+	var reader *bufio.Reader
+	if tty {
+		reader = bufio.NewReader(os.Stdin)
+		pvt, err := prompt.PrivatePass(reader, legacyKeyStore)
+		if err != nil {
+			return err
+		}
+		privPass = pvt
+	}
+
+	// When there exists a legacy keystore, unlock it now and set up a
+	// callback to import all keystore keys into the new walletdb
+	// wallet
+	if legacyKeyStore != nil {
+		err := legacyKeyStore.Unlock(privPass)
+		if err != nil {
+			return err
+		}
+
+		// Import the addresses in the legacy keystore to the new wallet if
+		// any exist, locking each wallet again when finished.
+		loader.RunAfterLoad(func(w *wallet.Wallet) {
+			defer legacyKeyStore.Lock()
+
+			fmt.Println("Importing addresses from existing wallet...")
+
+			lockChan := make(chan time.Time, 1)
+			defer func() {
+				lockChan <- time.Time{}
+			}()
+			err := w.Unlock(privPass, lockChan)
+			if err != nil {
+				fmt.Printf("ERR: Failed to unlock new wallet "+
+					"during old wallet key import: %v", err)
+				return
+			}
+
+			err = convertLegacyKeystore(legacyKeyStore, w)
+			if err != nil {
+				fmt.Printf("ERR: Failed to import keys from old "+
+					"wallet format: %v", err)
+				return
+			}
+
+			// Remove the legacy key store.
+			errr = os.Remove(keystorePath)
+			if errr != nil {
+				fmt.Printf("WARN: Failed to remove legacy wallet "+
+					"from'%s'\n", keystorePath)
+			}
+		})
+	}
+
+	// Ascertain the wallet generation seed.  This will either be an
+	// automatically generated value the user has already confirmed or a
+	// value the user has entered which has already been validated.
+	if tty {
+		si, sd, err := prompt.Seed(reader, privPass)
+		if err != nil {
+			return err
+		}
+		seedInput = si
+		seed = sd
+	}
+
+	if tty {
+		fmt.Println("Creating the wallet...")
+	}
+	w, werr := loader.CreateNewWallet(pubPass, privPass, seedInput, time.Now(), seed, nil)
+	if werr != nil {
+		return werr
+	}
+
+	w.Manager.Close()
+	if tty {
+		fmt.Println("The wallet has been created successfully.")
+	} else if seed != nil {
+		seedEnc := seed.Encrypt(privPass)
+		if words, err := seedEnc.Words("english"); err != nil {
+			return err
+		} else {
+			fmt.Printf(`{"seed":"%s"}`+"\n", words)
+		}
+		seedEnc.Zero()
+	} else {
+		fmt.Printf(`{"seed":"%s"}`+"\n", seedInput)
+	}
+	if seed != nil {
+		seed.Zero()
+	}
+	return nil
 }
