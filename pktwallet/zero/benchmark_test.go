@@ -7,7 +7,7 @@ package zero_test
 import (
 	"testing"
 
-	. "github.com/pkt-cash/pktd/pktwallet/internal/zero"
+	. "github.com/pkt-cash/pktd/pktwallet/zero"
 )
 
 var (

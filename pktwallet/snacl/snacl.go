@@ -16,7 +16,7 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/scrypt"
 
-	"github.com/pkt-cash/pktd/pktwallet/internal/zero"
+	"github.com/pkt-cash/pktd/pktwallet/zero"
 )
 
 var (

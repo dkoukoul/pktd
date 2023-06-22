@@ -25,7 +25,7 @@ import (
 	"github.com/pkt-cash/pktd/pktconfig/version"
 	"github.com/pkt-cash/pktd/pktlog/log"
 	"github.com/pkt-cash/pktd/pktwallet/internal/cfgutil"
-	"github.com/pkt-cash/pktd/pktwallet/internal/legacy/keystore"
+	"github.com/pkt-cash/pktd/pktwallet/legacy/keystore"
 	"github.com/pkt-cash/pktd/pktwallet/netparams"
 	"github.com/pkt-cash/pktd/pktwallet/wallet"
 )
