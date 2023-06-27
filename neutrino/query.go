@@ -1365,7 +1365,11 @@ func (s *ChainService) GetCFilter(blockHash chainhash.Hash,
 			// height 0 is unfetchable
 			tryHeight++
 		}
-		if dh, err := s.GetBlockHash(tryHeight); err != nil {
+		tryStopHeight := tryHeight + filterBatchSize
+		if tryStopHeight > int64(tipHeight) {
+			tryStopHeight = int64(tipHeight)
+		}
+		if dh, err := s.GetBlockHash(tryStopHeight); err != nil {
 			log.Debugf("Non-critical error getting hash at height [%d]: [%s]",
 				doHeight, err.String())
 			doHeight = int64(height)
