@@ -4297,10 +4297,10 @@ message Rejection {
     string reason = 2;
 }
 enum SendTxState {
-    PROGRESS = 0;
-    ACKNOLEDGED = 2;
-    FAIL_REJECT = 3;
-    FAIL_OUT_OF_PEERS = 4;
+    STS_PROGRESS = 0;
+    STS_ACKNOLEDGED = 2;
+    STS_FAIL_REJECT = 3;
+    STS_FAIL_OUT_OF_PEERS = 4;
 }
 message SendTxStatus {
     // The identifier of the transaction
@@ -4319,6 +4319,8 @@ message SendTxStatus {
     // Once a transaction has been acknoledged, it is considered to have been
     // broadcasted successfully.
     repeated string peers_acknoledged = 5;
+    // Peers who will be notified, but have not yet been
+    repeated string peers_remaining = 6;
     // Rejections of the transaction, if any
     repeated Rejection rejections = 7;
 }
