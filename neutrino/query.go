@@ -957,12 +957,11 @@ const filterBatchSize = wire.MaxGetCFiltersReqRange * 10
 func (s *ChainService) prepareCFiltersQueries(
 	blockHash chainhash.Hash,
 	height int32,
-	filterType wire.FilterType,
 	options ...QueryOption,
 ) ([]*cfiltersQuery, er.R) {
 	out := make([]*cfiltersQuery, 0, 10)
 	for num := 0; num < filterBatchSize; num += wire.MaxGetCFiltersReqRange {
-		x, err := s.prepareCFiltersQuery(blockHash, height, filterType, options...)
+		x, err := s.prepareCFiltersQuery(blockHash, height, options...)
 		if err != nil {
 			if len(out) == 0 {
 				return nil, err
@@ -990,7 +989,6 @@ func (s *ChainService) prepareCFiltersQueries(
 func (s *ChainService) prepareCFiltersQuery(
 	blockHash chainhash.Hash,
 	height int32,
-	filterType wire.FilterType,
 	options ...QueryOption,
 ) (*cfiltersQuery, er.R) {
 
@@ -1107,7 +1105,7 @@ func (s *ChainService) prepareCFiltersQuery(
 	filterChan := make(chan *gcs.Filter, 1)
 
 	return &cfiltersQuery{
-		filterType:    filterType,
+		filterType:    wire.GCSFilterRegular,
 		startHeight:   startHeight,
 		stopHeight:    stopHeight,
 		stopHash:      stopHash,
@@ -1215,7 +1213,6 @@ func (s *ChainService) handleCFiltersResponse(q *cfiltersQuery,
 func (s *ChainService) doFilterRequest(
 	blockHash chainhash.Hash,
 	height int32,
-	ft wire.FilterType,
 	options []QueryOption,
 ) er.R {
 	s.mtxCFilter.Lock()
@@ -1232,7 +1229,7 @@ func (s *ChainService) doFilterRequest(
 
 	// We didn't get the filter from the DB, so we'll try to get it from
 	// the network.
-	queries, err := s.prepareCFiltersQueries(blockHash, height, ft, options...)
+	queries, err := s.prepareCFiltersQueries(blockHash, height, options...)
 	if err != nil {
 		s.mtxCFilter.Unlock()
 		return err
@@ -1293,7 +1290,6 @@ func (s *ChainService) doFilterRequest(
 
 func (s *ChainService) getMoreFiltersIfNeeded(
 	blockHash chainhash.Hash,
-	ft wire.FilterType,
 	options []QueryOption,
 ) {
 	if blockHash[0] != 0 {
@@ -1320,7 +1316,7 @@ func (s *ChainService) getMoreFiltersIfNeeded(
 			// Don't worry, it's only a prefetch
 		} else {
 			//log.Debugf("Prefetching filter headers starting at height [%d]", tryHeight)
-			s.GetCFilter(*bh, ft, options...)
+			s.GetCFilter(*bh, options...)
 		}
 	}()
 }
@@ -1329,20 +1325,13 @@ func (s *ChainService) getMoreFiltersIfNeeded(
 // cfilter from the network and writes it to the database. If extended is true,
 // an extended filter will be queried for. Otherwise, we'll fetch the regular
 // filter.
-func (s *ChainService) GetCFilter(blockHash chainhash.Hash,
-	filterType wire.FilterType, options ...QueryOption) (*gcs.Filter, er.R) {
-
-	// The only supported filter atm is the regular filter, so we'll reject
-	// all other filters.
-	if filterType != wire.GCSFilterRegular {
-		return nil, er.Errorf("unknown filter type: %v", filterType)
-	}
+func (s *ChainService) GetCFilter(blockHash chainhash.Hash, options ...QueryOption) (*gcs.Filter, er.R) {
 
 	// First check the cache to see if we already have this filter. If
 	// so, then we can return it an exit early.
 	filter, err := s.getFilterFromCache(&blockHash)
 	if err == nil && filter != nil {
-		s.getMoreFiltersIfNeeded(blockHash, filterType, options)
+		s.getMoreFiltersIfNeeded(blockHash, options)
 		return filter, nil
 	}
 	if err != nil && !cache.ErrElementNotFound.Is(err) {
@@ -1380,7 +1369,7 @@ func (s *ChainService) GetCFilter(blockHash chainhash.Hash,
 	}
 
 	for {
-		if err := s.doFilterRequest(*doHash, int32(doHeight), filterType, options); err != nil {
+		if err := s.doFilterRequest(*doHash, int32(doHeight), options); err != nil {
 			return nil, err
 		}
 

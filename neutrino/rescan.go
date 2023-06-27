@@ -520,9 +520,7 @@ func rescan(chain *RescanChainSource, options ...RescanOption) er.R {
 		// Otherwise, we'll attempt to fetch the filter to retrieve the
 		// relevant transactions and notify them.
 		queryOptions := NumRetries(0)
-		blockFilter, err := chain.GetCFilter(
-			curStamp.Hash, wire.GCSFilterRegular, queryOptions,
-		)
+		blockFilter, err := chain.GetCFilter(curStamp.Hash, queryOptions)
 
 		switch {
 		// If the block index doesn't know about this block, then it's
@@ -971,9 +969,7 @@ func blockFilterMatches(chain *RescanChainSource, ro *rescanOptions,
 	// utxoscanner, we expect more calls to follow for the subsequent
 	// filters. To speed up the fetching, we make an optimistic batch
 	// query.
-	filter, err := chain.GetCFilter(
-		*blockHash, wire.GCSFilterRegular, OptimisticBatch(),
-	)
+	filter, err := chain.GetCFilter(*blockHash, OptimisticBatch())
 	if err != nil {
 		if headerfs.ErrHashNotFound.Is(err) {
 			// Block has been reorged out from under us.

@@ -544,7 +544,7 @@ func (n *NeutrinoNotifier) historicalConfDetails(confRequest chainntnfs.ConfRequ
 		// will execute a network query only once per batch and not on every
 		// iteration.
 		regFilter, err := n.p2pNode.GetCFilter(
-			*blockHash, wire.GCSFilterRegular,
+			*blockHash,
 			neutrino.NumRetries(5),
 			neutrino.OptimisticReverseBatch(),
 			// TODO(cjd): Maybe we want to implement MaxBatchSize in neutrino?

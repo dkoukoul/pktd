@@ -876,8 +876,7 @@ func testRandomBlocks(harness *neutrinoHarness, t *testing.T) {
 				return
 			}
 			// Get basic cfilter from network.
-			haveFilter, err := harness.svc.GetCFilter(blockHash,
-				wire.GCSFilterRegular, queryOptions...)
+			haveFilter, err := harness.svc.GetCFilter(blockHash, queryOptions...)
 			if err != nil {
 				errChan <- err
 				return

@@ -1747,7 +1747,7 @@ func (cs *ChainService) pollCFilter(hash *chainhash.Hash) (*gcs.Filter, er.R) {
 			time.Sleep(100 * time.Millisecond)
 		}
 
-		filter, err = cs.GetCFilter(*hash, wire.GCSFilterRegular, OptimisticBatch())
+		filter, err = cs.GetCFilter(*hash, OptimisticBatch())
 		if err != nil {
 			count++
 			continue
