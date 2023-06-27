@@ -1709,8 +1709,8 @@ func (r *LightningRPCServer) GetInfo0(ctx context.Context,
 	nPendingChannels := uint32(len(pendingChannels))
 
 	idPub := r.server.identityECDH.PubKey().SerializeCompressed()
-	encodedIDPub := idPub
-
+	idPubHex := hex.EncodeToString(idPub)
+	
 	bs, err := r.server.cc.ChainIO.BestBlock()
 	if err != nil {
 		return nil, er.Errorf("unable to get best block info: %v", err)
@@ -1742,7 +1742,7 @@ func (r *LightningRPCServer) GetInfo0(ctx context.Context,
 	addrs := nodeAnn.Addresses
 	uris := make([]string, len(addrs))
 	for i, addr := range addrs {
-		uris[i] = fmt.Sprintf("%s@%s", encodedIDPub, addr.String())
+		uris[i] = fmt.Sprintf("%s@%s", idPubHex, addr.String())
 	}
 
 	isGraphSynced := r.server.authGossiper.SyncManager().IsGraphSynced()
@@ -1765,7 +1765,7 @@ func (r *LightningRPCServer) GetInfo0(ctx context.Context,
 
 	// TODO(roasbeef): add synced height n stuff
 	return &rpc_pb.GetInfoResponse{
-		IdentityPubkey:      encodedIDPub,
+		IdentityPubkey:      idPubHex,
 		NumPendingChannels:  nPendingChannels,
 		NumActiveChannels:   activeChannels,
 		NumInactiveChannels: inactiveChannels,
