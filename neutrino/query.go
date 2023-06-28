@@ -1206,10 +1206,6 @@ func (s *ChainService) doFilterRequest(
 	log.Debugf("Fetching filters for heights=[%v, %v]",
 		bottomHeight, topHeight)
 
-	if bottomHeight == topHeight {
-		log.Debugf(er.Errorf("Fetched signle filter").String())
-	}
-
 	var wg sync.WaitGroup
 	for _, q := range queries {
 		wg.Add(1)
