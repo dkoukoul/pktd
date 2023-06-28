@@ -718,13 +718,8 @@ func queryChainServicePeers(
 		quit chan<- struct{}) bool,
 
 	// options takes functional options for executing the query.
-	options ...QueryOption,
+	qo *queryOptions,
 ) {
-
-	// Starting with the set of default options, we'll apply any specified
-	// functional options to the query.
-	qo := defaultQueryOptions()
-	qo.applyQueryOptions(options...)
 
 	// We get an initial view of our peers, to be updated each time a peer
 	// query times out.
@@ -939,9 +934,7 @@ type cfiltersQuery struct {
 	stopHash      *chainhash.Hash
 	filterHeaders []chainhash.Hash
 	headerIndex   map[chainhash.Hash]int
-	targetHash    chainhash.Hash
-	filterChan    chan *gcs.Filter
-	options       []QueryOption
+	options       *queryOptions
 }
 
 // queryMsg returns the wire message to perform this query.
@@ -955,13 +948,19 @@ const filterPrefetchDistance = wire.MaxGetCFiltersReqRange * 5
 const filterBatchSize = wire.MaxGetCFiltersReqRange * 10
 
 func (s *ChainService) prepareCFiltersQueries(
-	blockHash chainhash.Hash,
 	height int32,
-	options ...QueryOption,
+	qo *queryOptions,
 ) ([]*cfiltersQuery, er.R) {
 	out := make([]*cfiltersQuery, 0, 10)
+	if qo.optimisticBatch == noBatch {
+		x, err := s.prepareCFiltersQuery(height, qo)
+		return []*cfiltersQuery{x}, err
+	}
+	// This query batching logic is only designed for forwardBatch
+	// If reversebatch is specified, the caller should be calling us with
+	// a `height` that is lower than the target filter that they want.
 	for num := 0; num < filterBatchSize; num += wire.MaxGetCFiltersReqRange {
-		x, err := s.prepareCFiltersQuery(blockHash, height, options...)
+		x, err := s.prepareCFiltersQuery(height, qo)
 		if err != nil {
 			if len(out) == 0 {
 				return nil, err
@@ -971,25 +970,16 @@ func (s *ChainService) prepareCFiltersQueries(
 		}
 		out = append(out, x)
 		height = int32(x.stopHeight + 1)
-		if x.stopHeight < x.startHeight {
-			height = int32(x.stopHeight - 1)
-		}
-		if bh, err := s.GetBlockHash(int64(height)); err != nil {
-			// Maybe it's past the tip, not going to worry about this, return what we've got
-			break
-		} else {
-			blockHash = *bh
-		}
 	}
 	return out, nil
 }
 
 // prepareCFiltersQuery creates a cfiltersQuery that can be used to fetch a
 // CFilter fo the given block hash.
+// If blockHash is nil then we won't notify when it's found
 func (s *ChainService) prepareCFiltersQuery(
-	blockHash chainhash.Hash,
 	height int32,
-	options ...QueryOption,
+	qo *queryOptions,
 ) (*cfiltersQuery, er.R) {
 
 	bestBlock, err := s.BestBlock()
@@ -1003,43 +993,25 @@ func (s *ChainService) prepareCFiltersQuery(
 			height, bestBlock.Height)
 	}
 
-	qo := defaultQueryOptions()
-	qo.applyQueryOptions(options...)
-
 	// If the query specifies an optimistic batch we will attempt to fetch
 	// the maximum number of filters in anticipation of calls for the
 	// following or preceding filters.
 	var startHeight, stopHeight int64
 
 	switch qo.optimisticBatch {
-
 	// No batching, the start and stop height will be the same.
 	case noBatch:
 		startHeight = int64(height)
 		stopHeight = int64(height)
 
-	// Forward batch, fetch as many of the following filters as possible.
+	// We treat forward and reverse batch the same way
+	// because our internal batches are 10x the size of batch requests
+	// and batch requests are always made on even boundaries in order
+	// to avoid dupliation.
+	case reverseBatch:
 	case forwardBatch:
 		startHeight = int64(height)
 		stopHeight = startHeight + wire.MaxGetCFiltersReqRange - 1
-
-		// We need a longer timeout, since we are going to receive more
-		// than a single response.
-		options = append(options, Timeout(QueryBatchTimeout))
-
-	// Reverse batch, fetch as many of the preceding filters as possible.
-	case reverseBatch:
-		stopHeight = int64(height)
-		startHeight = stopHeight - wire.MaxGetCFiltersReqRange + 1
-
-		// We need a longer timeout, since we are going to receive more
-		// than a single response.
-		options = append(options, Timeout(QueryBatchTimeout))
-	}
-
-	// Block 1 is the earliest one we can fetch.
-	if startHeight < 1 {
-		startHeight = 1
 	}
 
 	// If the stop height with the maximum batch size is above our best
@@ -1099,11 +1071,6 @@ func (s *ChainService) prepareCFiltersQuery(
 		headerIndex[block.BlockHash()] = i
 	}
 
-	// We'll immediately respond to the caller with the requested filter
-	// when it is received, so we make a channel to notify on when it's
-	// ready.
-	filterChan := make(chan *gcs.Filter, 1)
-
 	return &cfiltersQuery{
 		filterType:    wire.GCSFilterRegular,
 		startHeight:   startHeight,
@@ -1111,9 +1078,7 @@ func (s *ChainService) prepareCFiltersQuery(
 		stopHash:      stopHash,
 		filterHeaders: filterHeaders,
 		headerIndex:   headerIndex,
-		targetHash:    blockHash,
-		filterChan:    filterChan,
-		options:       options,
+		options:       qo,
 	}, nil
 }
 
@@ -1171,13 +1136,6 @@ func (s *ChainService) handleCFiltersResponse(q *cfiltersQuery,
 		return false
 	}
 
-	// At this point, the filter matches what we know about it and we
-	// declare it sane. If this is the filter requested initially, send it
-	// to the caller immediately.
-	if response.BlockHash == q.targetHash {
-		q.filterChan <- gotFilter
-	}
-
 	// Put the filter in the cache and persistToDisk if the caller
 	// requested it.
 	// TODO(halseth): for an LRU we could take care to insert the next
@@ -1196,9 +1154,6 @@ func (s *ChainService) handleCFiltersResponse(q *cfiltersQuery,
 			"cache size...", numFilters)
 	}
 
-	qo := defaultQueryOptions()
-	qo.applyQueryOptions(q.options...)
-
 	// Finally, we can delete it from the headerIndex.
 	delete(q.headerIndex, response.BlockHash)
 
@@ -1211,9 +1166,8 @@ func (s *ChainService) handleCFiltersResponse(q *cfiltersQuery,
 }
 
 func (s *ChainService) doFilterRequest(
-	blockHash chainhash.Hash,
 	height int32,
-	options []QueryOption,
+	qo *queryOptions,
 ) er.R {
 	s.mtxCFilter.Lock()
 	for pf := range s.pendingFilters {
@@ -1229,7 +1183,7 @@ func (s *ChainService) doFilterRequest(
 
 	// We didn't get the filter from the DB, so we'll try to get it from
 	// the network.
-	queries, err := s.prepareCFiltersQueries(blockHash, height, options...)
+	queries, err := s.prepareCFiltersQueries(height, qo)
 	if err != nil {
 		s.mtxCFilter.Unlock()
 		return err
@@ -1266,7 +1220,7 @@ func (s *ChainService) doFilterRequest(
 				func(_ *ServerPeer, resp wire.Message, quit chan<- struct{}) bool {
 					return s.handleCFiltersResponse(query, resp, quit)
 				},
-				query.options...,
+				qo,
 			)
 
 			// If there are elements left to receive, the query failed.
@@ -1338,38 +1292,38 @@ func (s *ChainService) GetCFilter(blockHash chainhash.Hash, options ...QueryOpti
 		return nil, err
 	}
 
-	doHash := &blockHash
+	qo := defaultQueryOptions()
+	qo.applyQueryOptions(options...)
 	var doHeight int64
 	if _, height, err := s.NeutrinoDB.FetchBlockHeader(&blockHash); err != nil {
 		return nil, err
-	} else if _, tipHeight, err := s.NeutrinoDB.BlockChainTip(); err != nil {
-		return nil, err
-	} else if tipHeight-height < wire.MaxGetCFiltersReqRange {
-		// We're at or near the tip, don't load a batch
+	} else if qo.optimisticBatch == noBatch {
+		// Non-batch means we only need to send out 1 query
 		doHeight = int64(height)
 	} else {
-		// Always load on even boundaries to prevent duplication
-		tryHeight := int64(height) / filterBatchSize * filterBatchSize
-		if tryHeight == 0 {
-			// height 0 is unfetchable
-			tryHeight++
-		}
-		tryStopHeight := tryHeight + filterBatchSize
-		if tryStopHeight > int64(tipHeight) {
-			tryStopHeight = int64(tipHeight)
-		}
-		if dh, err := s.GetBlockHash(tryStopHeight); err != nil {
-			log.Debugf("Non-critical error getting hash at height [%d]: [%s]",
-				doHeight, err.String())
+		qo.applyQueryOptions(Timeout(QueryBatchTimeout))
+		if _, tipHeight, err := s.NeutrinoDB.BlockChainTip(); err != nil {
+			return nil, err
+		} else if tipHeight-height < 20 {
+			// We're at or near the tip, don't load a batch
 			doHeight = int64(height)
+			qo.optimisticBatch = noBatch
 		} else {
-			doHash = dh
-			doHeight = tryHeight
+			// Always load on even boundaries to prevent duplication
+			// Height zero is unfetchable so push everything off by 1
+			doHeight = int64(height)/wire.MaxGetCFiltersReqRange*wire.MaxGetCFiltersReqRange + 1
+			if qo.optimisticBatch == reverseBatch {
+				// If we're doing a reverse batch then we should choose a height which is biased
+				// below the actual target height because we know that we will be requesting a
+				// range of size filterBatchSize.
+				doHeight -= filterBatchSize
+				doHeight += wire.MaxGetCFiltersReqRange
+			}
 		}
 	}
 
 	for {
-		if err := s.doFilterRequest(*doHash, int32(doHeight), options); err != nil {
+		if err := s.doFilterRequest(int32(doHeight), qo); err != nil {
 			return nil, err
 		}
 
@@ -1387,9 +1341,7 @@ func (s *ChainService) GetCFilter(blockHash chainhash.Hash, options ...QueryOpti
 		if _, _, err := s.NeutrinoDB.FetchBlockHeader(&blockHash); err != nil {
 			return nil, err
 		}
-		log.Warnf(er.Errorf("Req for filter start %d stophash %s", doHeight, doHash).String())
-		log.Warnf("Made request for filter [%s] but still not in cache, retry",
-			blockHash.String())
+		log.Warnf(er.Errorf("Req for filter start %d blockHash %s", doHeight, blockHash).String())
 	}
 }
 
@@ -1516,7 +1468,7 @@ func (s *ChainService) getBlock(blockHash chainhash.Hash, height uint32,
 			}
 			return false
 		},
-		options...,
+		qo,
 	)
 	if foundBlock == nil {
 		return nil, er.Errorf("Couldn't retrieve block %s from "+
@@ -1650,6 +1602,7 @@ func (s *ChainService) SendTransaction0(tx *wire.MsgTx, options ...QueryOption) 
 			}
 			return false
 		},
+		qo,
 	)
 	if stopCh != nil {
 		close(stopCh)
