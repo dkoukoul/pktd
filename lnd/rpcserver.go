@@ -3979,7 +3979,8 @@ func (r *LightningRPCServer) LookupInvoice(ctx context.Context,
 	if req.RHash != nil && len(req.RHash) > 0 {
 		rHash, err = util.DecodeHex(string(req.RHash))
 		if err != nil {
-			return nil, err
+			log.Info("unable to decode hex string, will take rHash as bytes: %v", err.Message())
+			rHash = req.RHash
 		}
 	} else {
 		rHash = req.RHash
