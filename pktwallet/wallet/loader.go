@@ -17,7 +17,7 @@ import (
 	"github.com/pkt-cash/pktd/pktlog/log"
 
 	"github.com/pkt-cash/pktd/chaincfg"
-	"github.com/pkt-cash/pktd/pktwallet/internal/prompt"
+	"github.com/pkt-cash/pktd/pktwallet/prompt"
 	"github.com/pkt-cash/pktd/pktwallet/waddrmgr"
 	"github.com/pkt-cash/pktd/pktwallet/wallet/seedwords"
 	"github.com/pkt-cash/pktd/pktwallet/walletdb"

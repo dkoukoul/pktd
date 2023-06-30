@@ -13,7 +13,7 @@ import (
 
 	"github.com/dchest/blake2b"
 	"github.com/pkt-cash/pktd/btcutil/er"
-	"github.com/pkt-cash/pktd/pktwallet/internal/zero"
+	"github.com/pkt-cash/pktd/pktwallet/zero"
 	"golang.org/x/crypto/argon2"
 )
 

@@ -7,7 +7,7 @@ First, you must determine what account address(es) have received funds which mus
 Secondly, you need to use the dumpprivkey command to extract the key for the account, for example:
 
 ```
-btcctl -u x -P x --wallet dumpprivkey myaccount
+pldctl wallet/address/dumpprivkey --address= <address>
 ```
 
 You may need to use walletpassphrase to unlock your wallet first.
@@ -25,32 +25,32 @@ mv ~/Library/Application\ Support/Pktwallet/pkt/wallet.db ~/Library/Application\
 Now that these are out of the way, you can create a new wallet:
 
 ```
-pktwallet --create
+pld --create
 ```
 
 After you have followed all of the steps, you then launch the pktwallet daemon:
 
 ```
-pktwallet -u x -P x
+pld
 ```
 
 Now that the daemon is launched, you need to *import* the private keys which you exported earlier:
 
 ```
 # Repeat this for each of your private keys
-btcctl -u x -P x --wallet importprivkey <secret private key>
+pldctl wallet/address/import --private_key=<private key>
 ```
 
 Now that you have imported all of your private keys, you must use the resync command to cause pktwallet to search the blockchain for any funds associated with those keys.
 
 ```
-btcctl -u x -P x --wallet resync
+pldctl wallet/address/resync
 ```
 
 After that is complete, use getbalance to check that the coins are present.
 
 ```
-btcctl -u x -P x --wallet getbalance
+pldctl wallet/balance
 ```
 
 Now you will be able to spend your coins using this wallet, however because the address in this wallet is *imported*, it is not derived from the seed and is therefore at risk in case of a loss of the wallet, so it is recommended that you migrate the funds to a more reliable wallet as soon as possible.

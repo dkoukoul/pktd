@@ -1757,7 +1757,7 @@ message GetInfoResponse {
     string commit_hash = 20;
 
     // The identity pubkey of the current node.
-    bytes identity_pubkey = 1;
+    string identity_pubkey = 1;
 
     // If applicable, the alias of the current node, e.g. "bob"
     string alias = 2;
