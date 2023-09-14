@@ -1310,6 +1310,28 @@ func (c *RpcContext) RegisterFunctions(a *apiv1.Apiv1) {
 			return rs.GenSeed0(context.TODO(), req)
 		}),
 	)
+	cjdns := apiv1.DefineCategory(a, "cjdns", "CJDNS related functions")
+	//cjdnsPing := apiv1.DefineCategory(cjdns, "ping", "Ping a cjdns node")
+	apiv1.Endpoint(
+		cjdns,
+		"ping",
+		`
+		Ping a cjdns node.
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.CjdnsPingRequest) (*rpc_pb.CjdnsPingResponse, er.R) {
+			return rs.PingCjdns(context.TODO(), req)
+		}),
+	)
+	apiv1.Endpoint(
+		cjdns,
+		"requestinvoice",
+		`
+		Request a payment invoice using a cjdns address.
+		`,
+		withRpc(c, func(rs *LightningRPCServer, req *rpc_pb.CjdnsPaymentInvoiceRequest) (*rpc_pb.CjdnsPaymentInvoiceResponse, er.R) {
+			return rs.CjdnsInvoiceRequest(context.TODO(), req)
+		}),
+	)
 }
 
 type RpcContext struct {

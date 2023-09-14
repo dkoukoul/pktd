@@ -269,6 +269,8 @@ type Config struct {
 
 	DB *lncfg.DB `group:"db" namespace:"db"`
 
+	CjdnsSocket string `long:"cjdnssocket" description:"The path of the CJDNS socket (cjdroute.sock)"`
+
 	// registeredChains keeps track of all chains that have been registered
 	// with the daemon.
 	registeredChains *chainreg.ChainRegistry
