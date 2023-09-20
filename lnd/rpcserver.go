@@ -26,7 +26,6 @@ import (
 	"github.com/pkt-cash/pktd/btcutil/util"
 	"github.com/pkt-cash/pktd/chaincfg"
 	"github.com/pkt-cash/pktd/chaincfg/chainhash"
-	"github.com/pkt-cash/pktd/cjdns"
 	"github.com/pkt-cash/pktd/generated/proto/rpc_pb"
 	"github.com/pkt-cash/pktd/lnd/autopilot"
 	"github.com/pkt-cash/pktd/lnd/chainreg"
@@ -6426,88 +6425,5 @@ func isValidIPv6(addr string) bool {
 	return match
 }
 
-func (r *LightningRPCServer) PingCjdns(ctx context.Context, req *rpc_pb.CjdnsPingRequest) (*rpc_pb.CjdnsPingResponse, er.R) {
-	if !isValidIPv6(req.CjdnsAddr) {
-		return nil, er.New("Invalid CJDNS address")
-	}
-	if r.cfg.CjdnsSocket == "" {
-		return nil, er.New("Cjdns socket not found")
-	}
-
-	// log.Infof("CJDNS socket found at: %v", r.cfg.CjdnsSocket)
-	err := cjdns.Initialize(r.cfg.CjdnsSocket)
-	if err != nil {
-		return nil, er.New("Cjdns socket error")
-	}
-	res, pingerr := cjdns.Ping(req.CjdnsAddr)
-	if pingerr != nil {
-		return nil, er.New("Cjdns ping error")
-	}
-
-	return &rpc_pb.CjdnsPingResponse{
-		Pong: res,
-	}, nil
-}
-
-func (r *LightningRPCServer) CjdnsInvoiceRequest(ctx context.Context, req *rpc_pb.CjdnsPaymentInvoiceRequest) (*rpc_pb.CjdnsPaymentInvoiceResponse, er.R) {
-	if r.cfg.CjdnsSocket == "" {
-		return nil, er.New("Cjdns socket not found")
-	}
-	//TODO: check for cjdns initialization
-	// err := cjdns.Initialize(r.cfg.CjdnsSocket)
-	// if err != nil {
-	// 	return nil, er.New("Cjdns socket error")
-	// }
-	//TODO: remove lndpubkey from request
-	// should retreive it from lnd
-	idPub := r.server.identityECDH.PubKey().SerializeCompressed()
-	idPubHex := hex.EncodeToString(idPub)
-	txid, err := cjdns.SendCjdnsInvoiceRequest(req.CjdnsAddr, req.CjdnsPubkey, idPubHex, req.Amount)
-	if err != nil {
-		return nil, er.New("Cjdns invoice request error")
-	}
-	// Wait 10 seconds for cjdns response with same txid
-	response := make(chan cjdns.InvoiceResponse)
-	start := time.Now()
-	closed := false
-	go func() {
-		for {
-			time.Sleep(1 * time.Second)
-			if cjdns.CjdnsInvoiceResponse.Txid == txid {
-				fmt.Println("Cjdns invoice response received")
-				respCopy := cjdns.CjdnsInvoiceResponse
-				response <- respCopy
-				cjdns.CjdnsInvoiceResponse = cjdns.InvoiceResponse{}
-				if !closed {
-					close(response)
-					closed = true
-				}
-				return
-			}
-			if time.Since(start) > 10*time.Second {
-				fmt.Println("Cjdns invoice response timeout")
-				if !closed {
-					close(response)
-					closed = true
-				}
-				return
-			}
-		}
-	}()
-	res, ok := <-response
-	if !ok {
-		//TODO: ???
-	}
-	if res.Error != "" {
-		fmt.Println("Cjdns invoice response error: ", res.Error)
-		return nil, er.New(res.Error)
-	} else {
-		// fmt.Println("Cjdns invoice response: ", res)
-		fmt.Println("Cjdns invoice response rhash: ", res.RHash)
-		fmt.Println("Cjdns invoice response payment request: ", res.PaymentRequest)
-		return &rpc_pb.CjdnsPaymentInvoiceResponse{
-			RHash:          res.RHash,
-			PaymentRequest: res.PaymentRequest,
-		}, nil
-	}
-}
+//NOTE: New RPC functions should be implemented where they are run, in the appropriate modules.
+//See GetTransactionsRequest at pktwallet/wallet/wallet.go for example
