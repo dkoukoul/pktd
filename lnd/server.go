@@ -76,7 +76,7 @@ import (
 const (
 	// defaultMinPeers is the minimum number of peers nodes should always be
 	// connected to.
-	defaultMinPeers = 3
+	defaultMinPeers = 1
 
 	// defaultStableConnDuration is a floor under which all reconnection
 	// attempts will apply exponential randomized backoff. Connections
@@ -95,6 +95,10 @@ const (
 	// value used or a particular peer will be chosen between 0s and this
 	// value.
 	maxInitReconnectDelay = 30
+
+	// multiAddrConnectionStagger is the number of seconds to wait between
+	// attempting to a peer with each of its advertised addresses.
+	multiAddrConnectionStagger = 10 * time.Second
 )
 
 var (
@@ -184,6 +188,7 @@ type server struct {
 
 	persistentPeers        map[string]bool
 	persistentPeersBackoff map[string]time.Duration
+	persistentPeerAddrs    map[string][]*lnwire.NetAddress
 	persistentConnReqs     map[string][]*connmgr.ConnReq
 	persistentRetryCancels map[string]chan struct{}
 
@@ -335,6 +340,188 @@ func noiseDial(idKey keychain.SingleKeyECDH,
 		lnAddr := a.(*lnwire.NetAddress)
 		return brontide.Dial(idKey, lnAddr, timeout, netCfg.Dial)
 	}
+}
+
+// updatePersistentPeerAddrs subscribes to topology changes and stores
+// advertised addresses for any NodeAnnouncements from our persisted peers.
+func (s *server) updatePersistentPeerAddrs() er.R {
+	graphSub, err := s.chanRouter.SubscribeTopology()
+	log.Debugf("Subscribed to topology updates")
+	if err != nil {
+		return err
+	}
+
+	s.wg.Add(1)
+	go func() {
+		defer func() {
+			graphSub.Cancel()
+			s.wg.Done()
+		}()
+
+		for {
+			select {
+			case <-s.quit:
+				return
+
+			case topChange, ok := <-graphSub.TopologyChanges:
+				log.Debugf("Received topology update: %v", topChange)
+				// If the router is shutting down, then we will
+				// as well.
+				if !ok {
+					return
+				}
+
+				for _, update := range topChange.NodeUpdates {
+					pubKeyStr := string(
+						update.IdentityKey.
+							SerializeCompressed(),
+					)
+
+					// We only care about updates from
+					// our persistentPeers.
+					s.mu.RLock()
+					_, ok := s.persistentPeers[pubKeyStr]
+					s.mu.RUnlock()
+					if !ok {
+						continue
+					}
+
+					addrs := make([]*lnwire.NetAddress, 0,
+						len(update.Addresses))
+
+					for _, addr := range update.Addresses {
+						addrs = append(addrs,
+							&lnwire.NetAddress{
+								IdentityKey: update.IdentityKey,
+								Address:     addr,
+								ChainNet:    s.cfg.ActiveNetParams.Net,
+							},
+						)
+					}
+
+					s.mu.Lock()
+
+					// Update the stored addresses for this
+					// to peer to reflect the new set.
+					s.persistentPeerAddrs[pubKeyStr] = addrs
+
+					// If there are no outstanding
+					// connection requests for this peer
+					// then our work is done since we are
+					// not currently trying to connect to
+					// them.
+					if len(s.persistentConnReqs[pubKeyStr]) == 0 {
+						s.mu.Unlock()
+						continue
+					}
+
+					s.mu.Unlock()
+
+					s.connectToPersistentPeer(pubKeyStr)
+				}
+			}
+		}
+	}()
+
+	return nil
+}
+
+
+// connectToPersistentPeer uses all the stored addresses for a peer to attempt
+// to connect to the peer. It creates connection requests if there are
+// currently none for a given address and it removes old connection requests
+// if the associated address is no longer in the latest address list for the
+// peer.
+func (s *server) connectToPersistentPeer(pubKeyStr string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Create an easy lookup map of the addresses we have stored for the
+	// peer. We will remove entries from this map if we have existing
+	// connection requests for the associated address and then any leftover
+	// entries will indicate which addresses we should create new
+	// connection requests for.
+	addrMap := make(map[string]*lnwire.NetAddress)
+	for _, addr := range s.persistentPeerAddrs[pubKeyStr] {
+		addrMap[addr.String()] = addr
+	}
+
+	// Go through each of the existing connection requests and
+	// check if they correspond to the latest set of addresses. If
+	// there is a connection requests that does not use one of the latest
+	// advertised addresses then remove that connection request.
+	var updatedConnReqs []*connmgr.ConnReq
+	for _, connReq := range s.persistentConnReqs[pubKeyStr] {
+		lnAddr := connReq.Addr.(*lnwire.NetAddress).Address.String()
+
+		switch _, ok := addrMap[lnAddr]; ok {
+		// If the existing connection request is using one of the
+		// latest advertised addresses for the peer then we add it to
+		// updatedConnReqs and remove the associated address from
+		// addrMap so that we don't recreate this connReq later on.
+		case true:
+			updatedConnReqs = append(
+				updatedConnReqs, connReq,
+			)
+			delete(addrMap, lnAddr)
+
+		// If the existing connection request is using an address that
+		// is not one of the latest advertised addresses for the peer
+		// then we remove the connecting request from the connection
+		// manager.
+		case false:
+			log.Infof(
+				"Removing conn req:", connReq.Addr.String(),
+			)
+			s.connMgr.Remove(connReq.ID())
+		}
+	}
+
+	s.persistentConnReqs[pubKeyStr] = updatedConnReqs
+
+	cancelChan, ok := s.persistentRetryCancels[pubKeyStr]
+	if !ok {
+		cancelChan = make(chan struct{})
+		s.persistentRetryCancels[pubKeyStr] = cancelChan
+	}
+
+	// Any addresses left in addrMap are new ones that we have not made
+	// connection requests for. So create new connection requests for those.
+	// If there is more than one address in the address map, stagger the
+	// creation of the connection requests for those.
+	go func() {
+		ticker := time.NewTicker(multiAddrConnectionStagger)
+		defer ticker.Stop()
+
+		for _, addr := range addrMap {
+			// Send the persistent connection request to the
+			// connection manager, saving the request itself so we
+			// can cancel/restart the process as needed.
+			connReq := &connmgr.ConnReq{
+				Addr:      addr,
+				Permanent: true,
+			}
+
+			s.mu.Lock()
+			s.persistentConnReqs[pubKeyStr] = append(
+				s.persistentConnReqs[pubKeyStr], connReq,
+			)
+			s.mu.Unlock()
+
+			log.Debugf("Attempting persistent connection to "+
+				"channel peer %v", addr)
+
+			go s.connMgr.Connect(connReq)
+
+			select {
+			case <-s.quit:
+				return
+			case <-cancelChan:
+				return
+			case <-ticker.C:
+			}
+		}
+	}()
 }
 
 // newServer creates a new instance of the server which is to listen using the
@@ -1526,6 +1713,16 @@ func (s *server) Start() er.R {
 
 		s.connMgr.Start()
 
+
+		// Subscribe to NodeAnnouncements that advertise new addresses
+		// our persistent peers.
+		log.Debugf("Subscribing to node announcements")
+		if err := s.updatePersistentPeerAddrs(); err != nil {
+			startErr = err
+			return
+		}
+
+
 		// With all the relevant sub-systems started, we'll now attempt
 		// to establish persistent connections to our direct channel
 		// collaborators within the network. Before doing so however,
@@ -2138,6 +2335,8 @@ func (s *server) initialPeerBootstrap(ignore map[autopilot.NodeID]struct{},
 		// Otherwise, we'll request for the remaining number of peers
 		// in order to reach our target.
 		peersNeeded := numTargetPeers - numActivePeers
+		//print all thre above values
+		log.Debugf("PeersNeeded %d, numTargetPeers %d, numActivePeers %d", peersNeeded, numTargetPeers, numActivePeers)
 		bootstrapAddrs, err := discovery.MultiSourceBootstrap(
 			ignore, peersNeeded, bootstrappers...,
 		)

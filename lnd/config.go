@@ -430,27 +430,24 @@ func LoadConfig() (*Config, er.R) {
 	configFileDir := CleanAndExpandPath(preCfg.LndDir)
 	configFilePath := CleanAndExpandPath(preCfg.ConfigFile)
 	if configFileDir != DefaultLndDir {
-		if configFilePath == DefaultConfigFile {
-			configFilePath = filepath.Join(
+				if configFilePath == DefaultConfigFile {
+						configFilePath = filepath.Join(
 				configFileDir, lncfg.DefaultConfigFilename,
 			)
 		}
 	}
-
+	
 	// Next, load any additional configuration options from the file.
 	var configFileError error
 	cfg := preCfg
-	if err := flags.IniParse(configFilePath, &cfg); err != nil {
-		// If it's a parsing related error, then we'll return
-		// immediately, otherwise we can proceed as possibly the config
-		// file doesn't exist which is OK.
-		if _, ok := err.(*flags.IniError); ok {
-			return nil, er.E(err)
+	
+	parser := flags.NewParser(&cfg, flags.Default)
+	errr := flags.NewIniParser(parser).ParseFile(configFilePath)
+	if errr != nil {
+		if _, ok := errr.(*os.PathError); !ok {
+			return nil, er.E(errr)
 		}
-
-		configFileError = err
 	}
-
 	// Finally, parse the remaining command line options again to ensure
 	// they take precedence.
 	if _, err := flags.Parse(&cfg); err != nil {
@@ -462,7 +459,7 @@ func LoadConfig() (*Config, er.R) {
 	if err != nil {
 		return nil, err
 	}
-
+	
 	if cfg.Create {
 		// Error if the create flag is set and the wallet already
 		// exists.
@@ -495,7 +492,7 @@ func LoadConfig() (*Config, er.R) {
 	if configFileError != nil {
 		log.Warnf("%v", configFileError)
 	}
-
+	
 	return cleanCfg, nil
 }
 
@@ -611,12 +608,12 @@ func ValidateConfig(cfg Config, usageMessage string) (*Config, er.R) {
 
 	// Ensure that the specified values for the min and max channel size
 	// are within the bounds of the normal chan size constraints.
-	if cfg.Autopilot.MinChannelSize < int64(minChanFundingSize) {
-		cfg.Autopilot.MinChannelSize = int64(minChanFundingSize)
-	}
-	if cfg.Autopilot.MaxChannelSize > int64(MaxFundingAmount) {
-		cfg.Autopilot.MaxChannelSize = int64(MaxFundingAmount)
-	}
+	// if cfg.Autopilot.MinChannelSize < int64(minChanFundingSize) {
+	// 	cfg.Autopilot.MinChannelSize = int64(minChanFundingSize)
+	// }
+	// if cfg.Autopilot.MaxChannelSize > int64(MaxFundingAmount) {
+	// 	cfg.Autopilot.MaxChannelSize = int64(MaxFundingAmount)
+	// }
 
 	if _, err := validateAtplCfg(cfg.Autopilot); err != nil {
 		return nil, err
@@ -933,12 +930,12 @@ func ValidateConfig(cfg Config, usageMessage string) (*Config, er.R) {
 
 	// Ensure that the specified values for the min and max channel size
 	// don't are within the bounds of the normal chan size constraints.
-	if cfg.Autopilot.MinChannelSize < int64(minChanFundingSize) {
-		cfg.Autopilot.MinChannelSize = int64(minChanFundingSize)
-	}
-	if cfg.Autopilot.MaxChannelSize > int64(MaxFundingAmount) {
-		cfg.Autopilot.MaxChannelSize = int64(MaxFundingAmount)
-	}
+	// if cfg.Autopilot.MinChannelSize < int64(minChanFundingSize) {
+	// 	cfg.Autopilot.MinChannelSize = int64(minChanFundingSize)
+	// }
+	// if cfg.Autopilot.MaxChannelSize > int64(MaxFundingAmount) {
+	// 	cfg.Autopilot.MaxChannelSize = int64(MaxFundingAmount)
+	// }
 
 	// Validate profile port number.
 	if cfg.Profile != "" {

@@ -76,7 +76,7 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 		strings.ToTitle(cfg.registeredChains.PrimaryChain().String()),
 		network,
 	)
-
+	
 	// Bring up the REST handler immediately
 	api, apiRouter := apiv1.New()
 	restContext := RpcContext{}
@@ -423,6 +423,7 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 	// Set up an autopilot manager from the current config. This will be
 	// used to manage the underlying autopilot agent, starting and stopping
 	// it at will.
+	log.Debugf("Starting Autopilot with %v ", cfg.Autopilot)
 	atplCfg, err := initAutoPilot(server, cfg.Autopilot, mainChain, cfg.ActiveNetParams)
 	if err != nil {
 		err := er.Errorf("unable to initialize autopilot: %v", err)
@@ -541,113 +542,15 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 	// we can start listening for cjdns invoice requests
 	if cfg.CjdnsSocket != "" {
 		if rs := restContext.MaybeRpcServer; rs != nil {
-			cjdns, err := cjdns.NewCjdnsHandler(cfg.CjdnsSocket, api)
+			cjdnsMgr, err := cjdns.NewCjdnsHandler(cfg.CjdnsSocket, api)
 			if err != nil {
 				log.Errorf("Can not initialize CJDNS: ", err)
 			} else {
 				//Cjdns initialized
-				cjdns.Start(rs)
+				cjdnsMgr.Start(rs)
 			}
 		}
 	}
-		// err := cjdns.Initialize(cfg.CjdnsSocket, api)
-		// if err != nil {
-		// 	log.Infof("Can not initialize cjdns: ", err)
-		// } else {
-			
-		// 		// cjdns.Server = rs
-		// 		//TESTING: ONLY from developer's host, will try to connect to hardcoded lnd peer
-		// 		hostname, _ := os.Hostname()
-		// 		if hostname == "x1" {
-		// 			log.Infof("Running on developer's host, will try to connect to lnd peer")
-		// 			//connect to lnd peer
-		// 			listPeersResponse, err := rs.ListPeers(context.TODO(), &rpc_pb.ListPeersRequest{})
-		// 			if err != nil {
-		// 				log.Error("Error listing lnd peers: ", err)
-		// 			}
-		// 			if len(listPeersResponse.Peers) == 0 {
-		// 				log.Infof("No current lnd peer connection, getting nodes...")
-		// 				nodes := cjdns.GetNodes()
-		// 				//TODO: read cjdns addres from cjdns peers
-		// 				// lndhost := "[fce3:86e9:b183:1a06:ad9a:c37f:14fe:36c2]:9735"
-		// 				// lndhost := "192.168.1.12:9735"
-		// 				//TODO: get lnd identity pubkey
-		// 				// lndPubkey := "037a44193419b4e58eb43607a521dc1da3bb262019c5ab565e7f4224714f1b5695"
-
-		// 				for _,node := range nodes {
-		// 					fmt.Println("Connect LND to CJDNS node: ", node)
-		// 					lndAddress := rpc_pb.LightningAddress{
-		// 						Pubkey: node.CjdnsPubKey,
-		// 						Host:   node.CjdnsAddr,
-		// 					}
-		// 					connectRequest := &rpc_pb.ConnectPeerRequest{
-		// 						Addr: &lndAddress,
-		// 					}
-		// 					log.Infof("Connecting to LND peer: ", connectRequest.Addr.Host)
-		// 					for {
-		// 						_, err := rs.ConnectPeer(context.TODO(), connectRequest)
-		// 						if err != nil {
-		// 							log.Warnf("Error connecting to LND peer: ", err)
-		// 						} else {
-		// 							break
-		// 						}
-		// 						time.Sleep(time.Second * 5)
-		// 					}
-		// 				}
-		// 			}
-		// 		}
-		// 	}
-		// 	for {
-		// 		invoiceRequestchan, lndPubkeychan, err := cjdns.ListeningForInvoiceRequest()
-		// 		request := <-invoiceRequestchan
-		// 		lndPubkeyRequest := <-lndPubkeychan
-		// 		if err != nil {
-		// 			log.Infof("Error listening for CJDNS invoice request: ", err)
-		// 		}
-		// 		if request.CjdnsAddr != "" {
-		// 			log.Infof("CJDNS invoice request: ", request)
-		// 			errorInvoiceResponse := &rpc_pb.RestError{
-		// 				Message: "Error creating invoice",
-		// 			}
-		// 			if rs := restContext.MaybeRpcServer; rs != nil {
-		// 				listPeersResponse, err := rs.ListPeers(context.TODO(), &rpc_pb.ListPeersRequest{})
-		// 				if err != nil {
-		// 					log.Errorf("Error listing lnd peers: ", err)
-		// 				}
-		// 				if len(listPeersResponse.Peers) == 0 {
-		// 					errorInvoiceResponse = &rpc_pb.RestError{
-		// 						Message: "No lnd peer connection",
-		// 					}
-		// 					cjdns.SendCjdnsInvoiceResponse(request, &rpc_pb.AddInvoiceResponse{}, errorInvoiceResponse)
-		// 				} else {
-		// 					invoice := &rpc_pb.Invoice{
-		// 						Value: int64(request.Amount),
-		// 					}
-		// 					// log.Infof("Creating invoice with: ", invoice)
-		// 					invoiceResponse, errr := rs.AddInvoice(context.TODO(), invoice)
-		// 					if errr != nil {
-		// 						log.Error("Error adding invoice: ", errr)
-		// 					}
-		// 					// log.Infof("Invoice response: ", invoiceResponse)
-		// 					errrr := cjdns.SendCjdnsInvoiceResponse(request, invoiceResponse, nil)
-		// 					if errrr != nil {
-		// 						log.Errorf("Error sending CJDNS invoice response: ", err)
-		// 					}
-		// 				}
-		// 			} else {
-		// 				log.Errorf("No rpc server...")
-		// 			}
-		// 		} else if lndPubkeyRequest.CjdnsAddr != "" {
-		// 			log.Infof("CJDNS lnd pubkey request: ", lndPubkeyRequest)
-		// 			if rs := restContext.MaybeRpcServer; rs != nil {
-		// 				//TODO: get lnd identity pubkey
-		// 				idPub := rs.server.identityECDH.PubKey().SerializeCompressed()
-		// 				idPubHex := hex.EncodeToString(idPub)
-		// 				cjdns.SendLndPubkeyResponse(idPubHex, lndPubkeyRequest)
-		// 			}
-		// 		}
-		// 	}
-		// }
 
 	// Now that the server has started, if the autopilot mode is currently
 	// active, then we'll start the autopilot agent immediately. It will be

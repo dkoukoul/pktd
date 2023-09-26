@@ -4,11 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	"os"
 	"strconv"
-	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkt-cash/pktd/btcutil/er"
@@ -18,48 +17,17 @@ import (
 	"github.com/zeebo/bencode"
 )
 
-const (
-	ContentType_IP6_IP       = 0
-	ContentType_IP6_ICMP     = 1
-	ContentType_IP6_IGMP     = 2
-	ContentType_IP6_IPIP     = 4
-	ContentType_IP6_TCP      = 6
-	ContentType_IP6_EGP      = 8
-	ContentType_IP6_PUP      = 12
-	ContentType_IP6_UDP      = 17
-	ContentType_IP6_IDP      = 22
-	ContentType_IP6_TP       = 29
-	ContentType_IP6_DCCP     = 33
-	ContentType_IP6_IPV6     = 41
-	ContentType_IP6_RSVP     = 46
-	ContentType_IP6_GRE      = 47
-	ContentType_IP6_ESP      = 50
-	ContentType_IP6_AH       = 51
-	ContentType_IP6_MTP      = 92
-	ContentType_IP6_BEETPH   = 94
-	ContentType_IP6_ENCAP    = 98
-	ContentType_IP6_PIM      = 103
-	ContentType_IP6_COMP     = 108
-	ContentType_IP6_SCTP     = 132
-	ContentType_IP6_UDPLITE  = 136
-	ContentType_IP6_RAW      = 255
-	ContentType_CJDHT        = 256
-	ContentType_IPTUN        = 257
-	ContentType_RESERVED     = 258
-	ContentType_RESERVED_MAX = 0x7fff
-	ContentType_AVAILABLE    = 0x8000
-	ContentType_CTRL         = 0xffff + 1
-	ContentType_MAX          = 0xffff + 2
-)
-
 type Cjdns struct {
-	SocketPath    string
-	Socket        net.Conn
-	Device        string
-	IPv6          string
-	ListeningPort int
-	ListenConn    *net.UDPConn
-	api           apiv1.Apiv1
+	SocketPath          string
+	Socket              net.Conn
+	Device              string
+	IPv6                string
+	ListeningPort       int
+	ListenConn          *net.UDPConn
+	api                 apiv1.Apiv1
+	lndPeers            []CjdnsNode
+	socketLock          sync.Mutex
+	invoiceResponseChan chan InvoiceResponse
 }
 
 type LndPubkeyRequest struct {
@@ -69,6 +37,7 @@ type LndPubkeyRequest struct {
 }
 
 type LndPubkeyResponse struct {
+	CjdnsAddr string
 	lndPubkey string
 	Txid      string
 }
@@ -99,116 +68,22 @@ type CjdnsPeer struct {
 	state  string
 }
 
-var CjdnsInvoiceResponse InvoiceResponse
-var lndPubkeyResponse LndPubkeyResponse
+type CjdnsMessage struct {
+	invoiceReq InvoiceRequest
+	invoiceRes InvoiceResponse
+	lndPubReq  LndPubkeyRequest
+	lndPubRes  LndPubkeyResponse
+}
+
+// var CjdnsInvoiceResponse InvoiceResponse
+
+// var lndPubkeyResponse LndPubkeyResponse
 
 type lndRpcServer interface {
 	LndListPeers(ctx context.Context, in *rpc_pb.ListPeersRequest) (*rpc_pb.ListPeersResponse, er.R)
 	LndConnectPeer(ctx context.Context, in *rpc_pb.ConnectPeerRequest) (*rpc_pb.Null, er.R)
 	LndAddInvoice(ctx context.Context, in *rpc_pb.Invoice) (*rpc_pb.AddInvoiceResponse, er.R)
 	LndIdentityPubkey() string
-}
-
-func (c *Cjdns) registerRpc() {
-	cjdnsCategory := c.api.Category("cjdns")
-	apiv1.Endpoint(
-		cjdnsCategory,
-		"ping",
-		`
-		Ping a cjdns node.
-		`,
-		func(req *rpc_pb.CjdnsPingRequest) (*rpc_pb.CjdnsPingResponse, er.R) {
-			return c.PingCjdns(req)
-		},
-	)
-	apiv1.Endpoint(
-		cjdnsCategory,
-		"requestinvoice",
-		`
-		Request a payment invoice using a cjdns address.
-		`,
-		func(req *rpc_pb.CjdnsPaymentInvoiceRequest) (*rpc_pb.CjdnsPaymentInvoiceResponse, er.R) {
-			return c.CjdnsInvoiceRequest(req)
-		},
-	)
-}
-
-func (c *Cjdns) PingCjdns(req *rpc_pb.CjdnsPingRequest) (*rpc_pb.CjdnsPingResponse, er.R) {
-	// if !isValidIPv6(req.CjdnsAddr) {
-	// 	return nil, er.New("Invalid CJDNS address")
-	// }
-	// if r.cfg.CjdnsSocket == "" {
-	// 	return nil, er.New("Cjdns socket not found")
-	// }
-	res, pingerr := c.Ping(req.CjdnsAddr)
-	if pingerr != nil {
-		return nil, er.New("Cjdns ping error")
-	}
-
-	return &rpc_pb.CjdnsPingResponse{
-		Pong: res,
-	}, nil
-}
-
-func (c *Cjdns) CjdnsInvoiceRequest(req *rpc_pb.CjdnsPaymentInvoiceRequest) (*rpc_pb.CjdnsPaymentInvoiceResponse, er.R) {
-	// if r.cfg.CjdnsSocket == "" {
-	// 	return nil, er.New("Cjdns socket not found")
-	// }
-	//TODO: check for cjdns initialization
-	// err := cjdns.Initialize(r.cfg.CjdnsSocket)
-	// if err != nil {
-	// 	return nil, er.New("Cjdns socket error")
-	// }
-	//TODO: remove lndpubkey from request
-	// should retreive it from lnd
-	// idPub := cjdns.Server.identityECDH.PubKey().SerializeCompressed()
-	// idPubHex := hex.EncodeToString(idPub)
-	txid, err := c.SendCjdnsInvoiceRequest(req.CjdnsAddr, req.CjdnsPubkey, req.Amount)
-	if err != nil {
-		return nil, er.New("Cjdns invoice request error")
-	}
-	// Wait 10 seconds for cjdns response with same txid
-	response := make(chan InvoiceResponse)
-	start := time.Now()
-	closed := false
-	go func() {
-		for {
-			time.Sleep(1 * time.Second)
-			if CjdnsInvoiceResponse.Txid == txid {
-				log.Infof("Cjdns invoice response received")
-				respCopy := CjdnsInvoiceResponse
-				response <- respCopy
-				CjdnsInvoiceResponse = InvoiceResponse{}
-				if !closed {
-					close(response)
-					closed = true
-				}
-				return
-			}
-			if time.Since(start) > 30*time.Second {
-				log.Infof("Cjdns invoice response timeout")
-				response <- InvoiceResponse{
-					Error: "Cjdns invoice response timeout",
-				}
-				CjdnsInvoiceResponse = InvoiceResponse{}
-				if !closed {
-					close(response)
-					closed = true
-				}
-				return
-			}
-		}
-	}()
-	res := <-response
-	if res.Error != "" {
-		log.Infof("Cjdns invoice response error: ", res.Error)
-		return nil, er.New(res.Error)
-	} else {
-		return &rpc_pb.CjdnsPaymentInvoiceResponse{
-			RHash:          res.RHash,
-			PaymentRequest: res.PaymentRequest,
-		}, nil
-	}
 }
 
 func NewCjdnsHandler(socket string, api *apiv1.Apiv1) (*Cjdns, er.R) {
@@ -225,354 +100,146 @@ func NewCjdnsHandler(socket string, api *apiv1.Apiv1) (*Cjdns, er.R) {
 		return nil, er.New("Error connecting to CJDNS socket")
 	}
 
-	log.Infof("CJDNS socket initialized successfully")
+	invoiceResponseChan := make(chan InvoiceResponse)
 	cjdns := Cjdns{
-		Device:     device,
-		IPv6:       ipv6,
-		SocketPath: socket,
-		Socket:     conn,
-		api:        *api,
+		Device:              device,
+		IPv6:                ipv6,
+		SocketPath:          socket,
+		Socket:              conn,
+		api:                 *api,
+		invoiceResponseChan: invoiceResponseChan,
 	}
-
+	// Unregister all handlers
+	udpPorts, _ := cjdns.ListHandlers()
+	for _, port := range udpPorts {
+		cjdns.UnregisterHandler(port)
+	}
+	log.Infof("CJDNS message handler initialized successfully")
 	return &cjdns, nil
 }
 
 func (c *Cjdns) Start(lnd lndRpcServer) er.R {
-	// Unregister all handlers
-	udpPorts, _ := c.ListHandlers()
-	for _, port := range udpPorts {
-		c.UnregisterHandler(port)
-		time.Sleep(1 * time.Second)
-	}
 	c.registerRpc()
-	listPeersResponse, err := lnd.LndListPeers(context.TODO(), &rpc_pb.ListPeersRequest{})
-	//TODO: Start listening for cjdns messages
-	if err != nil {
-		log.Errorf("Error listing lnd peers: %v", err)
-	}
-	//TESTING: ONLY from developer's host, will try to connect to hardcoded lnd peer
-	hostname, _ := os.Hostname()
-	if hostname == "x1" {
-		if len(listPeersResponse.Peers) == 0 {
-			log.Infof("No current lnd peer connection, getting nodes...")
-			//TODO: read cjdns addres from cjdns peers
-			// lndhost := "[fce3:86e9:b183:1a06:ad9a:c37f:14fe:36c2]:9735"
-			lndhost := "192.168.1.12:9735"
-			//TODO: get lnd identity pubkey
-			lndPubkey := "037a44193419b4e58eb43607a521dc1da3bb262019c5ab565e7f4224714f1b5695"
-			lndAddress := rpc_pb.LightningAddress{
-				Pubkey: lndPubkey,
-				Host:   lndhost,
+
+	go func() {
+		for {
+			cjdnsMsgChan, err := c.ListenCjdnsMessages()
+			cjdnsMessage := <-cjdnsMsgChan
+			close(cjdnsMsgChan)
+			log.Debugf("Handling Cjdns message: %v", cjdnsMessage)
+			if err != nil {
+				log.Warnf("Error listening for CJDNS invoice request: %v", err)
 			}
-			connectRequest := &rpc_pb.ConnectPeerRequest{
-				Addr: &lndAddress,
-			}
-			log.Infof("Connecting to LND peer: %s", connectRequest.Addr.Host)
-			for {
+			// Check type of message
+			if cjdnsMessage.invoiceReq.CjdnsAddr != "" {
+				log.Debugf("CJDNS invoice request: %v", cjdnsMessage.invoiceReq)
+				errorInvoiceResponse := &rpc_pb.RestError{
+					Message: "Error creating invoice",
+				}
+				// log.Debugf("Listing lnd peers...")
+				listPeersResponse, err := lnd.LndListPeers(context.TODO(), &rpc_pb.ListPeersRequest{})
+				if err != nil {
+					log.Errorf("Error listing lnd peers: %v", err)
+				}
+				if len(listPeersResponse.Peers) == 0 {
+					errorInvoiceResponse = &rpc_pb.RestError{
+						Message: "No lnd peer connection",
+					}
+					c.SendCjdnsInvoiceResponse(cjdnsMessage.invoiceReq, &rpc_pb.AddInvoiceResponse{}, errorInvoiceResponse)
+				} else {
+					invoice := &rpc_pb.Invoice{
+						Value: int64(cjdnsMessage.invoiceReq.Amount),
+					}
+					log.Debugf("Creating lnd invoice with: %v", invoice)
+					invoiceResponse, errr := lnd.LndAddInvoice(context.TODO(), invoice)
+					if errr != nil {
+						log.Errorf("Error adding invoice: %v", errr)
+					}
+					log.Debugf("Lnd Invoice response: %v", invoiceResponse)
+					errrr := c.SendCjdnsInvoiceResponse(cjdnsMessage.invoiceReq, invoiceResponse, nil)
+					if errrr != nil {
+						log.Errorf("Error sending CJDNS invoice response: %v", err)
+					}
+				}
+			} else if cjdnsMessage.invoiceRes.Txid != "" {
+				log.Debugf("CJDNS invoice response: %v", cjdnsMessage.invoiceRes)
+				c.invoiceResponseChan <- cjdnsMessage.invoiceRes
+			} else if cjdnsMessage.lndPubReq.CjdnsAddr != "" {
+				log.Debugf("CJDNS lnd pubkey request: %s", cjdnsMessage.lndPubReq.CjdnsAddr)
+				idPubHex := lnd.LndIdentityPubkey()
+				c.SendLndPubkeyResponse(idPubHex, cjdnsMessage.lndPubReq)
+			} else if cjdnsMessage.lndPubRes.lndPubkey != "" {
+				log.Debugf("CJDNS lnd pubkey response with pubkey: %s for: %s", cjdnsMessage.lndPubRes.lndPubkey, cjdnsMessage.lndPubRes.CjdnsAddr)
+				lndAddress := rpc_pb.LightningAddress{
+					Pubkey: cjdnsMessage.lndPubRes.lndPubkey,
+					Host:   cjdnsMessage.lndPubRes.CjdnsAddr,
+				}
+				connectRequest := &rpc_pb.ConnectPeerRequest{
+					Addr: &lndAddress,
+				}
+				log.Infof("Connecting to LND peer...: %s", connectRequest.Addr)
 				_, err := lnd.LndConnectPeer(context.TODO(), connectRequest)
 				if err != nil {
 					log.Warnf("Error connecting to LND peer: %s", err.Message())
 				} else {
-					break
-				}
-				time.Sleep(time.Second * 5)
-			}
-			// nodes := c.GetNodes()
-			// for _,node := range nodes {
-			// 	fmt.Println("Connect LND to CJDNS node: ", node)
-			// 	lndAddress := rpc_pb.LightningAddress{
-			// 		Pubkey: node.CjdnsPubKey,
-			// 		Host:   node.CjdnsAddr,
-			// 	}
-			// 	connectRequest := &rpc_pb.ConnectPeerRequest{
-			// 		Addr: &lndAddress,
-			// 	}
-			// 	log.Infof("Connecting to LND peer: ", connectRequest.Addr.Host)
-			// 	for {
-			// 		_, err := lnd.LndConnectPeer(context.TODO(), connectRequest)
-			// 		if err != nil {
-			// 			log.Warnf("Error connecting to LND peer: ", err)
-			// 		} else {
-			// 			break
-			// 		}
-			// 		time.Sleep(time.Second * 5)
-			// 	}
-			// }
-		}
-	}
-
-	for {
-		// invoiceRequestchan, lndPubkeychan, err := c.ListenCjdnsMessages()
-		invoiceRequestchan, err := c.ListenCjdnsMessages()
-		request := <-invoiceRequestchan
-		// lndPubkeyRequest := <-lndPubkeychan
-		if err != nil {
-			log.Warnf("Error listening for CJDNS invoice request: %v", err)
-		}
-		if request.CjdnsAddr != "" {
-			// log.Infof("CJDNS invoice request: %v", request)
-			errorInvoiceResponse := &rpc_pb.RestError{
-				Message: "Error creating invoice",
-			}
-			// log.Infof("Listing lnd peers...")
-			listPeersResponse, err := lnd.LndListPeers(context.TODO(), &rpc_pb.ListPeersRequest{})
-			if err != nil {
-				log.Errorf("Error listing lnd peers: %v", err)
-			}
-			if len(listPeersResponse.Peers) == 0 {
-				errorInvoiceResponse = &rpc_pb.RestError{
-					Message: "No lnd peer connection",
-				}
-				c.SendCjdnsInvoiceResponse(request, &rpc_pb.AddInvoiceResponse{}, errorInvoiceResponse)
-			} else {
-				invoice := &rpc_pb.Invoice{
-					Value: int64(request.Amount),
-				}
-				// log.Infof("Creating lnd invoice with: %v", invoice)
-				invoiceResponse, errr := lnd.LndAddInvoice(context.TODO(), invoice)
-				if errr != nil {
-					log.Errorf("Error adding invoice: %v", errr)
-				}
-				// log.Infof("Lnd Invoice response: %v", invoiceResponse)
-				errrr := c.SendCjdnsInvoiceResponse(request, invoiceResponse, nil)
-				if errrr != nil {
-					log.Errorf("Error sending CJDNS invoice response: %v", err)
+					log.Infof("Connected to LND peer: %s", cjdnsMessage.lndPubRes.CjdnsAddr)
 				}
 			}
 		}
-		// } else if lndPubkeyRequest.CjdnsAddr != "" {
-		// 	log.Infof("CJDNS lnd pubkey request: %s", lndPubkeyRequest.CjdnsAddr)
-		// 	//TODO: get lnd identity pubkey
-		// 	idPubHex := lnd.LndIdentityPubkey()
-		// 	c.SendLndPubkeyResponse(idPubHex, lndPubkeyRequest)
-		// }
-	}
+	}()
 
-	return nil
-}
-
-func (c *Cjdns) Stop() er.R {
-	//TODO: unregister handlers
-	return nil
-}
-
-// Close CJDNS socket
-func Close(ls net.Conn) error {
-	err := ls.Close()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// func cjdnsSocketListener() (string, error) {
-// 	log.Infof("cjdnsSocketListener...")
-// 	cjdns.Socket.SetReadDeadline(time.Now().Add(1 * time.Second))
-// 	buf := make([]byte, 1024)
-
-// 	resultChan := make(chan string, 1)
-
-// 	var response map[string]interface{}
-// 	go func(resultChan chan<- string) {
-// 		n, err := cjdns.Socket.Read(buf)
-
-// 		if n > 0 {
-// 			err := bencode.DecodeBytes(buf, &response)
-// 			if err != nil {
-// 				log.Errorf("Error decoding response: %s", err)
-// 				resultChan <- err.Error()
-// 			}
-// 			// check if response has "addr" and "ms" fields
-// 			if addr, ok := response["addr"].(string); ok {
-// 				res := addr + " ms:" + fmt.Sprintf("%d", response["ms"].(int64))
-// 				resultChan <- res
-// 				return
-// 			} else if q, ok := response["q"].(string); ok && q == "pong" {
-// 				resultChan <- q
-// 				return
-// 			}
-// 			// check if response has "q" field
-// 			if q, ok := response["q"].(string); ok && q == "UpperDistributor_listHandlers" {
-// 				if response["handlers"] != nil {
-// 					handlers := response["handlers"].([]interface{})
-// 					for _, handler := range handlers {
-// 						if handler.(map[string]interface{})["udpPort"].(int64) == 1 {
-// 							resultChan <- "Handler found"
-// 							return
-// 						}
-// 					}
-// 				}
-// 			}
-// 		}
-// 		if e, ok := err.(interface{ Timeout() bool }); ok && e.Timeout() {
-// 			resultChan <- "CJDNS connection timeout"
-// 		} else if err != nil {
-// 			resultChan <- err.Error()
-// 		}
-// 	}(resultChan)
-
-// 	result := <-resultChan
-// 	fmt.Println("Result:", result)
-// 	return "", nil
-// }
-
-func getDeviceAddr(device string) (string, error) {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		log.Errorf("Error getting interfaces for CJDNS connection: %v", err)
-		return "", err
-	}
-	deviceAddr := ""
-	for _, iface := range ifaces {
-		if iface.Name == device {
-			addrs, err := iface.Addrs()
-			if err != nil {
-				log.Errorf("Error getting CJDNS addresses at tun0: %v", err)
-				return "", err
-			}
-
-			for _, addr := range addrs {
-				ip, _, err := net.ParseCIDR(addr.String())
+	host, _ := os.Hostname()
+	if host == "x1" {
+		go func() {
+			for {
+				log.Debugf("Checking lnd peer connections...")
+				listPeersResponse, err := lnd.LndListPeers(context.TODO(), &rpc_pb.ListPeersRequest{})
 				if err != nil {
-					log.Errorf("Error parsing CIDR: %v", err)
-					return "", err
+					log.Errorf("Error listing lnd peers: %v", err)
 				}
-				deviceAddr = ip.String()
-				break
+				if len(listPeersResponse.Peers) == 0 {
+					log.Infof("No current lnd peer connections. Will try to connect to request Lnd connection from CJDNS nodes.")
+
+					nodes := c.GetNodes()
+					for _, node := range nodes {
+						if node.CjdnsPubKey == "pvt7n9bt2s3jcl52glw1b06ruyg93y3qn4lfm9590ptjvxr90hj0.k" {
+							if node.lndPubkey == "" {
+								log.Debugf("Sending Cjdns lnd pubkey query to: %v %v", node.CjdnsAddr, node.CjdnsPubKey)
+								err := c.sendLndPubkeyQuery(node.CjdnsAddr, node.CjdnsPubKey)
+								if err != nil {
+									log.Errorf("Error sending CJDNS lnd pubkey query: %v", err)
+								}
+								time.Sleep(time.Second * 5)
+								break
+							}
+						}
+					}
+				} else {
+					log.Infof("LND peer connection established.")
+					return
+				}
 			}
-		}
-		if deviceAddr != "" {
-			return deviceAddr, nil
-		}
+		}()
 	}
-	return "", errors.New("device not found")
+	log.Debugf("will return...")
+	return nil
 }
 
-func (c *Cjdns) getSendConn() (*net.UDPConn, error) {
-	// use this to send a packet to cjdns throught tun0
-	rAddr, err := net.ResolveUDPAddr("udp", "[fc00::1]:1")
-	if err != nil {
-		log.Errorf("Error resolving UDP address: %v", err)
-		return nil, err
-	}
-	if err != nil {
-		log.Errorf("Error getting device address: %v", err)
-		return nil, err
-	}
-	//bind to local address (tun0) and a port, then register that port to cjdns
-	sAddr := &net.UDPAddr{IP: net.ParseIP(c.IPv6), Port: 1}
-	conn, err := net.DialUDP("udp", sAddr, rAddr)
-
-	c.RegisterHandler(ContentType_RESERVED, int64(sAddr.Port))
-	if err != nil {
-		log.Errorf("Error dialing UDP address: %v", err)
-		return nil, err
-	}
-
-	return conn, nil
-}
-
-func (c *Cjdns) GetNodes() []CjdnsNode {
-	log.Infof("Get CJDNS Nodes...")
-	//Get cjdns nodes
-	peers, err := c.PeerStats()
-	if err != nil {
-		log.Errorf("Error getting CJDNS peer stats: %v", err)
-	}
-	log.Infof("Cjdns peer stats: %v", peers)
-	nodes := []CjdnsNode{}
-	// Get cjdns nodes routes from dumpTables, in order to get cjdns IPv6 address
-	nodeRoutes, err := c.NodeStore_dumpTable()
-	if err != nil {
-		log.Errorf("Error getting CJDNS node routes: %v", err)
-	}
-	//Query them one by one for lnd pubkey
-	for _, peer := range peers {
-		parts := strings.Split(peer.addr, ".")
-		pubkey := strings.Join(parts[len(parts)-2:], ".")
-
-		cjdnsIpv6 := ""
-		for _, nodeRoute := range nodeRoutes {
-			if nodeRoute.CjdnsPubKey == peer.addr {
-				cjdnsIpv6 = nodeRoute.CjdnsAddr
-			}
-		}
-
-		node := CjdnsNode{
-			CjdnsAddr:   cjdnsIpv6,
-			CjdnsPubKey: pubkey,
-			lndPubkey:   "",
-		}
-		log.Infof("Cjdns node: %v", node)
-		nodes = append(nodes, node)
-	}
-	for _, node := range nodes {
-		log.Infof("Sending Cjdns lnd pubkey query to: %v %v", node.CjdnsAddr, node.CjdnsPubKey)
-		lndpubkey, err := c.sendLndPubkeyQuery(node.CjdnsAddr, node.CjdnsPubKey)
-
-		if err != nil {
-			log.Errorf("Error sending CJDNS lnd pubkey query: %v", err)
-		}
-		log.Infof("Lnd pubkey: %s", lndpubkey)
-		node.lndPubkey = lndpubkey
-	}
-	return nodes
-}
-
-func (c *Cjdns) sendLndPubkeyQuery(cjdnsNodeIp string, cjdnsNodePubkey string) (string, error) {
+func (c *Cjdns) sendLndPubkeyQuery(cjdnsNodeIp string, cjdnsNodePubkey string) error {
 	conn, err := c.getSendConn()
 	if err != nil {
 		log.Errorf("Error getting CJDNS UDP connection:", err)
-		return "", err
+		return err
 	}
-	data, txid := createLndQueryRequest(cjdnsNodeIp, cjdnsNodePubkey)
+	data, _ := createLndQueryRequest(cjdnsNodeIp, cjdnsNodePubkey)
 	// Send data
 	_, err = conn.Write(data)
 	if err != nil {
 		log.Errorf("Error sending CJDNS UDP packet:", err)
-		return "", err
+		return err
 	}
-	// Wait 10 seconds for cjdns response with same txid
-	response := make(chan string)
-	start := time.Now()
-	closed := false
-	go func() {
-		for {
-			time.Sleep(1 * time.Second)
-			if lndPubkeyResponse.Txid == txid {
-				log.Infof("Cjdns lnd pubkey response received")
-				respCopy := lndPubkeyResponse
-				response <- respCopy.lndPubkey
-				lndPubkeyResponse = LndPubkeyResponse{}
-				if !closed {
-					close(response)
-					closed = true
-				}
-			}
-			// if CjdnsInvoiceResponse.Txid == txid {
-			// 	fmt.Println("Cjdns invoice response received")
-			// 	respCopy := CjdnsInvoiceResponse
-			// 	response <- respCopy
-			// 	CjdnsInvoiceResponse = InvoiceResponse{}
-			// 	if !closed {
-			// 		close(response)
-			// 		closed = true
-			// 	}
-			// 	return
-			// }
-			if time.Since(start) > 10*time.Second {
-				if !closed {
-					close(response)
-					closed = true
-				}
-				return
-			}
-		}
-	}()
-	res := <-response
-
 	defer conn.Close()
-	return res, nil
+	return nil
 }
 
 func (c *Cjdns) SendLndPubkeyResponse(lndPubkey string, req LndPubkeyRequest) error {
@@ -582,6 +249,7 @@ func (c *Cjdns) SendLndPubkeyResponse(lndPubkey string, req LndPubkeyRequest) er
 		return err
 	}
 	data := createLndQueryResponse(req.CjdnsAddr, req.CjdnsPubKey, lndPubkey, req.Txid)
+	log.Debugf("CJDNS lnd pubkey response: %v", data)
 	// Send data
 	_, err = conn.Write(data)
 	if err != nil {
@@ -589,7 +257,7 @@ func (c *Cjdns) SendLndPubkeyResponse(lndPubkey string, req LndPubkeyRequest) er
 		return err
 	}
 
-	log.Infof("CJDNS LND Pubkey query sent successfully to: %s", req.CjdnsAddr)
+	log.Debugf("CJDNS LND Pubkey response sent successfully to: %s", req.CjdnsAddr)
 	defer conn.Close()
 	return nil
 }
@@ -626,7 +294,7 @@ func (c *Cjdns) SendCjdnsInvoiceResponse(request InvoiceRequest, response *rpc_p
 }
 
 func (c *Cjdns) SendCjdnsInvoiceRequest(cjdns_addr string, cjdns_pubkey string, amount uint64) (string, error) {
-	log.Infof("SendCjdnsInvoiceRequest: %s, %d", cjdns_addr, amount)
+	log.Debugf("SendCjdnsInvoiceRequest: %s, %d", cjdns_addr, amount)
 	conn, err := c.getSendConn()
 	if err != nil {
 		log.Errorf("Error getting UDP connection: %v", err)
@@ -651,15 +319,15 @@ func (c *Cjdns) SendCjdnsInvoiceRequest(cjdns_addr string, cjdns_pubkey string, 
 }
 
 // func (c *Cjdns) ListenCjdnsMessages() (chan InvoiceRequest, chan LndPubkeyRequest, error) {
-func (c *Cjdns) ListenCjdnsMessages() (chan InvoiceRequest, error) {
+func (c *Cjdns) ListenCjdnsMessages() (chan CjdnsMessage, error) {
 	// use this to read a packet to cjdns throught tun0
-	invoiceRequestChan := make(chan InvoiceRequest)
+	cjdnsMsgChan := make(chan CjdnsMessage)
 	// lndPubkeyRequestChan := make(chan LndPubkeyRequest)
 	rAddr, err := net.ResolveUDPAddr("udp", "["+c.IPv6+"]:0")
 	if err != nil {
 		log.Errorf("Error resolving UDP address: %v", err)
 		// return invoiceRequestChan, lndPubkeyRequestChan, err
-		return invoiceRequestChan, err
+		return cjdnsMsgChan, err
 	}
 
 	//bind to local address (tun0) and a port, then register that port to cjdns
@@ -673,7 +341,7 @@ func (c *Cjdns) ListenCjdnsMessages() (chan InvoiceRequest, error) {
 		if err != nil {
 			log.Errorf("Error listening UDP address: %s", err)
 			// return invoiceRequestChan, lndPubkeyRequestChan, err
-			return invoiceRequestChan, err
+			return cjdnsMsgChan, err
 		}
 		localAddr := c.ListenConn.LocalAddr().(*net.UDPAddr)
 		log.Infof("Listening for CJDNS messages at address: %s:%d", c.IPv6, localAddr.Port)
@@ -681,7 +349,6 @@ func (c *Cjdns) ListenCjdnsMessages() (chan InvoiceRequest, error) {
 		c.RegisterHandler(ContentType_RESERVED, int64(localAddr.Port))
 	}
 	buf := make([]byte, 4096)
-
 	go func() {
 		for {
 			n, _, err := c.ListenConn.ReadFromUDP(buf)
@@ -693,92 +360,128 @@ func (c *Cjdns) ListenCjdnsMessages() (chan InvoiceRequest, error) {
 			message, err := decode(buf[:n])
 			if err != nil {
 				log.Errorf("Error decoding message: %v", err)
-				continue
 			}
 			if message.DataHeader.ContentType == uint16(ContentType_RESERVED) {
-				// log.Infof("Received CJDNS RESERVED message")
+				cjdnsMessage := CjdnsMessage{}
+				// log.Infof("Received CJDNS RESERVED message: %v", message.ContentBenc)
+				// if message.ContentBenc.(map[string]interface{})["q"] != nil {
+				// 	log.Infof("Message q: ", message.ContentBenc.(map[string]interface{})["q"].(string))
+				// }
 				if message.ContentBenc != nil {
 					// Invoice Request
 					if message.ContentBenc.(map[string]interface{})["q"] != nil && message.ContentBenc.(map[string]interface{})["q"].(string) == "invoice_req" {
-						log.Infof("Received CJDNS invoice request")
-
+						log.Debugf("Received CJDNS invoice request")
 						invoiceRequest := InvoiceRequest{
 							CjdnsAddr:   message.RouteHeader.IP.String(),
 							CjdnsPubKey: message.RouteHeader.PublicKey,
 							Txid:        message.ContentBenc.(map[string]interface{})["txid"].(string),
 							Amount:      uint64(message.ContentBenc.(map[string]interface{})["amt"].(int64)),
 						}
-						invoiceRequestChan <- invoiceRequest
+						cjdnsMessage.invoiceReq = invoiceRequest
+						cjdnsMessage.invoiceRes = InvoiceResponse{}
+						cjdnsMessage.lndPubReq = LndPubkeyRequest{}
+						cjdnsMessage.lndPubRes = LndPubkeyResponse{}
+						cjdnsMsgChan <- cjdnsMessage
+						return
 						// Invoice Response Error
 					} else if message.ContentBenc.(map[string]interface{})["error"] != nil {
-						log.Infof("Received CJDNS invoice response error")
-						CjdnsInvoiceResponse.Error = message.ContentBenc.(map[string]interface{})["error"].(map[string]interface{})["message"].(string)
-						CjdnsInvoiceResponse.Txid = message.ContentBenc.(map[string]interface{})["txid"].(string)
+						log.Debugf("Received CJDNS invoice response error")
+						// CjdnsInvoiceResponse.Error =
+						// CjdnsInvoiceResponse.Txid = message.ContentBenc.(map[string]interface{})["txid"].(string)
+						invoiceResponse := InvoiceResponse{
+							Error: message.ContentBenc.(map[string]interface{})["error"].(map[string]interface{})["message"].(string),
+							Txid:  message.ContentBenc.(map[string]interface{})["txid"].(string),
+						}
+						cjdnsMessage.invoiceReq = InvoiceRequest{}
+						cjdnsMessage.invoiceRes = invoiceResponse
+						cjdnsMessage.lndPubReq = LndPubkeyRequest{}
+						cjdnsMessage.lndPubRes = LndPubkeyResponse{}
+						cjdnsMsgChan <- cjdnsMessage
+						return
 						// Invoice Response
 					} else if message.ContentBenc.(map[string]interface{})["invoice"] != nil {
-						log.Infof("Received CJDNS invoice response")
+						log.Debugf("Received CJDNS invoice response")
 						printError := false
 						txid, ok := message.ContentBenc.(map[string]interface{})["txid"].(string)
-						if ok {
-							CjdnsInvoiceResponse.Txid = txid
-						} else {
+						if !ok {
 							log.Errorf("Error getting txid from CJDNS invoice response.")
 							printError = true
 						}
 						paymentRequest, ok := message.ContentBenc.(map[string]interface{})["invoice"].(map[string]interface{})["paymentRequest"].(string)
-						if ok {
-							CjdnsInvoiceResponse.PaymentRequest = paymentRequest
-						} else {
+						if !ok {
 							log.Errorf("Error getting paymentRequest from CJDNS invoice response.")
 							printError = true
 						}
 						index, ok := message.ContentBenc.(map[string]interface{})["invoice"].(map[string]interface{})["addIndex"].(string)
-						if ok {
-							CjdnsInvoiceResponse.AddIndex = index
-						} else {
+						if !ok {
 							log.Errorf("Error getting addIndex from CJDNS invoice response.")
 							printError = true
 						}
 						rHash, ok := message.ContentBenc.(map[string]interface{})["invoice"].(map[string]interface{})["rHash"]
-						if ok {
-							CjdnsInvoiceResponse.RHash = []byte(rHash.(string))
-						} else {
+						if !ok {
 							log.Errorf("Error getting rHash from CJDNS invoice response.")
 							printError = true
 						}
 						if printError {
 							log.Errorf("CJDNS invoice response: %v", message.ContentBenc)
 						}
+						invoiceResponse := InvoiceResponse{
+							RHash:          []byte(rHash.(string)),
+							PaymentRequest: paymentRequest,
+							AddIndex:       index,
+							Txid:           txid,
+						}
+						cjdnsMessage.invoiceReq = InvoiceRequest{}
+						cjdnsMessage.invoiceRes = invoiceResponse
+						cjdnsMessage.lndPubReq = LndPubkeyRequest{}
+						cjdnsMessage.lndPubRes = LndPubkeyResponse{}
+						cjdnsMsgChan <- cjdnsMessage
+						return
+					} else if message.ContentBenc.(map[string]interface{})["q"] != nil && message.ContentBenc.(map[string]interface{})["q"].(string) == "lnd_pubkey" {
+						log.Debugf("Received CJDNS lnd pubkey request")
+						lndPubReq := LndPubkeyRequest{
+							CjdnsAddr:   message.RouteHeader.IP.String(),
+							CjdnsPubKey: message.RouteHeader.PublicKey,
+							Txid:        message.ContentBenc.(map[string]interface{})["txid"].(string),
+						}
+						cjdnsMessage.invoiceReq = InvoiceRequest{}
+						cjdnsMessage.invoiceRes = InvoiceResponse{}
+						cjdnsMessage.lndPubReq = lndPubReq
+						cjdnsMessage.lndPubRes = LndPubkeyResponse{}
+						cjdnsMsgChan <- cjdnsMessage
+						return
+					} else if message.ContentBenc.(map[string]interface{})["lnd_pubkey"] != nil {
+						log.Debugf("Received lnd pubkey response")
+						// lndPubkeyResponse.Txid = message.ContentBenc.(map[string]interface{})["txid"].(string)
+						// lndPubkeyResponse.lndPubkey = message.ContentBenc.(map[string]interface{})["lnd_pubkey"].(string)
+						// log.Infof("Lnd pubkey: %s", lndPubkeyResponse.lndPubkey)
+						lndPubkeyResponse := LndPubkeyResponse{
+							CjdnsAddr: message.RouteHeader.IP.String(),
+							lndPubkey: message.ContentBenc.(map[string]interface{})["lnd_pubkey"].(string),
+							Txid:      message.ContentBenc.(map[string]interface{})["txid"].(string),
+						}
+						cjdnsMessage.invoiceReq = InvoiceRequest{}
+						cjdnsMessage.invoiceRes = InvoiceResponse{}
+						cjdnsMessage.lndPubReq = LndPubkeyRequest{}
+						cjdnsMessage.lndPubRes = lndPubkeyResponse
+						cjdnsMsgChan <- cjdnsMessage
+						return
+					} else {
+						log.Warn("Received CJDNS invoice response with unknown format. Try upgrading pld...")
+						log.Warnf("Message.ContentBenc: %v", message.ContentBenc)
+						cjdnsMessage.invoiceReq = InvoiceRequest{}
+						cjdnsMessage.invoiceRes = InvoiceResponse{}
+						cjdnsMessage.lndPubReq = LndPubkeyRequest{}
+						cjdnsMessage.lndPubRes = LndPubkeyResponse{}
+						cjdnsMsgChan <- cjdnsMessage
+						return
 					}
-				} else if message.ContentBenc.(map[string]interface{})["q"] != nil && message.ContentBenc.(map[string]interface{})["q"].(string) == "lnd_pubkey" {
-					log.Infof("Received CJDNS lnd pubkey request")
-					response := LndPubkeyRequest{
-						CjdnsAddr:   message.RouteHeader.IP.String(),
-						CjdnsPubKey: message.RouteHeader.PublicKey,
-						Txid:        message.ContentBenc.(map[string]interface{})["txid"].(string),
-					}
-					log.Infof("Sending lnd pubkey response to: %s", response.CjdnsAddr)
-					// lndPubkeyRequestChan <- response
-				} else if message.ContentBenc.(map[string]interface{})["lnd_pubkey"] != nil {
-					log.Infof("Received lnd pubkey response")
-					lndPubkey := message.ContentBenc.(map[string]interface{})["lnd_pubkey"].(string)
-					log.Infof("Lnd pubkey: %v", lndPubkey)
-				} else {
-					//TODO: handle unknown types
-					log.Warn("Received CJDNS invoice response with unknown format")
-					log.Warnf("Message.ContentBenc: %v", message.ContentBenc)
-					CjdnsInvoiceResponse.Txid = message.ContentBenc.(map[string]interface{})["txid"].(string)
 				}
 			}
 		}
 	}()
-
-	return invoiceRequestChan, nil
-}
-
-func generateRandomNumber() int {
-	rand.Seed(time.Now().UnixNano())
-	return rand.Intn(9000000000) + 1000000000
+	// defer close(cjdnsMsgChan)
+	return cjdnsMsgChan, nil
 }
 
 func createErrorResponse(receiverIP string, receiverPubkey string, errorMsg string, txid string) []byte {
@@ -888,7 +591,7 @@ func createInvoiceRequest(receiverIP string, receiverPubkey string, amount uint6
 }
 
 func (c *Cjdns) Ping(node string) (string, error) {
-	log.Infof("Ping Cjdns node: %v", node)
+	log.Debugf("Ping Cjdns node: %v", node)
 	err := error(nil)
 	if c.Socket == nil {
 		return "", errors.New("CJDNS connection is nil")
@@ -946,4 +649,83 @@ func (c *Cjdns) Ping(node string) (string, error) {
 	}
 
 	return "", nil
+}
+
+func (c *Cjdns) registerRpc() {
+	cjdnsCategory := c.api.Category("cjdns")
+	apiv1.Endpoint(
+		cjdnsCategory,
+		"ping",
+		`
+		Ping a cjdns node.
+		`,
+		func(req *rpc_pb.CjdnsPingRequest) (*rpc_pb.CjdnsPingResponse, er.R) {
+			return c.PingCjdns(req)
+		},
+	)
+	apiv1.Endpoint(
+		cjdnsCategory,
+		"requestinvoice",
+		`
+		Request a payment invoice using a cjdns address.
+		`,
+		func(req *rpc_pb.CjdnsPaymentInvoiceRequest) (*rpc_pb.CjdnsPaymentInvoiceResponse, er.R) {
+			return c.CjdnsInvoiceRequest(req)
+		},
+	)
+}
+
+func (c *Cjdns) PingCjdns(req *rpc_pb.CjdnsPingRequest) (*rpc_pb.CjdnsPingResponse, er.R) {
+	// if !isValidIPv6(req.CjdnsAddr) {
+	// 	return nil, er.New("Invalid CJDNS address")
+	// }
+	// if r.cfg.CjdnsSocket == "" {
+	// 	return nil, er.New("Cjdns socket not found")
+	// }
+	res, pingerr := c.Ping(req.CjdnsAddr)
+	if pingerr != nil {
+		return nil, er.New("Cjdns ping error")
+	}
+
+	return &rpc_pb.CjdnsPingResponse{
+		Pong: res,
+	}, nil
+}
+
+func (c *Cjdns) CjdnsInvoiceRequest(req *rpc_pb.CjdnsPaymentInvoiceRequest) (*rpc_pb.CjdnsPaymentInvoiceResponse, er.R) {
+	txid, err := c.SendCjdnsInvoiceRequest(req.CjdnsAddr, req.CjdnsPubkey, req.Amount)
+	if err != nil {
+		return nil, er.New("Cjdns invoice request error")
+	}
+
+	//TODO: move the listening for respose after c.ListenCjdnsMessages()
+	// how to return here to return the response?
+	log.Debugf("Waiting for Cjdns invoice response...")
+	response := <-c.invoiceResponseChan
+	if response.Txid != txid {
+		log.Errorf("Cjdns invoice response txid %s, does not match request txid %s", response.Txid, txid)
+		return nil, er.New("Cjdns invoice response txid does not match request txid")
+	} else if response.Error != "" {
+		log.Infof("Cjdns invoice response error: ", response.Error)
+		return nil, er.New(response.Error)
+	} else {
+		return &rpc_pb.CjdnsPaymentInvoiceResponse{
+			RHash:          response.RHash,
+			PaymentRequest: response.PaymentRequest,
+		}, nil
+	}
+}
+
+func (c *Cjdns) Stop() er.R {
+	//TODO: unregister handlers
+	return nil
+}
+
+// Close CJDNS socket
+func Close(ls net.Conn) error {
+	err := ls.Close()
+	if err != nil {
+		return err
+	}
+	return nil
 }

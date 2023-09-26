@@ -4629,7 +4629,7 @@ func (r *LightningRPCServer) SubscribeChannelGraph(req *rpc_pb.GraphTopologySubs
 
 	for {
 		select {
-
+		
 		// A new update has been sent by the channel router, we'll
 		// marshal it into the form expected by the gRPC client, then
 		// send it off.
