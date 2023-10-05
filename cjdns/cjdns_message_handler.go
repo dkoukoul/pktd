@@ -187,41 +187,36 @@ func (c *Cjdns) Start(lnd lndRpcServer) er.R {
 			}
 		}
 	}()
-
-	host, _ := os.Hostname()
-	if host == "x1" {
-		go func() {
-			for {
-				log.Debugf("Checking lnd peer connections...")
-				listPeersResponse, err := lnd.LndListPeers(context.TODO(), &rpc_pb.ListPeersRequest{})
-				if err != nil {
-					log.Errorf("Error listing lnd peers: %v", err)
-				}
-				if len(listPeersResponse.Peers) == 0 {
-					log.Infof("No current lnd peer connections. Will try to connect to request Lnd connection from CJDNS nodes.")
-
-					nodes := c.GetNodes()
-					for _, node := range nodes {
-						if node.CjdnsPubKey == "pvt7n9bt2s3jcl52glw1b06ruyg93y3qn4lfm9590ptjvxr90hj0.k" {
-							if node.lndPubkey == "" {
-								log.Debugf("Sending Cjdns lnd pubkey query to: %v %v", node.CjdnsAddr, node.CjdnsPubKey)
-								err := c.sendLndPubkeyQuery(node.CjdnsAddr, node.CjdnsPubKey)
-								if err != nil {
-									log.Errorf("Error sending CJDNS lnd pubkey query: %v", err)
-								}
-								time.Sleep(time.Second * 5)
-								break
-							}
-						}
-					}
-				} else {
-					log.Infof("LND peer connection established.")
-					return
-				}
+	
+	go func() {
+		for {
+			log.Debugf("Checking lnd peer connections...")
+			listPeersResponse, err := lnd.LndListPeers(context.TODO(), &rpc_pb.ListPeersRequest{})
+			if err != nil {
+				log.Errorf("Error listing lnd peers: %v", err)
 			}
-		}()
-	}
-	log.Debugf("will return...")
+			if len(listPeersResponse.Peers) == 0 {
+				log.Infof("No current lnd peer connections. Will try to connect to request Lnd connection from CJDNS nodes.")
+
+				nodes := c.GetNodes()
+				for _, node := range nodes {
+					if node.lndPubkey == "" {
+						log.Debugf("Sending Cjdns lnd pubkey query to: %v %v", node.CjdnsAddr, node.CjdnsPubKey)
+						err := c.sendLndPubkeyQuery(node.CjdnsAddr, node.CjdnsPubKey)
+						if err != nil {
+							log.Errorf("Error sending CJDNS lnd pubkey query: %v", err)
+						}
+						time.Sleep(time.Second * 5)
+						break
+					}
+				}
+			} else {
+				log.Infof("LND peer connection established.")
+				return
+			}
+		}
+	}()
+
 	return nil
 }
 
