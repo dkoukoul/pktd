@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -83,6 +82,7 @@ type lndRpcServer interface {
 	LndListPeers(ctx context.Context, in *rpc_pb.ListPeersRequest) (*rpc_pb.ListPeersResponse, er.R)
 	LndConnectPeer(ctx context.Context, in *rpc_pb.ConnectPeerRequest) (*rpc_pb.Null, er.R)
 	LndAddInvoice(ctx context.Context, in *rpc_pb.Invoice) (*rpc_pb.AddInvoiceResponse, er.R)
+	LndPeerPort() int
 	LndIdentityPubkey() string
 }
 
@@ -126,7 +126,7 @@ func (c *Cjdns) Start(lnd lndRpcServer) er.R {
 			cjdnsMsgChan, err := c.ListenCjdnsMessages()
 			cjdnsMessage := <-cjdnsMsgChan
 			close(cjdnsMsgChan)
-			log.Debugf("Handling Cjdns message: %v", cjdnsMessage)
+			log.Tracef("Handling Cjdns message: %v", cjdnsMessage)
 			if err != nil {
 				log.Warnf("Error listening for CJDNS invoice request: %v", err)
 			}
@@ -167,7 +167,8 @@ func (c *Cjdns) Start(lnd lndRpcServer) er.R {
 			} else if cjdnsMessage.lndPubReq.CjdnsAddr != "" {
 				log.Debugf("CJDNS lnd pubkey request: %s", cjdnsMessage.lndPubReq.CjdnsAddr)
 				idPubHex := lnd.LndIdentityPubkey()
-				c.SendLndPubkeyResponse(idPubHex, cjdnsMessage.lndPubReq)
+				port := lnd.LndPeerPort()
+				c.SendLndPubkeyResponse(idPubHex, cjdnsMessage.lndPubReq, port)
 			} else if cjdnsMessage.lndPubRes.lndPubkey != "" {
 				log.Debugf("CJDNS lnd pubkey response with pubkey: %s for: %s", cjdnsMessage.lndPubRes.lndPubkey, cjdnsMessage.lndPubRes.CjdnsAddr)
 				lndAddress := rpc_pb.LightningAddress{
@@ -187,17 +188,16 @@ func (c *Cjdns) Start(lnd lndRpcServer) er.R {
 			}
 		}
 	}()
-	
+	MAX_LND_PEER_CONNECTIONS := 5
 	go func() {
-		for {
+		// for {
 			log.Debugf("Checking lnd peer connections...")
 			listPeersResponse, err := lnd.LndListPeers(context.TODO(), &rpc_pb.ListPeersRequest{})
 			if err != nil {
 				log.Errorf("Error listing lnd peers: %v", err)
 			}
-			if len(listPeersResponse.Peers) == 0 {
-				log.Infof("No current lnd peer connections. Will try to connect to request Lnd connection from CJDNS nodes.")
-
+			if len(listPeersResponse.Peers) < MAX_LND_PEER_CONNECTIONS {
+				log.Infof("Will try to connect to request Lnd connection from CJDNS nodes.")
 				nodes := c.GetNodes()
 				for _, node := range nodes {
 					if node.lndPubkey == "" {
@@ -207,14 +207,13 @@ func (c *Cjdns) Start(lnd lndRpcServer) er.R {
 							log.Errorf("Error sending CJDNS lnd pubkey query: %v", err)
 						}
 						time.Sleep(time.Second * 5)
-						break
 					}
 				}
 			} else {
 				log.Infof("LND peer connection established.")
-				return
+				//return to establish multiple connections
 			}
-		}
+		// }
 	}()
 
 	return nil
@@ -237,13 +236,13 @@ func (c *Cjdns) sendLndPubkeyQuery(cjdnsNodeIp string, cjdnsNodePubkey string) e
 	return nil
 }
 
-func (c *Cjdns) SendLndPubkeyResponse(lndPubkey string, req LndPubkeyRequest) error {
+func (c *Cjdns) SendLndPubkeyResponse(lndPubkey string, req LndPubkeyRequest, port int) error {
 	conn, err := c.getSendConn()
 	if err != nil {
 		log.Errorf("Error getting CJDNS UDP connection: %v", err)
 		return err
 	}
-	data := createLndQueryResponse(req.CjdnsAddr, req.CjdnsPubKey, lndPubkey, req.Txid)
+	data := createLndQueryResponse(req.CjdnsAddr, req.CjdnsPubKey, lndPubkey, req.Txid, port)
 	log.Debugf("CJDNS lnd pubkey response: %v", data)
 	// Send data
 	_, err = conn.Write(data)
@@ -450,8 +449,12 @@ func (c *Cjdns) ListenCjdnsMessages() (chan CjdnsMessage, error) {
 						// lndPubkeyResponse.Txid = message.ContentBenc.(map[string]interface{})["txid"].(string)
 						// lndPubkeyResponse.lndPubkey = message.ContentBenc.(map[string]interface{})["lnd_pubkey"].(string)
 						// log.Infof("Lnd pubkey: %s", lndPubkeyResponse.lndPubkey)
-						lndPubkeyResponse := LndPubkeyResponse{
-							CjdnsAddr: message.RouteHeader.IP.String(),
+						port := 9735 //default
+						if message.ContentBenc.(map[string]interface{})["port"] != nil {
+							port = int(message.ContentBenc.(map[string]interface{})["port"].(int64))
+						}
+						lndPubkeyResponse := LndPubkeyResponse{	
+							CjdnsAddr: "["+message.RouteHeader.IP.String()+"]:"+strconv.Itoa(port),
 							lndPubkey: message.ContentBenc.(map[string]interface{})["lnd_pubkey"].(string),
 							Txid:      message.ContentBenc.(map[string]interface{})["txid"].(string),
 						}
@@ -507,9 +510,10 @@ func createLndQueryRequest(receiverIP string, receiverPubkey string) ([]byte, st
 	return payload, txid
 }
 
-func createLndQueryResponse(receiverIP string, receiverPubkey string, lndPubkey string, txid string) []byte {
+func createLndQueryResponse(receiverIP string, receiverPubkey string, lndPubkey string, txid string, port int) []byte {
 	msg := map[string]interface{}{
 		"lnd_pubkey": lndPubkey,
+		"port": 	  port,
 		"txid":       txid,
 	}
 	payload := encodeMsg(msg, receiverIP, receiverPubkey)

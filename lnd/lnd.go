@@ -544,7 +544,7 @@ func Main(cfg *Config, shutdownChan <-chan struct{}) er.R {
 		if rs := restContext.MaybeRpcServer; rs != nil {
 			cjdnsMgr, err := cjdns.NewCjdnsHandler(cfg.CjdnsSocket, api)
 			if err != nil {
-				log.Errorf("Can not initialize CJDNS: ", err)
+				log.Errorf("Can not initialize CJDNS: %v", err)
 			} else {
 				//Cjdns initialized
 				cjdnsMgr.Start(rs)
@@ -1014,4 +1014,10 @@ func (rs *LightningRPCServer) LndIdentityPubkey() string {
 func (rs *LightningRPCServer) LndAddInvoice(ctx context.Context,
 	in *rpc_pb.Invoice) (*rpc_pb.AddInvoiceResponse, er.R) {
 		return rs.AddInvoice(ctx, in)
+}
+
+func (rs *LightningRPCServer) LndPeerPort() int {
+		addr := rs.cfg.Listeners[0]
+		tcpAddr, _ := addr.(*net.TCPAddr)
+		return tcpAddr.Port
 }

@@ -78,22 +78,23 @@ func (c *Cjdns) PeerStats() ([]CjdnsPeer, error) {
 	buf := make([]byte, 1024)
 	resultChan := make(chan []CjdnsPeer)
 	var response map[string]interface{}
-	go func(resultChan chan<- []CjdnsPeer) {
+	go func() {
 		data := []byte{}
 		for {
 			n, err := c.Socket.Read(buf)
 			// log.Infof("Read %v bytes from Cjdns socket", buf)
 			if n > 0 {
+				// log.Debugf("Read %v bytes from Cjdns socket", n)
 				data = append(data, buf[:n]...)
 				if err != nil {
 					log.Errorf("Error reading from CJDNS socket: %v", err)
 					resultChan <- nil
 				}
 			} else if n == 0 {
+				// log.Debugf("Read 0 bytes from Cjdns socket, breaking")
 				break
 			}
 		}
-		// log.Debugf("Cjdns response: %v", data)
 		err = bencode.DecodeBytes(data, &response)
 		// log.Debugf("Cjdns peer stats response: %v", response)
 		if err != nil {
@@ -102,17 +103,19 @@ func (c *Cjdns) PeerStats() ([]CjdnsPeer, error) {
 		// log.Debugf("PeerStats response: %v", response)
 		if peers, ok := response["peers"].(interface{}); ok {
 			for _, peer := range peers.([]interface{}) {
+				p := peer.(map[string]interface{})
 				cjdnsPeer := CjdnsPeer{
-					addr:   peer.(map[string]interface{})["addr"].(string),
-					lladdr: peer.(map[string]interface{})["lladdr"].(string),
-					state:  peer.(map[string]interface{})["state"].(string),
+					addr:   p["addr"].(string),
+					lladdr: p["lladdr"].(string),
+					state:  p["state"].(string),
 				}
 				cjdnsPeers = append(cjdnsPeers, cjdnsPeer)
-				resultChan <- cjdnsPeers
-				return
+				//return here if we want to connect to only one node
 			}
+			resultChan <- cjdnsPeers
+			return // here if we want to try to connect to all nodes
 		}
-	}(resultChan)
+	}()
 
 	peers := <-resultChan
 	if peers == nil {
