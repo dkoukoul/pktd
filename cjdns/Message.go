@@ -42,13 +42,13 @@ func (msg *Message) encode() ([]byte, error) {
 	buf.Write(msg.RawBytes)
 	bencBytes, ok := msg.ContentBenc.([]byte)
 	if !ok {
-		log.Warn("Error converting bencode to bytes")
+		log.Tracef("Error converting bencode to bytes")
 	} else {
 		buf.Write(bencBytes)
 	}
 	contentBytes, ok := msg.Content.([]byte)
 	if !ok {
-		log.Warn("Error converting content to bytes")
+		log.Tracef("Error converting content to bytes")
 	} else {
 		buf.Write(contentBytes)
 	}
