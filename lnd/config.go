@@ -219,7 +219,7 @@ type Config struct {
 	Color                         string        `long:"color" description:"The color of the node in hex format (i.e. '#3399FF'). Used to customize node appearance in intelligence services"`
 	MinChanSize                   int64         `long:"minchansize" description:"The smallest channel size (in satoshis) that we should accept. Incoming channels smaller than this will be rejected"`
 	MaxChanSize                   int64         `long:"maxchansize" description:"The largest channel size (in satoshis) that we should accept. Incoming channels larger than this will be rejected"`
-
+	MaxPktFundingAmount 		  int64 		`long:"maxpktfundingamount" description:"The largest funding for a channel (in satoshis) that we should accept."`
 	DefaultRemoteMaxHtlcs uint16 `long:"default-remote-max-htlcs" description:"The default max_htlc applied when opening or accepting channels. This value limits the number of concurrent HTLCs that the remote party can add to the commitment. The maximum possible value is 483."`
 
 	NumGraphSyncPeers      int           `long:"numgraphsyncpeers" description:"The number of peers that we should receive new graph updates from. This option can be tuned to save bandwidth for light clients or routing nodes."`
@@ -282,10 +282,12 @@ type Config struct {
 
 	// ActiveNetParams contains parameters of the target chain.
 	ActiveNetParams chainreg.BitcoinNetParams
+
 }
 
 // DefaultConfig returns all default values for the Config struct.
 func DefaultConfig() Config {
+	maxPktFundingAmount := btcutil.Amount(1 << 30 * 10000000)
 	return Config{
 		LndDir:     DefaultLndDir,
 		PktDir:     defaultPktWalletDir,
@@ -352,6 +354,7 @@ func DefaultConfig() Config {
 		Color:                         defaultColor,
 		MinChanSize:                   int64(minChanFundingSize),
 		MaxChanSize:                   int64(0),
+		MaxPktFundingAmount: 		   int64(maxPktFundingAmount),
 		DefaultRemoteMaxHtlcs:         defaultRemoteMaxHtlcs,
 		NumGraphSyncPeers:             defaultMinPeers,
 		HistoricalSyncInterval:        discovery.DefaultHistoricalSyncInterval,
