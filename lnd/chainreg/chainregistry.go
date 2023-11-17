@@ -487,8 +487,8 @@ var (
 
 		*PktMainNetParams.GenesisHash: {
 			{
-				"pkt.lseed.cjd.li",
 				"pkt.lseed.pkteer.com",
+				"pkt.lseed.cjd.li",
 			},
 		},
 	}

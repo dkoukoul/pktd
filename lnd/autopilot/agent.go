@@ -598,7 +598,7 @@ func (a *Agent) openChans(availableFunds btcutil.Amount, numChans uint32,
 	}
 
 	nodesToSkip := mergeNodeMaps(a.pendingOpens,
-		a.pendingConns, connectedNodes, a.failedNodes,
+	a.pendingConns, connectedNodes, a.failedNodes,
 	)
 
 	a.pendingMtx.Unlock()
@@ -615,7 +615,6 @@ func (a *Agent) openChans(availableFunds btcutil.Amount, numChans uint32,
 		// order to avoid attempting to make a channel with
 		// ourselves.
 		if bytes.Equal(nID[:], selfPubBytes) {
-			log.Debugf("Skipping self node %x", nID[:])
 			log.Tracef("Skipping self node %x", nID[:])
 			return nil
 		}
@@ -624,9 +623,7 @@ func (a *Agent) openChans(availableFunds btcutil.Amount, numChans uint32,
 		// so we'll skip it.
 		addrs := node.Addrs()
 		if len(addrs) == 0 {
-			log.Debugf("Skipping node %x since no addresses known",)
-			log.Tracef("Skipping node %x since no addresses known",
-				nID[:])
+			log.Tracef("Skipping node %x since no addresses known",nID[:])
 			return nil
 		}
 		addresses[nID] = addrs
@@ -634,8 +631,7 @@ func (a *Agent) openChans(availableFunds btcutil.Amount, numChans uint32,
 		// Additionally, if this node is in the blacklist, then
 		// we'll skip it.
 		if _, ok := nodesToSkip[nID]; ok {
-			log.Debugf("Skipping blacklisted node %x", nID[:])
-			log.Tracef("Skipping blacklisted node %x", nID[:])
+		log.Tracef("Skipping blacklisted node %x", nID[:])
 			return nil
 		}
 
@@ -729,7 +725,7 @@ func (a *Agent) openChans(availableFunds btcutil.Amount, numChans uint32,
 		a.pendingConns[nodeID] = struct{}{}
 
 		a.wg.Add(1)
-		go a.executeDirective(*chanCandidate)
+				go a.executeDirective(*chanCandidate)
 	}
 	return nil
 }
@@ -852,7 +848,7 @@ func (a *Agent) executeDirective(directive AttachmentDirective) {
 	if err != nil {
 		log.Warnf("Unable to open channel to %x of %v: %v",
 			pub.SerializeCompressed(), directive.ChanAmt, err)
-
+		
 		// As the attempt failed, we'll clear the peer from the set of
 		// pending opens and mark them as failed so we don't attempt to
 		// open a channel to them again.

@@ -76,6 +76,10 @@ func decode(bytes []byte) (Message, error) {
 			log.Errorf("Error parsing CJDNS message data header: ", err)
 		}
 	}
+	if x > len(bytes) {
+		log.Errorf("Error parsing CJDNS message, message not long enough to be decoded: ", err)
+		return Message{}, err
+	}
 	dataBytes := bytes[x:]
 
 	var decodedBytes interface{} = nil
