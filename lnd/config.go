@@ -219,8 +219,8 @@ type Config struct {
 	Color                         string        `long:"color" description:"The color of the node in hex format (i.e. '#3399FF'). Used to customize node appearance in intelligence services"`
 	MinChanSize                   int64         `long:"minchansize" description:"The smallest channel size (in satoshis) that we should accept. Incoming channels smaller than this will be rejected"`
 	MaxChanSize                   int64         `long:"maxchansize" description:"The largest channel size (in satoshis) that we should accept. Incoming channels larger than this will be rejected"`
-	MaxPktFundingAmount 		  int64 		`long:"maxpktfundingamount" description:"The largest funding for a channel (in satoshis) that we should accept."`
-	DefaultRemoteMaxHtlcs uint16 `long:"default-remote-max-htlcs" description:"The default max_htlc applied when opening or accepting channels. This value limits the number of concurrent HTLCs that the remote party can add to the commitment. The maximum possible value is 483."`
+	MaxPktFundingAmount           int64         `long:"maxpktfundingamount" description:"The largest funding for a channel (in satoshis) that we should accept."`
+	DefaultRemoteMaxHtlcs         uint16        `long:"default-remote-max-htlcs" description:"The default max_htlc applied when opening or accepting channels. This value limits the number of concurrent HTLCs that the remote party can add to the commitment. The maximum possible value is 483."`
 
 	NumGraphSyncPeers      int           `long:"numgraphsyncpeers" description:"The number of peers that we should receive new graph updates from. This option can be tuned to save bandwidth for light clients or routing nodes."`
 	HistoricalSyncInterval time.Duration `long:"historicalsyncinterval" description:"The polling interval between historical graph sync attempts. Each historical graph sync attempt ensures we reconcile with the remote peer's graph from the genesis block."`
@@ -282,7 +282,6 @@ type Config struct {
 
 	// ActiveNetParams contains parameters of the target chain.
 	ActiveNetParams chainreg.BitcoinNetParams
-
 }
 
 // DefaultConfig returns all default values for the Config struct.
@@ -354,7 +353,7 @@ func DefaultConfig() Config {
 		Color:                         defaultColor,
 		MinChanSize:                   int64(minChanFundingSize),
 		MaxChanSize:                   int64(0),
-		MaxPktFundingAmount: 		   int64(maxPktFundingAmount),
+		MaxPktFundingAmount:           int64(maxPktFundingAmount),
 		DefaultRemoteMaxHtlcs:         defaultRemoteMaxHtlcs,
 		NumGraphSyncPeers:             defaultMinPeers,
 		HistoricalSyncInterval:        discovery.DefaultHistoricalSyncInterval,
@@ -405,10 +404,10 @@ func DefaultConfig() Config {
 // line options.
 //
 // The configuration proceeds as follows:
-// 	1) Start with a default config with sane settings
-// 	2) Pre-parse the command line to check for an alternative config file
-// 	3) Load configuration file overwriting defaults with any specified options
-// 	4) Parse CLI options and overwrite/add any specified options
+//  1. Start with a default config with sane settings
+//  2. Pre-parse the command line to check for an alternative config file
+//  3. Load configuration file overwriting defaults with any specified options
+//  4. Parse CLI options and overwrite/add any specified options
 func LoadConfig() (*Config, er.R) {
 	// Pre-parse the command line options to pick up an alternative config
 	// file.
@@ -433,17 +432,17 @@ func LoadConfig() (*Config, er.R) {
 	configFileDir := CleanAndExpandPath(preCfg.LndDir)
 	configFilePath := CleanAndExpandPath(preCfg.ConfigFile)
 	if configFileDir != DefaultLndDir {
-				if configFilePath == DefaultConfigFile {
-						configFilePath = filepath.Join(
+		if configFilePath == DefaultConfigFile {
+			configFilePath = filepath.Join(
 				configFileDir, lncfg.DefaultConfigFilename,
 			)
 		}
 	}
-	
+
 	// Next, load any additional configuration options from the file.
 	var configFileError error
 	cfg := preCfg
-	
+
 	parser := flags.NewParser(&cfg, flags.Default)
 	errr := flags.NewIniParser(parser).ParseFile(configFilePath)
 	if errr != nil {
@@ -462,7 +461,7 @@ func LoadConfig() (*Config, er.R) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if cfg.Create {
 		// Error if the create flag is set and the wallet already
 		// exists.
@@ -495,7 +494,7 @@ func LoadConfig() (*Config, er.R) {
 	if configFileError != nil {
 		log.Warnf("%v", configFileError)
 	}
-	
+
 	return cleanCfg, nil
 }
 
@@ -645,8 +644,8 @@ func ValidateConfig(cfg Config, usageMessage string) (*Config, er.R) {
 	}
 
 	// Don't allow superflous --maxchansize greater than
-	// BOLT 02 soft-limit for non-wumbo channel
-	if !cfg.ProtocolOptions.Wumbo() && cfg.MaxChanSize > int64(MaxFundingAmount) {
+	// MaxPktFundingAmount set in the config.
+	if !cfg.ProtocolOptions.Wumbo() && cfg.MaxChanSize > int64(cfg.MaxPktFundingAmount) {
 		return nil, er.Errorf("invalid channel size parameters: "+
 			"maximum channel size %v is greater than maximum non-wumbo"+
 			" channel size %v",
